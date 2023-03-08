@@ -1,0 +1,15 @@
+<package>
+  <description brief="AllegroHand_urdf">
+
+     AllegroHand_urdf
+
+  </description>
+  <author>Alex</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/AllegroHand_urdf</url>
+  <depend package="urdf"/>
+
+</package>
+
+

@@ -1,0 +1,11 @@
+# soft links
+meshdata
+experiments
+graspdata
+dataset
+
+# Caches
+__pycache__
+
+# tmp
+tmp
