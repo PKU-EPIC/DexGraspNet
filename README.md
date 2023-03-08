@@ -17,6 +17,11 @@ This repository provides:
 - Simple tools for visualizing grasp data.
 - Asset processing for object models. See folder `assert_process`.
 - Grasp generation. See folder `grasp_generation`.
+  - We also updated code for
+    - MANO grasp generation
+    - Allegro grasp generation
+    - ShadowHand grasp generation for objects on the table
+  - See other branches for more information [TODO: update documents].
 
 Our working file structure is as:
 
