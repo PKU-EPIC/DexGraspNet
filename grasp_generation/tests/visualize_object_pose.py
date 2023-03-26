@@ -1,3 +1,9 @@
+"""
+Last modified date: 2023.02.23
+Author: Jialiang Zhang
+Description: visualize object in world frame using plotly.graph_objects
+"""
+
 import os
 
 os.chdir(os.path.dirname(os.path.dirname(__file__)))
@@ -14,13 +20,15 @@ if __name__ == '__main__':
     parser.add_argument('--poses', type=str, default='../data/poses')
     parser.add_argument('--object_code', type=str, default='core-mug-8570d9a8d24cb0acbebd3c0c0c70fb03')
     parser.add_argument('--num', type=int, default=0)
+    parser.add_argument('--scale', type=float, default=0.1234567890)
     args = parser.parse_args()
 
     # load data
     pose_matrices = np.load(os.path.join(args.poses, args.object_code + '.npy'))
     print(f'n_data: {len(pose_matrices)}')
     pose_matrix = pose_matrices[args.num]
-    object_mesh = tm.load(os.path.join(args.data_root_path, args.object_code, 'coacd', 'decomposed.obj'))
+    pose_matrix[:3, 3] *= args.scale
+    object_mesh = tm.load(os.path.join(args.data_root_path, args.object_code, 'coacd', 'decomposed.obj')).apply_scale(args.scale)
 
     # visualize
     v = object_mesh.vertices @ pose_matrix[:3, :3].T + pose_matrix[:3, 3]

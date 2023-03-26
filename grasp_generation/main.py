@@ -39,7 +39,7 @@ parser.add_argument('--object_code_list', default=
         'sem-Bottle-437678d4bc6be981c8724d5673a063a6',
         'sem-Camera-7bff4fd4dc53de7496dece3f86cb5dd5',
     ], type=list)
-parser.add_argument('--name', default='exp_34', type=str)
+parser.add_argument('--name', default='demo', type=str)
 parser.add_argument('--n_contact', default=4, type=int)
 parser.add_argument('--batch_size', default=128, type=int)
 parser.add_argument('--n_iter', default=6000, type=int)

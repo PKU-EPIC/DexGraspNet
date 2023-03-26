@@ -1,7 +1,7 @@
 """
-Last modified date: 2022.10.17
-Author: mzhmxzh
-Description: generate object pose, random free-fall, use SAPIEN
+Last modified date: 2023.02.23
+Author: Jialiang Zhang
+Description: Generate object pose, random free-fall, use SAPIEN
 """
 import os
 
@@ -36,7 +36,7 @@ def generate_object_pose(_):
 
     # load object
 
-    if not os.path.exists(os.path.join(args.data_root_path, object_code, 'coacd', 'coacd_convex_piece_63.obj')):
+    if os.path.exists(os.path.join(args.data_root_path, object_code, 'coacd', 'coacd.urdf')) and not os.path.exists(os.path.join(args.data_root_path, object_code, 'coacd', 'coacd_convex_piece_63.obj')):
         loader = scene.create_urdf_loader()
         loader.fix_root_link = False
         object_actor = loader.load(os.path.join(args.data_root_path, object_code, 'coacd', 'coacd.urdf'))
@@ -67,6 +67,10 @@ def generate_object_pose(_):
     # save results
 
     np.save(os.path.join(args.poses, object_code + '.npy'), pose_matrices)
+    
+    # remove convex hull
+    if os.path.exists(os.path.join(args.data_root_path, object_code, 'coacd', 'decomposed.obj.convex.stl')):
+        os.remove(os.path.join(args.data_root_path, object_code, 'coacd', 'decomposed.obj.convex.stl'))
 
 
 if __name__ == '__main__':

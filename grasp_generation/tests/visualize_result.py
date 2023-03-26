@@ -1,3 +1,9 @@
+"""
+Last modified date: 2023.02.23
+Author: Jialiang Zhang
+Description: visualize grasp result in world frame using plotly.graph_objects
+"""
+
 import os
 import sys
 
@@ -41,15 +47,16 @@ def plane2pose(plane_parameters):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--object_code', type=str, default='core-mug-8570d9a8d24cb0acbebd3c0c0c70fb03')
-    parser.add_argument('--num', type=int, default=1)
-    parser.add_argument('--result_path', type=str, default='../data/experiments/exp_34/results')
+    parser.add_argument('--num', type=int, default=4)
+    parser.add_argument('--result_path', type=str, default='../data/experiments/demo/results')
     args = parser.parse_args()
 
     device = 'cpu'
 
     # load results
     data_dict = np.load(os.path.join(args.result_path, args.object_code + '.npy'), allow_pickle=True)[args.num]
-    pose = plane2pose(torch.tensor(data_dict['plane'], dtype=torch.float, device=device))
+    plane = torch.tensor(data_dict['plane'], dtype=torch.float, device=device)  # plane parameters in object reference frame: (A, B, C, D), Ax + By + Cz + D >= 0, A^2 + B^2 + C^2 = 1
+    pose = plane2pose(plane)  # 4x4 homogeneous transformation matrix from object frame to world frame
     qpos = data_dict['qpos']
     rot = np.array(transforms3d.euler.euler2mat(*[qpos[name] for name in rot_names]))
     rot = rot[:, :2].T.ravel().tolist()

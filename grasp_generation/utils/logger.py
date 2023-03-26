@@ -1,7 +1,7 @@
 """
-Last modified date: 2022.03.11
-Author: mzhmxzh
-Description: logger
+Last modified date: 2023.02.23
+Author: Jialiang Zhang
+Description: Class Logger for tensorboard
 """
 
 from torch.utils.tensorboard.writer import SummaryWriter
@@ -9,12 +9,44 @@ from torch.utils.tensorboard.writer import SummaryWriter
 
 class Logger:
     def __init__(self, log_dir, thres_fc=0.3, thres_dis=0.005, thres_pen=0.02):
+        """
+        Create a Logger to log tensorboard scalars
+        
+        Parameters
+        ----------
+        log_dir: str
+            directory for logs
+        thres_fc: float
+            E_fc threshold for success estimation
+        thres_dis: float
+            E_dis threshold for success estimation
+        thres_pen: float
+            E_pen threshold for data filtering
+        """
         self.writer = SummaryWriter(log_dir=log_dir)
         self.thres_fc = thres_fc
         self.thres_dis = thres_dis
         self.thres_pen = thres_pen
 
     def log(self, energy, E_fc, E_dis, E_pen, E_spen, E_joints, E_tpen, step, show=False):
+        """
+        Log energy terms and estimate success rate using energy thresholds
+        
+        Parameters
+        ----------
+        energy: torch.Tensor
+            weighted sum of all terms
+        E_fc: torch.Tensor
+        E_dis: torch.Tensor
+        E_pen: torch.Tensor
+        E_spen: torch.Tensor
+        E_joints: torch.Tensor
+        E_tpen: torch.Tensor
+        step: int
+            current iteration of optimization
+        show: bool
+            whether to print current energy terms to console
+        """
         success_fc = E_fc < self.thres_fc
         success_dis = E_dis < self.thres_dis
         success_pen = E_pen < self.thres_pen

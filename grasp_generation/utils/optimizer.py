@@ -1,15 +1,39 @@
 """
-Last modified date: 2022.03.11
-Author: mzhmxzh
-Description: Class optimizer
+Last modified date: 2023.02.23
+Author: Jialiang Zhang
+Description: Class Annealing optimizer
 """
 
 import torch
 
 
 class Annealing:
-    def __init__(self, hand_model, switch_possibility=0.1, starting_temperature=3, temperature_decay=0.95, annealing_period=10,
-                 noise_size=0.05, stepsize_period=10, mu=0.98, device='cpu'):
+    def __init__(self, hand_model, switch_possibility=0.5, starting_temperature=18, temperature_decay=0.95, annealing_period=30,
+                 noise_size=0.005, stepsize_period=50, mu=0.98, device='cpu'):
+        """
+        Create a optimizer
+        
+        Use random resampling to update contact point indices
+        
+        Use RMSProp to update translation, rotation, and joint angles, use step size decay
+        
+        Use Annealing to accept / reject parameter updates
+        
+        Parameters
+        ----------
+        hand_model: hand_model.HandModel
+        switch_possibility: float
+            possibility to resample each contact point index each step
+        starting_temperature: float
+        temperature_decay: float
+            temperature decay rate and step size decay rate
+        annealing_period: int
+        noise_size: float
+        stepsize_period: int
+        mu: float
+            `1 - decay_rate` of RMSProp
+        """
+
         self.hand_model = hand_model
         self.device = device
         self.switch_possibility = switch_possibility
@@ -31,6 +55,15 @@ class Annealing:
         self.ema_grad_hand_pose = torch.zeros(self.hand_model.n_dofs + 9, dtype=torch.float, device=device)
 
     def try_step(self):
+        """
+        Try to update translation, rotation, joint angles, and contact point indices
+        
+        Returns
+        -------
+        s: torch.Tensor
+            current step size
+        """
+
         s = self.noise_size * self.temperature_decay ** torch.div(self.step, self.step_size_period, rounding_mode='floor')
         step_size = torch.zeros(*self.hand_model.hand_pose.shape, dtype=torch.float, device=self.device) + s
 
@@ -58,6 +91,16 @@ class Annealing:
         return s
 
     def accept_step(self, energy, new_energy):
+        """
+        Accept / reject updates using annealing
+        
+        Returns
+        -------
+        accept: (N,) torch.BoolTensor
+        temperature: torch.Tensor
+            current temperature
+        """
+
         batch_size = energy.shape[0]
         temperature = self.starting_temperature * self.temperature_decay ** torch.div(self.step, self.annealing_period, rounding_mode='floor')
 
@@ -77,5 +120,8 @@ class Annealing:
         return accept, temperature
 
     def zero_grad(self):
+        """
+        Sets the gradients of translation, rotation, and joint angles to zero
+        """
         if self.hand_model.hand_pose.grad is not None:
             self.hand_model.hand_pose.grad.data.zero_()

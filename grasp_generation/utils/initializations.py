@@ -1,6 +1,6 @@
 """
-Last modified date: 2022.03.11
-Author: mzhmxzh
+Last modified date: 2023.02.23
+Author: Jialiang Zhang, Ruicheng Wang
 Description: initializations
 """
 
@@ -16,6 +16,16 @@ import torch.nn.functional
 
 
 def initialize_table_top(hand_model, object_model, args):
+    """
+    Initialize table plane, grasp translation, rotation, joint angles, and contact point indices
+    
+    Parameters
+    ----------
+    hand_model: hand_model.HandModel
+    object_model: object_model.ObjectModel
+    args: Namespace
+    """
+
     device = hand_model.device
     n_objects = len(object_model.object_mesh_list)
     batch_size_each = object_model.batch_size_each

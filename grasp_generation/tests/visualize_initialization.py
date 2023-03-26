@@ -1,7 +1,7 @@
 """
-Last modified date: 2022.03.11
-Author: mzhmxzh
-Description: visualize initialization
+Last modified date: 2023.02.23
+Author: Jialiang Zhang
+Description: visualize initialization in world frame using plotly.graph_objects
 """
 
 import os
@@ -40,7 +40,7 @@ def plane2pose(plane_parameters):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # experiment settings
-    parser.add_argument('--data_root_path', default='../meshdata/meshdata', type=str)
+    parser.add_argument('--data_root_path', default='../data/meshdata', type=str)
     parser.add_argument('--poses', default='../data/poses', type=str)
     parser.add_argument('--object_code', default='core-mug-8570d9a8d24cb0acbebd3c0c0c70fb03', type=str)
     parser.add_argument('--seed', default=0, type=int)

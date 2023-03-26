@@ -1,6 +1,6 @@
 """
-Last modified date: 2022.03.11
-Author: mzhmxzh
+Last modified date: 2023.02.23
+Author: Jialiang Zhang, Ruicheng Wang
 Description: Class HandModel
 """
 
@@ -20,11 +20,35 @@ from torchsdf import index_vertices_by_faces, compute_sdf
 
 class HandModel:
     def __init__(self, mjcf_path, mesh_path, contact_points_path=None, penetration_points_path=None, n_surface_points=0, device='cpu'):
+        """
+        Create a Hand Model for a MJCF robot
+        
+        Parameters
+        ----------
+        mjcf_path: str
+            path to mjcf file
+        mesh_path: str
+            path to mesh directory
+        contact_points_path: str
+            path to hand-selected contact candidates
+        penetration_points_path: str
+            path to hand-selected penetration keypoints
+        n_surface_points: int
+            number of points to sample from surface of hand, use fps
+        device: str | torch.Device
+            device for torch tensors
+        """
+        
         self.device = device
         self.chain = pk.build_chain_from_mjcf(open(mjcf_path).read()).to(dtype=torch.float, device=device)
         self.n_dofs = len(self.chain.get_joint_parameter_names())
+        
+        # load contact points and penetration points
+        
         penetration_points = json.load(open(penetration_points_path, 'r')) if penetration_points_path is not None else None
         contact_points = json.load(open(contact_points_path, 'r')) if contact_points_path is not None else None
+
+        # build mesh
 
         self.mesh = {}
         areas = {}
@@ -74,6 +98,8 @@ class HandModel:
             for children in body.children:
                 build_mesh_recurse(children)
         build_mesh_recurse(self.chain._root)
+        
+        # set joint limits
 
         self.joints_names = []
         self.joints_lower = []
@@ -89,6 +115,8 @@ class HandModel:
         set_joint_range_recurse(self.chain._root)
         self.joints_lower = torch.stack(self.joints_lower).float().to(device)
         self.joints_upper = torch.stack(self.joints_upper).float().to(device)
+        
+        # sample surface points
 
         total_area = sum(areas.values())
         num_samples = dict([(link_name, int(areas[link_name] / total_area * n_surface_points)) for link_name in self.mesh])
@@ -102,6 +130,8 @@ class HandModel:
             surface_points = pytorch3d.ops.sample_farthest_points(dense_point_cloud, K=num_samples[link_name])[0][0]
             surface_points.to(dtype=float, device=device)
             self.mesh[link_name]['surface_points'] = surface_points
+        
+        # indexing
 
         self.link_name_to_link_index = dict(zip([link_name for link_name in self.mesh], range(len(self.mesh))))
 
@@ -118,6 +148,8 @@ class HandModel:
             self.penetration_keypoints = torch.cat(self.penetration_keypoints, dim=0)
             self.global_index_to_link_index_penetration = torch.tensor(self.global_index_to_link_index_penetration, dtype=torch.long, device=device)
             self.n_keypoints = self.penetration_keypoints.shape[0]
+        
+        # parameters
 
         self.hand_pose = None
         self.contact_point_indices = None
@@ -127,6 +159,16 @@ class HandModel:
         self.contact_points = None
 
     def set_parameters(self, hand_pose, contact_point_indices=None):
+        """
+        Set translation, rotation, joint angles, and contact points of grasps
+        
+        Parameters
+        ----------
+        hand_pose: (B, 3+6+`n_dofs`) torch.FloatTensor
+            translation, rotation in rot6d, and joint angles
+        contact_point_indices: (B, `n_contact`) [Optional]torch.LongTensor
+            indices of contact candidates
+        """
         self.hand_pose = hand_pose
         if self.hand_pose.requires_grad:
             self.hand_pose.retain_grad()
@@ -149,7 +191,21 @@ class HandModel:
             self.contact_points = self.contact_points @ self.global_rotation.transpose(1, 2) + self.global_translation.unsqueeze(1)
 
     def cal_dis_plane(self, p):
-        # p: (total_batch_size, 4)
+        """
+        Calculate signed distances from each link to table plane (above+, below-)
+        
+        Use analytical method and our modified Kaolin package
+        
+        Parameters
+        ----------
+        p: (B, 4) torch.Tensor
+            plane parameters in object reference frame: (A, B, C, D), Ax + By + Cz + D >= 0, A^2 + B^2 + C^2 = 1
+        Returns
+        -------
+        dis: (B, n_links) torch.Tensor
+            signed distances from each link to table plane
+        """
+        # refer to self.cal_distance for implementation details
         dis = []
         for link_name in self.mesh:
             if link_name in ['robot0:forearm', 'robot0:wrist_child', 'robot0:ffknuckle_child', 'robot0:mfknuckle_child', 'robot0:rfknuckle_child', 'robot0:lfknuckle_child', 'robot0:thbase_child', 'robot0:thhub_child']:
@@ -174,16 +230,30 @@ class HandModel:
                 dis_tmp -= radius
                 dis_tmp = dis_tmp.min(1)[0]
             dis.append(dis_tmp)
-        dis = torch.stack(dis, dim=1)  # [B, n_links]
+        dis = torch.stack(dis, dim=1)
         return dis
 
     def cal_distance(self, x):
-        # x: (total_batch_size, num_samples, 3)
-        # 单独考虑每个link
-        # 先把x变换到link的局部坐标系里面，得到x_local: (total_batch_size, num_samples, 3)
-        # 然后计算dis，按照内外取符号，内部是正号
-        # 最后的dis就是所有link的dis的最大值
-        # 对于calsule的link，使用解析方法计算dis，否则用mesh的方法计算dis
+        """
+        Calculate signed distances from object point clouds to hand surface meshes
+        
+        Interiors are positive, exteriors are negative
+        
+        Use analytical method and our modified Kaolin package
+        
+        Parameters
+        ----------
+        x: (B, N, 3) torch.Tensor
+            point clouds sampled from object surface
+        """
+        # Consider each link seperately: 
+        #   First, transform x into each link's local reference frame using inversed fk, which gives us x_local
+        #   Next, calculate point-to-mesh distances in each link's frame, this gives dis_local
+        #   Finally, the maximum over all links is the final distance from one point to the entire ariticulation
+        # In particular, the collision mesh of ShadowHand is only composed of Capsules and Boxes
+        # We use analytical method to calculate Capsule sdf, and use our modified Kaolin package for other meshes
+        # This practice speeds up the reverse penetration calculation
+        # Note that we use a chamfer box instead of a primitive box to get more accurate signs
         dis = []
         x = (x - self.global_translation.unsqueeze(1)) @ self.global_rotation
         for link_name in self.mesh:
@@ -209,6 +279,14 @@ class HandModel:
         return dis
     
     def self_penetration(self):
+        """
+        Calculate self penetration energy
+        
+        Returns
+        -------
+        E_spen: (N,) torch.Tensor
+            self penetration energy
+        """
         assert hasattr(self, 'penetration_keypoints'), 'must pass penetration_keypoint_indices.json to constructor'
         batch_size = self.global_translation.shape[0]
         points = self.penetration_keypoints.clone().repeat(batch_size, 1, 1)
@@ -228,12 +306,19 @@ class HandModel:
         return E_spen.sum((1,2))
 
     def get_surface_points(self):
+        """
+        Get surface points
+        
+        Returns
+        -------
+        points: (N, `n_surface_points`, 3)
+            surface points
+        """
         points = []
         batch_size = self.global_translation.shape[0]
         for link_name in self.mesh:
             n_surface_points = self.mesh[link_name]['surface_points'].shape[0]
             points.append(self.current_status[link_name].transform_points(self.mesh[link_name]['surface_points']))
-            # points.append(self.mesh[link_name]['surface_points'])
             if 1 < batch_size != points[-1].shape[0]:
                 points[-1] = points[-1].expand(batch_size, n_surface_points, 3)
         points = torch.cat(points, dim=-2).to(self.device)
@@ -241,6 +326,14 @@ class HandModel:
         return points
 
     def get_contact_candidates(self):
+        """
+        Get all contact candidates
+        
+        Returns
+        -------
+        points: (N, `n_contact_candidates`, 3) torch.Tensor
+            contact candidates
+        """
         points = []
         batch_size = self.global_translation.shape[0]
         for link_name in self.mesh:
@@ -253,6 +346,14 @@ class HandModel:
         return points
     
     def get_penetraion_keypoints(self):
+        """
+        Get penetration keypoints
+        
+        Returns
+        -------
+        points: (N, `n_keypoints`, 3) torch.Tensor
+            penetration keypoints
+        """
         points = []
         batch_size = self.global_translation.shape[0]
         for link_name in self.mesh:
@@ -265,6 +366,27 @@ class HandModel:
         return points
 
     def get_plotly_data(self, i, opacity=0.5, color='lightblue', with_contact_points=True, wrist_free=False, contact_links=[], pose=None):
+        """
+        Get visualization data for plotly.graph_objects
+        
+        Parameters
+        ----------
+        i: int
+            index of data
+        opacity: float
+            opacity
+        color: str
+            color of mesh
+        with_contact_points: bool
+            whether to visualize contact points
+        pose: (4, 4) matrix
+            homogeneous transformation matrix
+        
+        Returns
+        -------
+        data: list
+            list of plotly.graph_object visualization data
+        """
         if pose is not None:
             pose = np.array(pose, dtype=np.float32)
         data = []

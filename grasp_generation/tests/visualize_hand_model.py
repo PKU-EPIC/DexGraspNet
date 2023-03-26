@@ -1,7 +1,7 @@
 """
-Last modified date: 2022.03.11
-Author: mzhmxzh
-Description: visualize hand model
+Last modified date: 2023.02.23
+Author: Jialiang Zhang
+Description: visualize hand model using plotly.graph_objects
 """
 
 import os
