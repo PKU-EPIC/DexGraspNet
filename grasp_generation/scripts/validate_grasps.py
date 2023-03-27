@@ -74,6 +74,8 @@ if __name__ == '__main__':
         hand_model = HandModel(
             mjcf_path='mjcf/shadow_hand_wrist_free.xml',
             mesh_path='mjcf/meshes',
+            contact_points_path='mjcf/contact_points.json',
+            penetration_points_path='mjcf/penetration_points.json',
             n_surface_points=2000,
             device=device
         )
