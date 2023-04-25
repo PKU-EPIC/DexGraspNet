@@ -6,7 +6,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--src", type=str, required=True)
     parser.add_argument("--dst", type=str, required=True)
-    parser.add_argument("--coacd_path", type=str, required=True)
+    parser.add_argument("--coacd_path", type=str, default="../thirdparty/CoACD/build/main")
     args = parser.parse_args()
 
     os.makedirs(args.dst, exist_ok=True)

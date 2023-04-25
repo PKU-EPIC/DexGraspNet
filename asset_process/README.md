@@ -4,6 +4,12 @@ This folder is for processing object models. From different object datasets, we 
 
 ## Dependencies
 
+You can install `ManifoldPlus` and `CoACD` at `DexGraspNet/thirdparty`.
+
+```bash
+cd DexGraspNet/thirdparty
+```
+
 ### ManifoldPlus
 
 Following README in [ManifoldPlus](https://github.com/hjwdzh/ManifoldPlus):
@@ -36,6 +42,8 @@ Other dependencies are simple python packages.
 ```bash
 pip install tqdm
 pip install trimesh
+pip install lxml
+pip install networkx
 ```
 
 ## Usage
@@ -70,7 +78,7 @@ python extract.py --src data/Grasp_Dataset/good_shapes --dst data/raw_models --s
 ### Manifold
 
 ```bash
-python manifold.py --src data/raw_models --dst data/manifolds --manifold_path ./ManifoldPlus/build/manifold
+python manifold.py --src data/raw_models --dst data/manifolds --manifold_path ../thirdparty/ManifoldPlus/build/manifold
 ```
 
 This generates `run.sh`. Then run it with:
@@ -90,7 +98,7 @@ python normalize.py --src data/manifolds --dst data/normalized_models
 ### Decomposition
 
 ```bash
-python decompose_list.py --src data/normalized_models --dst data/meshdata --coacd_path ./CoACD/build/main
+python decompose_list.py --src data/normalized_models --dst data/meshdata --coacd_path ../thirdparty/CoACD/build/main
 ```
 
 Again this generates `run.sh`.

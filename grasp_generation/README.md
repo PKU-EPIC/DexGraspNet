@@ -11,6 +11,8 @@ conda create -n dexgraspnet python=3.7  # isaac requires python < 3.9
 conda activate dexgraspnet
 
 # here install pytorch with cuda
+# pytorch ~1.10
+# cudatoolkit ~11.3
 
 conda install pytorch3d
 
@@ -30,7 +32,8 @@ conda install rtree  # soft dependency for trimesh
 [TorchSDF](https://github.com/wrc042/TorchSDF) is a our custom version of [Kaolin](https://github.com/NVIDIAGameWorks/kaolin). 
 
 ```bash
-git clone git@github.com:wrc042/TorchSDF.git
+cd DexGraspNet/thirdparty
+git clone https://github.com/wrc042/TorchSDF.git
 cd TorchSDF
 git checkout 0.1.0
 bash install.sh
@@ -55,7 +58,13 @@ We use [Isaac Gym](https://developer.nvidia.com/isaac-gym) to validate generated
 
 First, use `export CUDA_VISIBLE_DEVICES=x,x,x` to assign GPUs. 
 
-Then, run `python scripts/generate_grasps.py`. Adjust parameters `batch_size_each` to get the desired amount of data. Turn down `max_total_batch_size` if CUDA runs out of memory. Remember to change the random seed `seed` to get different results. Other numeric parameters are magical and we don't recommend tuning them. 
+Then, run:
+
+```bash
+python scripts/generate_grasps.py --all
+```
+
+Adjust parameters `batch_size_each` to get the desired amount of data. Turn down `max_total_batch_size` if CUDA runs out of memory. Remember to change the random seed `seed` to get different results. Other numeric parameters are magical and we don't recommend tuning them. 
 
 The output folder will have the following structure: 
 
@@ -72,7 +81,13 @@ Run `python tests/visualize_result.py` to visualize grasps.
 
 ### Grasp Validation
 
-The generated grasps in `data/graspdata` are further validated by Isaac Gym. To validate a single `.npy` file, run `python scripts/validate_grasps.py`. Or you can run valiadtion on several GPUs. Again, use `export CUDA_VISIBLE_DEVICES=x,x,x` to assign GPUs. Run `python scripts/validate_grasps_batch.py` to generates `run.sh` and then `python scripts/poolrun.py -p 8`.
+The generated grasps in `data/graspdata` are further validated by Isaac Gym. To validate a single `.npy` file, run:
+
+```bash
+python scripts/validate_grasps.py
+```
+
+Or you can run valiadtion on several GPUs. Again, use `export CUDA_VISIBLE_DEVICES=x,x,x` to assign GPUs. Run `python scripts/validate_grasps_batch.py` to generates `run.sh` and then `python scripts/poolrun.py -p 8`.
 
 ## Data Format
 

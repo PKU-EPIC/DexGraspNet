@@ -46,6 +46,9 @@ DexGraspNet
 |  +-- dataset  # Linked to a folder in the data disk. Validated results go here.
 +-- thirdparty
 |  +-- pytorch_kinematics
+|  +-- CoACD
+|  +-- ManifoldPlus
+|  +-- TorchSDF
 ```
 
 ## Quick Example
