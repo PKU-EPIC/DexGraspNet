@@ -321,7 +321,7 @@ class HandModel:
         points = points @ self.global_rotation.transpose(1, 2) + self.global_translation.unsqueeze(1)
         return points
 
-    def get_plotly_data(self, i, opacity=0.5, color='lightblue', with_contact_points=False, pose=None):
+    def get_plotly_data(self, i, opacity=0.5, color='lightblue', with_contact_points=False, with_contact_candidates=False, pose=None):
         """
         Get visualization data for plotly.graph_objects
         
@@ -360,7 +360,12 @@ class HandModel:
             contact_points = self.contact_points[i].detach().cpu()
             if pose is not None:
                 contact_points = contact_points @ pose[:3, :3].T + pose[:3, 3]
-            data.append(go.Scatter3d(x=contact_points[:, 0], y=contact_points[:, 1], z=contact_points[:, 2], mode='markers', marker=dict(color='red', size=5), name="contact points"))
+            data.append(go.Scatter3d(x=contact_points[:, 0], y=contact_points[:, 1], z=contact_points[:, 2], mode='markers', marker=dict(color='red', size=10), name="contact points"))
+        if with_contact_candidates:
+            contact_candidates = self.get_contact_candidates()[i].detach().cpu()
+            if pose is not None:
+                contact_candidates = contact_candidates @ pose[:3, :3].T + pose[:3, 3]
+            data.append(go.Scatter3d(x=contact_candidates[:, 0], y=contact_candidates[:, 1], z=contact_candidates[:, 2], mode='markers', marker=dict(color='blue', size=5), name="contact candidates"))
         return data
 
     def get_trimesh_data(self, i):

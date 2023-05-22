@@ -196,13 +196,15 @@ def generate(args_list):
         # Visualize
         if step % 100 == 0:
             fig_title = f"hand_object_visualization_{idx_to_visualize}"
-            fig = go.Figure(layout=go.Layout(
-                scene=dict(xaxis=dict(title="X"), yaxis=dict(title="Y"), zaxis=dict(title="Z")),
-                showlegend=True,
-                title=fig_title,
-            ))
+            fig = go.Figure(
+                layout=go.Layout(
+                    scene=dict(xaxis=dict(title="X"), yaxis=dict(title="Y"), zaxis=dict(title="Z")),
+                    showlegend=True,
+                    title=fig_title,
+                )
+            )
             plots = [
-                *hand_model.get_plotly_data(i=idx_to_visualize, opacity=1.0, with_contact_points=True),
+                *hand_model.get_plotly_data(i=idx_to_visualize, opacity=1.0, with_contact_points=True, with_contact_candidates=True),
                 *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
             ]
             for plot in plots:
