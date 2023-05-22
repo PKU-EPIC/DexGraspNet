@@ -80,9 +80,8 @@ def generate(args_list):
     args, object_code_list, id, gpu_list = args_list
 
     # Log to wandb
-    extra_name_info = ""
     time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    name = f"{extra_name_info}_{time_str}" if len(extra_name_info) > 0 else time_str
+    name = f"{args.wandb_name}_{time_str}" if len(args.wandb_name) > 0 else time_str
     wandb.init(
         entity="tylerlum",
         project="DexGraspNet_v1",
@@ -274,6 +273,7 @@ def generate(args_list):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # experiment settings
+    parser.add_argument("--wandb_name", default="", type=str)
     parser.add_argument("--result_path", default="../data/graspdata", type=str)
     parser.add_argument("--data_root_path", default="../data/meshdata", type=str)
     parser.add_argument("--object_code_list", nargs="*", type=str)
@@ -282,8 +282,8 @@ if __name__ == "__main__":
     parser.add_argument("--todo", action="store_true")
     parser.add_argument("--seed", default=1, type=int)
     parser.add_argument("--n_contact", default=4, type=int)
-    parser.add_argument("--batch_size_each", default=2, type=int)
-    parser.add_argument("--max_total_batch_size", default=2, type=int)
+    parser.add_argument("--batch_size_each", default=500, type=int)
+    parser.add_argument("--max_total_batch_size", default=1000, type=int)
     parser.add_argument("--n_iter", default=6000, type=int)
     # hyper parameters
     parser.add_argument("--switch_possibility", default=0.5, type=float)
