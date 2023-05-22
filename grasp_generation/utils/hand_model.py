@@ -355,12 +355,12 @@ class HandModel:
             f = self.mesh[link_name]['faces'].detach().cpu()
             if pose is not None:
                 v = v @ pose[:3, :3].T + pose[:3, 3]
-            data.append(go.Mesh3d(x=v[:, 0], y=v[:, 1], z=v[:, 2], i=f[:, 0], j=f[:, 1], k=f[:, 2], color=color, opacity=opacity))
+            data.append(go.Mesh3d(x=v[:, 0], y=v[:, 1], z=v[:, 2], i=f[:, 0], j=f[:, 1], k=f[:, 2], color=color, opacity=opacity, name="hand"))
         if with_contact_points:
             contact_points = self.contact_points[i].detach().cpu()
             if pose is not None:
                 contact_points = contact_points @ pose[:3, :3].T + pose[:3, 3]
-            data.append(go.Scatter3d(x=contact_points[:, 0], y=contact_points[:, 1], z=contact_points[:, 2], mode='markers', marker=dict(color='red', size=5)))
+            data.append(go.Scatter3d(x=contact_points[:, 0], y=contact_points[:, 1], z=contact_points[:, 2], mode='markers', marker=dict(color='red', size=5), name="contact points"))
         return data
 
     def get_trimesh_data(self, i):

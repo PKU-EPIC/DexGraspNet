@@ -151,11 +151,12 @@ class ObjectModel:
             list of plotly.graph_object visualization data
         """
         model_index = i // self.batch_size_each
+        model_code = self.object_code_list[model_index]
         model_scale = self.object_scale_tensor[model_index, i % self.batch_size_each].detach().cpu().numpy()
         mesh = self.object_mesh_list[model_index]
         vertices = mesh.vertices * model_scale
         if pose is not None:
             pose = np.array(pose, dtype=np.float32)
             vertices = vertices @ pose[:3, :3].T + pose[:3, 3]
-        data = go.Mesh3d(x=vertices[:, 0],y=vertices[:, 1], z=vertices[:, 2], i=mesh.faces[:, 0], j=mesh.faces[:, 1], k=mesh.faces[:, 2], color=color, opacity=opacity)
+        data = go.Mesh3d(x=vertices[:, 0],y=vertices[:, 1], z=vertices[:, 2], i=mesh.faces[:, 0], j=mesh.faces[:, 1], k=mesh.faces[:, 2], color=color, opacity=opacity, name=f"object: {model_code}")
         return [data]

@@ -195,16 +195,20 @@ def generate(args_list):
 
         # Visualize
         if step % 100 == 0:
-            fig = go.Figure()
+            fig_title = f"hand_object_visualization_{idx_to_visualize}"
+            fig = go.Figure(layout=go.Layout(
+                scene=dict(xaxis=dict(title="X"), yaxis=dict(title="Y"), zaxis=dict(title="Z")),
+                showlegend=True,
+                title=fig_title,
+            ))
             plots = [
-                *hand_model.get_plotly_data(i=idx_to_visualize, with_contact_points=True),
-                *object_model.get_plotly_data(i=idx_to_visualize),
+                *hand_model.get_plotly_data(i=idx_to_visualize, opacity=1.0, with_contact_points=True),
+                *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
             ]
             for plot in plots:
                 fig.add_trace(plot)
-            wandb_log_dict[f"hand_object_visualization_{idx_to_visualize}"] = fig
+            wandb_log_dict[fig_title] = fig
         wandb.log(wandb_log_dict)
-
 
     # save results
     translation_names = ["WRJTx", "WRJTy", "WRJTz"]
