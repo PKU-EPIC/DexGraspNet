@@ -8,6 +8,7 @@ from isaacgym import gymapi
 from isaacgym import gymutil
 import math
 from time import sleep
+from tqdm import tqdm
 
 gym = gymapi.acquire_gym()
 
@@ -93,6 +94,7 @@ class IsaacValidator():
             self.viewer = gym.create_viewer(self.sim, self.camera_props)
             gym.viewer_camera_look_at(self.viewer, None, gymapi.Vec3(0, 0, 1),
                                       gymapi.Vec3(0, 0, 0))
+            self.subscribe_to_keyboard_events()
         else:
             self.has_viewer = False
 
@@ -128,6 +130,7 @@ class IsaacValidator():
                 gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0),
                                             -0.5 * math.pi)),
         ]
+        self.is_paused = False
 
     def set_asset(self, hand_root, hand_file, obj_root, obj_file):
         self.hand_asset = gym.load_asset(self.sim, hand_root, hand_file,
@@ -278,12 +281,27 @@ class IsaacValidator():
                                              obj_shape_props)
 
     def run_sim(self):
-        for _ in range(self.sim_step):
-            gym.simulate(self.sim)
+        sim_step_idx = 0
+        pbar = tqdm(total=self.sim_step, desc="Simulating")
+        while sim_step_idx < self.sim_step:
+
+            # Step physics if not paused
+            if not self.is_paused:
+                gym.simulate(self.sim)
+                sim_step_idx += 1
+                pbar.update(1)
+
+            # Update viewer
             if self.has_viewer:
                 sleep(self.debug_interval)
                 if gym.query_viewer_has_closed(self.viewer):
                     break
+
+                # Check for keyboard events
+                for event in gym.query_viewer_action_events(self.viewer):
+                    if event.value > 0 and event.action in self.event_to_function:
+                        self.event_to_function[event.action]()
+
                 gym.step_graphics(self.sim)
                 gym.draw_viewer(self.viewer, self.sim, False)
 
@@ -324,3 +342,32 @@ class IsaacValidator():
         gym.destroy_sim(self.sim)
         if self.has_viewer:
             gym.destroy_viewer(self.viewer)
+
+    def subscribe_to_keyboard_events(self):
+        if self.has_viewer:
+            self.event_to_key = {
+                "SLEEP": gymapi.KEY_S,
+                "PAUSE_SIM": gymapi.KEY_P,
+            }
+            self.event_to_function  = {
+                "SLEEP": self._sleep_callback,
+                "PAUSE_SIM": self._pause_sim_callback,
+            }
+        else:
+            self.event_to_key = {}
+            self.event_to_function = {}
+        assert set(self.event_to_key.keys()) == set(self.event_to_function.keys())
+
+        if self.has_viewer and self.viewer is not None:
+            for event, key in self.event_to_key.items():
+                gym.subscribe_viewer_keyboard_event(self.viewer, key, event)
+
+    ## KEYBOARD EVENT SUBSCRIPTIONS START ##
+    def _sleep_callback(self):
+        N_SECONDS = 5
+        print(f"Sleeping for {N_SECONDS} seconds...")
+        sleep(N_SECONDS)
+
+    def _pause_sim_callback(self):
+        self.is_paused = not self.is_paused
+    ## KEYBOARD EVENT SUBSCRIPTIONS END ##
