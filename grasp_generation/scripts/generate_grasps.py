@@ -146,7 +146,7 @@ def generate(args_list):
     energy.sum().backward(retain_graph=True)
 
     idx_to_visualize = 0
-    for step in tqdm(range(1, args.n_iter + 1), desc=f"optimizing {id}"):
+    for step in tqdm(range(args.n_iter), desc=f"optimizing {id}"):
         wandb_log_dict = {}
         wandb_log_dict["optimization_step"] = step
 
@@ -194,7 +194,7 @@ def generate(args_list):
         })
 
         # Visualize
-        if step % 100 == 0:
+        if step % args.visualization_freq == 0:
             fig_title = f"hand_object_visualization_{idx_to_visualize}"
             fig = go.Figure(
                 layout=go.Layout(
@@ -280,6 +280,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # experiment settings
     parser.add_argument("--wandb_name", default="", type=str)
+    parser.add_argument("--visualization_freq", default=2000, type=int)
     parser.add_argument("--result_path", default="../data/graspdata", type=str)
     parser.add_argument("--data_root_path", default="../data/meshdata", type=str)
     parser.add_argument("--object_code_list", nargs="*", type=str)
