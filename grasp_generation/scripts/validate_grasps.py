@@ -125,9 +125,10 @@ if __name__ == '__main__':
             hand_state[:, 9:] += hand_state.grad[:, 9:] * args.grad_move
             hand_state.grad.zero_()
 
-    sim = IsaacValidator(gpu=args.gpu)
     if (args.index is not None):
         sim = IsaacValidator(gpu=args.gpu, mode="gui")
+    else:
+        sim = IsaacValidator(gpu=args.gpu)
 
     data_dict = np.load(os.path.join(
         args.grasp_path, args.object_code + '.npy'), allow_pickle=True)

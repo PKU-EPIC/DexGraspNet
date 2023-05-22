@@ -323,4 +323,4 @@ class IsaacValidator():
     def destroy(self):
         gym.destroy_sim(self.sim)
         if self.has_viewer:
-            gym.destroy_viewer(self.sim)
+            gym.destroy_viewer(self.viewer)
