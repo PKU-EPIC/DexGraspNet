@@ -138,94 +138,39 @@ class IsaacValidator():
         self.obj_asset = gym.load_asset(self.sim, obj_root, obj_file,
                                         self.obj_asset_options)
 
-    def add_env(self, hand_rotation, hand_translation, hand_qpos, obj_scale, target_qpos=None):
-        for test_rot in self.test_rotations:
-            env = gym.create_env(self.sim, gymapi.Vec3(-1, -1, -1),
-                                 gymapi.Vec3(1, 1, 1), 6)
-            self.envs.append(env)
-            pose = gymapi.Transform()
-            pose.r = gymapi.Quat(*hand_rotation[1:], hand_rotation[0])
-            pose.p = gymapi.Vec3(*hand_translation)
-            pose = test_rot * pose
-            hand_actor_handle = gym.create_actor(
-                env, self.hand_asset, pose, "shand", 0, -1)
-            self.hand_handles.append(hand_actor_handle)
-            hand_props = gym.get_actor_dof_properties(env, hand_actor_handle)
-            hand_props["driveMode"].fill(gymapi.DOF_MODE_POS)
-            hand_props["stiffness"].fill(1000)
-            hand_props["damping"].fill(0.0)
-            gym.set_actor_dof_properties(env, hand_actor_handle, hand_props)
-            dof_states = gym.get_actor_dof_states(env, hand_actor_handle,
-                                                  gymapi.STATE_ALL)
-            for i, joint in enumerate(self.joint_names):
-                joint_idx = gym.find_actor_dof_index(env, hand_actor_handle,
-                                                     joint,
-                                                     gymapi.DOMAIN_ACTOR)
-                dof_states["pos"][joint_idx] = hand_qpos[i]
-            gym.set_actor_dof_states(env, hand_actor_handle, dof_states,
-                                     gymapi.STATE_ALL)
-            if target_qpos != None:
-                for i, joint in enumerate(self.joint_names):
-                    joint_idx = gym.find_actor_dof_index(env, hand_actor_handle,
-                                                         joint,
-                                                         gymapi.DOMAIN_ACTOR)
-                    dof_states["pos"][joint_idx] = target_qpos[i]
-            gym.set_actor_dof_position_targets(env, hand_actor_handle,
-                                               dof_states["pos"])
+    def add_env_all_test_rotations(self, hand_rotation, hand_translation, hand_qpos, obj_scale, target_qpos=None):
+        for test_rotation_idx in range(len(self.test_rotations)):
+            self.add_env_single_test_rotation(hand_rotation, hand_translation,
+                                              hand_qpos, obj_scale,
+                                              test_rotation_idx, target_qpos)
 
-            hand_shape_props = gym.get_actor_rigid_shape_properties(
-                env, hand_actor_handle)
-            hand_rigid_body_set = set()
-            for i in range(
-                    gym.get_actor_rigid_body_count(env, hand_actor_handle)):
-                hand_rigid_body_set.add(
-                    gym.get_actor_rigid_body_index(env, hand_actor_handle, i,
-                                                   gymapi.DOMAIN_ENV))
-            self.hand_rigid_body_sets.append(hand_rigid_body_set)
-            for i in range(len(hand_shape_props)):
-                hand_shape_props[i].friction = self.hand_friction
-            gym.set_actor_rigid_shape_properties(env, hand_actor_handle,
-                                                 hand_shape_props)
+    def add_env_single_test_rotation(self, hand_rotation, hand_translation, hand_qpos, obj_scale, test_rotation_index=0, target_qpos=None):
+        test_rot = self.test_rotations[test_rotation_index]
 
-            pose = gymapi.Transform()
-            pose.p = gymapi.Vec3(0, 0, 0)
-            pose.r = gymapi.Quat(0, 0, 0, 1)
-            pose = test_rot * pose
-            obj_actor_handle = gym.create_actor(
-                env, self.obj_asset, pose, "obj", 0, 1)
-            self.obj_handles.append(obj_actor_handle)
-            gym.set_actor_scale(env, obj_actor_handle, obj_scale)
-            obj_shape_props = gym.get_actor_rigid_shape_properties(
-                env, obj_actor_handle)
-            obj_rigid_body_set = set()
-            for i in range(
-                    gym.get_actor_rigid_body_count(env, obj_actor_handle)):
-                obj_rigid_body_set.add(
-                    gym.get_actor_rigid_body_index(env, obj_actor_handle, i,
-                                                   gymapi.DOMAIN_ENV))
-            self.obj_rigid_body_sets.append(obj_rigid_body_set)
-            for i in range(len(obj_shape_props)):
-                obj_shape_props[i].friction = self.obj_friction
-            gym.set_actor_rigid_shape_properties(env, obj_actor_handle,
-                                                 obj_shape_props)
-
-    def add_env_single(self, hand_rotation, hand_translation, hand_qpos, obj_scale, index=0, target_qpos=None):
-        test_rot = self.test_rotations[index]
+        # Create env
         env = gym.create_env(self.sim, gymapi.Vec3(-1, -1, -1),
                              gymapi.Vec3(1, 1, 1), 6)
         self.envs.append(env)
-        pose = gymapi.Transform()
-        pose.r = gymapi.Quat(*hand_rotation[1:], hand_rotation[0])
-        pose.p = gymapi.Vec3(*hand_translation)
-        pose = test_rot * pose
+
+        # Set hand pose
+        hand_pose = gymapi.Transform()
+        hand_pose.r = gymapi.Quat(*hand_rotation[1:], hand_rotation[0])
+        hand_pose.p = gymapi.Vec3(*hand_translation)
+        hand_pose = test_rot * hand_pose
+
+        # Create hand
         hand_actor_handle = gym.create_actor(
-            env, self.hand_asset, pose, "shand", 0, -1)
+            env, self.hand_asset, hand_pose, "shand", 0, -1)
         self.hand_handles.append(hand_actor_handle)
+
+        # Set hand dof props
         hand_props = gym.get_actor_dof_properties(env, hand_actor_handle)
         hand_props["driveMode"].fill(gymapi.DOF_MODE_POS)
         hand_props["stiffness"].fill(1000)
         hand_props["damping"].fill(0.0)
         gym.set_actor_dof_properties(env, hand_actor_handle, hand_props)
+
+        # Set hand dof states
         dof_states = gym.get_actor_dof_states(env, hand_actor_handle,
                                               gymapi.STATE_ALL)
         for i, joint in enumerate(self.joint_names):
@@ -235,7 +180,7 @@ class IsaacValidator():
             dof_states["pos"][joint_idx] = hand_qpos[i]
         gym.set_actor_dof_states(env, hand_actor_handle, dof_states,
                                  gymapi.STATE_ALL)
-        if target_qpos != None:
+        if target_qpos is not None:
             for i, joint in enumerate(self.joint_names):
                 joint_idx = gym.find_actor_dof_index(env, hand_actor_handle,
                                                      joint,
@@ -244,8 +189,7 @@ class IsaacValidator():
         gym.set_actor_dof_position_targets(env, hand_actor_handle,
                                            dof_states["pos"])
 
-        hand_shape_props = gym.get_actor_rigid_shape_properties(
-            env, hand_actor_handle)
+        # Store hand rigid body set
         hand_rigid_body_set = set()
         for i in range(
                 gym.get_actor_rigid_body_count(env, hand_actor_handle)):
@@ -253,21 +197,28 @@ class IsaacValidator():
                 gym.get_actor_rigid_body_index(env, hand_actor_handle, i,
                                                gymapi.DOMAIN_ENV))
         self.hand_rigid_body_sets.append(hand_rigid_body_set)
+
+        # Set hand shape props
+        hand_shape_props = gym.get_actor_rigid_shape_properties(
+            env, hand_actor_handle)
         for i in range(len(hand_shape_props)):
             hand_shape_props[i].friction = self.hand_friction
         gym.set_actor_rigid_shape_properties(env, hand_actor_handle,
                                              hand_shape_props)
 
-        pose = gymapi.Transform()
-        pose.p = gymapi.Vec3(0, 0, 0)
-        pose.r = gymapi.Quat(0, 0, 0, 1)
-        pose = test_rot * pose
+        # Set obj pose
+        obj_pose = gymapi.Transform()
+        obj_pose.p = gymapi.Vec3(0, 0, 0)
+        obj_pose.r = gymapi.Quat(0, 0, 0, 1)
+        obj_pose = test_rot * obj_pose
+
+        # Create obj
         obj_actor_handle = gym.create_actor(
-            env, self.obj_asset, pose, "obj", 0, 1)
+            env, self.obj_asset, obj_pose, "obj", 0, 1)
         self.obj_handles.append(obj_actor_handle)
         gym.set_actor_scale(env, obj_actor_handle, obj_scale)
-        obj_shape_props = gym.get_actor_rigid_shape_properties(
-            env, obj_actor_handle)
+
+        # Store obj rigid body set
         obj_rigid_body_set = set()
         for i in range(
                 gym.get_actor_rigid_body_count(env, obj_actor_handle)):
@@ -275,6 +226,10 @@ class IsaacValidator():
                 gym.get_actor_rigid_body_index(env, obj_actor_handle, i,
                                                gymapi.DOMAIN_ENV))
         self.obj_rigid_body_sets.append(obj_rigid_body_set)
+
+        # Set obj shape props
+        obj_shape_props = gym.get_actor_rigid_shape_properties(
+            env, obj_actor_handle)
         for i in range(len(obj_shape_props)):
             obj_shape_props[i].friction = self.obj_friction
         gym.set_actor_rigid_shape_properties(env, obj_actor_handle,
@@ -309,6 +264,8 @@ class IsaacValidator():
         for i, env in enumerate(self.envs):
             contacts = gym.get_env_rigid_contacts(env)
             flag = False
+
+            # TODO: Maybe count number of contacts
             for contact in contacts:
                 body0 = contact['body0']
                 body1 = contact['body1']

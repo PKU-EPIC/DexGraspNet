@@ -157,7 +157,7 @@ if __name__ == '__main__':
         sim.set_asset("open_ai_assets", "hand/shadow_hand.xml",
                        os.path.join(args.mesh_path, args.object_code, "coacd"), "coacd.urdf")
         index = args.index
-        sim.add_env_single(rotations[index], translations[index], hand_poses[index],
+        sim.add_env_single_test_rotation(rotations[index], translations[index], hand_poses[index],
                            scale_array[index], 0)
         result = sim.run_sim()
         print(f"result = {result}")
@@ -172,7 +172,7 @@ if __name__ == '__main__':
             sim.set_asset("open_ai_assets", "hand/shadow_hand.xml",
                            os.path.join(args.mesh_path, args.object_code, "coacd"), "coacd.urdf")
             for index in range(offset, offset_):
-                sim.add_env(rotations[index], translations[index], hand_poses[index],
+                sim.add_env_all_test_rotations(rotations[index], translations[index], hand_poses[index],
                             scale_array[index])
             result = [*result, *sim.run_sim()]
             sim.reset_simulator()
