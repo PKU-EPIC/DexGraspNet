@@ -29,6 +29,8 @@ from torch.multiprocessing import set_start_method
 from typing import List, Tuple
 import trimesh
 import plotly.graph_objects as go
+import wandb
+from datetime import datetime
 
 try:
     set_start_method("spawn")
@@ -65,21 +67,28 @@ def get_meshes(
 ) -> Tuple[trimesh.Trimesh, trimesh.Trimesh]:
     idx = object_idx * batch_size_each + batch_idx
 
-    # Get hand pose
+    # Get hand mesh
     hand_mesh = hand_model.get_trimesh_data(i=idx)
 
-    object_code = object_model.object_code_list[object_idx]
-    mesh_path = object_model.data_root_path
-    object_mesh_origin = trimesh.load(
-        os.path.join(mesh_path, object_code, "coacd/decomposed.obj")
-    )
+    # Get object mesh
     scale = object_model.object_scale_tensor[object_idx][batch_idx].item()
-    object_mesh = object_mesh_origin.copy().apply_scale(scale)
+    object_mesh = object_model.object_mesh_list[object_idx].copy().apply_scale(scale)
     return hand_mesh, object_mesh
 
 
 def generate(args_list):
     args, object_code_list, id, gpu_list = args_list
+
+    # Log to wandb
+    extra_name_info = ""
+    time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    name = f"{extra_name_info}_{time_str}" if len(extra_name_info) > 0 else time_str
+    wandb.init(
+        entity="tylerlum",
+        project="DexGraspNet_v1",
+        name=name,
+        config=args,
+    )
 
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -87,7 +96,6 @@ def generate(args_list):
     # prepare models
 
     n_objects = len(object_code_list)
-
     worker = multiprocessing.current_process()._identity[0]
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_list[worker - 1]
     device = torch.device("cuda")
@@ -138,7 +146,11 @@ def generate(args_list):
 
     energy.sum().backward(retain_graph=True)
 
-    for step in tqdm(range(1, args.n_iter + 1)):
+    idx_to_visualize = 0
+    for step in tqdm(range(1, args.n_iter + 1), desc=f"optimizing {id}"):
+        wandb_log_dict = {}
+        wandb_log_dict["optimization_step"] = step
+
         s = optimizer.try_step()
 
         optimizer.zero_grad()
@@ -154,7 +166,7 @@ def generate(args_list):
         new_energy.sum().backward(retain_graph=True)
 
         with torch.no_grad():
-            accept, t = optimizer.accept_step(energy, new_energy)
+            accept, temperature = optimizer.accept_step(energy, new_energy)
 
             energy[accept] = new_energy[accept]
             E_dis[accept] = new_E_dis[accept]
@@ -163,17 +175,37 @@ def generate(args_list):
             E_spen[accept] = new_E_spen[accept]
             E_joints[accept] = new_E_joints[accept]
 
+        # Log
+        wandb_log_dict.update({
+            "accept": accept.sum().item(),
+            "temperature": temperature.item(),
+            "energy": energy.mean().item(),
+            "E_fc": E_fc.mean().item(),
+            "E_dis": E_dis.mean().item(),
+            "E_pen": E_pen.mean().item(),
+            "E_spen": E_spen.mean().item(),
+            "E_joints": E_joints.mean().item(),
+            f"accept_{idx_to_visualize}": accept[idx_to_visualize].item(),
+            f"energy_{idx_to_visualize}": energy[idx_to_visualize].item(),
+            f"E_fc_{idx_to_visualize}": E_fc[idx_to_visualize].item(),
+            f"E_dis_{idx_to_visualize}": E_dis[idx_to_visualize].item(),
+            f"E_pen_{idx_to_visualize}": E_pen[idx_to_visualize].item(),
+            f"E_spen_{idx_to_visualize}": E_spen[idx_to_visualize].item(),
+            f"E_joints_{idx_to_visualize}": E_joints[idx_to_visualize].item(),
+        })
+
         # Visualize
-        print("ABOUT TO SHOW")
-        fig = go.Figure()
-        plots = [
-            *hand_model.get_plotly_data(i=0, with_contact_points=True),
-            *object_model.get_plotly_data(i=0),
-        ]
-        for plot in plots:
-            fig.add_trace(plot)
-        fig.show()
-        print("SHOWING")
+        if step % 100 == 0:
+            fig = go.Figure()
+            plots = [
+                *hand_model.get_plotly_data(i=idx_to_visualize, with_contact_points=True),
+                *object_model.get_plotly_data(i=idx_to_visualize),
+            ]
+            for plot in plots:
+                fig.add_trace(plot)
+            wandb_log_dict[f"hand_object_visualization_{idx_to_visualize}"] = fig
+        wandb.log(wandb_log_dict)
+
 
     # save results
     translation_names = ["WRJTx", "WRJTy", "WRJTz"]
