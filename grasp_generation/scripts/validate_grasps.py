@@ -160,7 +160,9 @@ if __name__ == '__main__':
         sim.add_env_single(rotations[index], translations[index], hand_poses[index],
                            scale_array[index], 0)
         result = sim.run_sim()
-        print(result)
+        print(f"result = {result}")
+        print(f"E_pen < args.penetration_threshold = {E_pen_array[index]:.7f} < {args.penetration_threshold:.7f} = {E_pen_array[index] < args.penetration_threshold}")
+        estimated = E_pen_array < args.penetration_threshold
     else:
         simulated = np.zeros(batch_size, dtype=np.bool8)
         offset = 0
