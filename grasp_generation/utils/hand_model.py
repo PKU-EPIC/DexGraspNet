@@ -362,3 +362,24 @@ class HandModel:
                 contact_points = contact_points @ pose[:3, :3].T + pose[:3, 3]
             data.append(go.Scatter3d(x=contact_points[:, 0], y=contact_points[:, 1], z=contact_points[:, 2], mode='markers', marker=dict(color='red', size=5)))
         return data
+
+    def get_trimesh_data(self, i):
+        """
+        Get full mesh
+
+        Returns
+        -------
+        data: trimesh.Trimesh
+        """
+        import trimesh
+        data = trimesh.Trimesh()
+        for link_name in self.mesh:
+            v = self.current_status[link_name].transform_points(
+                self.mesh[link_name]['vertices'])
+            if len(v.shape) == 3:
+                v = v[i]
+            v = v @ self.global_rotation[i].T + self.global_translation[i]
+            v = v.detach().cpu()
+            f = self.mesh[link_name]['faces'].detach().cpu()
+            data += trimesh.Trimesh(vertices=v, faces=f)
+        return data
