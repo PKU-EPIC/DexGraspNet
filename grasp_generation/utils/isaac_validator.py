@@ -310,12 +310,13 @@ class IsaacValidator():
             contacts = gym.get_env_rigid_contacts(env)
             flag = False
             for contact in contacts:
-                if (contact[2] in self.hand_rigid_body_sets[i]) and (
-                        contact[3] in self.obj_rigid_body_sets[i]):
-                    flag = True
-                    break
-                if (contact[3] in self.hand_rigid_body_sets[i]) and (
-                        contact[2] in self.obj_rigid_body_sets[i]):
+                body0 = contact['body0']
+                body1 = contact['body1']
+                hand_obj_in_contact = (
+                    (body0 in self.hand_rigid_body_sets[i] and body1 in self.obj_rigid_body_sets[i])
+                    or (body1 in self.hand_rigid_body_sets[i] and body0 in self.obj_rigid_body_sets[i])
+                )
+                if hand_obj_in_contact:
                     flag = True
                     break
             success.append(flag)
