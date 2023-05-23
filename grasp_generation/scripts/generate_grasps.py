@@ -198,7 +198,7 @@ def generate(args_list):
             fig_title = f"hand_object_visualization_{idx_to_visualize}"
             fig = go.Figure(
                 layout=go.Layout(
-                    scene=dict(xaxis=dict(title="X"), yaxis=dict(title="Y"), zaxis=dict(title="Z")),
+                    scene=dict(xaxis=dict(title="X"), yaxis=dict(title="Y"), zaxis=dict(title="Z"), aspectmode="cube"),
                     showlegend=True,
                     title=fig_title,
                 )
