@@ -9,6 +9,7 @@ from isaacgym import gymutil
 import math
 from time import sleep
 from tqdm import tqdm
+from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 
 gym = gymapi.acquire_gym()
 
@@ -16,6 +17,7 @@ gym = gymapi.acquire_gym()
 class IsaacValidator():
 
     def __init__(self,
+                 hand_model_type=HandModelType.SHADOW_HAND,
                  mode='direct',
                  hand_friction=3.,
                  obj_friction=3.,
@@ -37,30 +39,7 @@ class IsaacValidator():
         self.obj_handles = []
         self.hand_rigid_body_sets = []
         self.obj_rigid_body_sets = []
-        self.joint_names = joint_names = [
-            'robot0:FFJ3',
-            'robot0:FFJ2',
-            'robot0:FFJ1',
-            'robot0:FFJ0',
-            'robot0:MFJ3',
-            'robot0:MFJ2',
-            'robot0:MFJ1',
-            'robot0:MFJ0',
-            'robot0:RFJ3',
-            'robot0:RFJ2',
-            'robot0:RFJ1',
-            'robot0:RFJ0',
-            'robot0:LFJ4',
-            'robot0:LFJ3',
-            'robot0:LFJ2',
-            'robot0:LFJ1',
-            'robot0:LFJ0',
-            'robot0:THJ4',
-            'robot0:THJ3',
-            'robot0:THJ2',
-            'robot0:THJ1',
-            'robot0:THJ0'
-        ]
+        self.joint_names = handmodeltype_to_joint_names[hand_model_type]
         self.hand_asset = None
         self.obj_asset = None
 

@@ -16,9 +16,11 @@ import numpy as np
 import transforms3d
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
+from utils.hand_model_type import translation_names, rot_names, HandModelType, handmodeltype_to_joint_names
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType, choices=list(HandModelType))
     parser.add_argument('--gpu', default=3, type=int)
     parser.add_argument('--val_batch', default=500, type=int)
     parser.add_argument('--mesh_path', default="../data/meshdata", type=str)
@@ -37,15 +39,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    translation_names = ['WRJTx', 'WRJTy', 'WRJTz']
-    rot_names = ['WRJRx', 'WRJRy', 'WRJRz']
-    joint_names = [
-        'robot0:FFJ3', 'robot0:FFJ2', 'robot0:FFJ1', 'robot0:FFJ0',
-        'robot0:MFJ3', 'robot0:MFJ2', 'robot0:MFJ1', 'robot0:MFJ0',
-        'robot0:RFJ3', 'robot0:RFJ2', 'robot0:RFJ1', 'robot0:RFJ0',
-        'robot0:LFJ4', 'robot0:LFJ3', 'robot0:LFJ2', 'robot0:LFJ1', 'robot0:LFJ0',
-        'robot0:THJ4', 'robot0:THJ3', 'robot0:THJ2', 'robot0:THJ1', 'robot0:THJ0'
-    ]
+    joint_names = handmodeltype_to_joint_names[args.hand_model_type]
 
     os.environ.pop("CUDA_VISIBLE_DEVICES")
     os.makedirs(args.result_path, exist_ok=True)
@@ -129,9 +123,9 @@ if __name__ == '__main__':
             hand_state.grad.zero_()
 
     if (args.index is not None):
-        sim = IsaacValidator(gpu=args.gpu, mode="gui")
+        sim = IsaacValidator(hand_model_type=args.hand_model_type, gpu=args.gpu, mode="gui")
     else:
-        sim = IsaacValidator(gpu=args.gpu)
+        sim = IsaacValidator(hand_model_type=args.hand_model_type, gpu=args.gpu)
 
     data_dict = np.load(os.path.join(
         args.grasp_path, args.object_code + '.npy'), allow_pickle=True)

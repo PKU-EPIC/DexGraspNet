@@ -24,6 +24,7 @@ from utils.initializations import initialize_convex_hull
 from utils.energy import cal_energy
 from utils.optimizer import Annealing
 from utils.rot6d import robust_compute_rotation_matrix_from_ortho6d
+from utils.hand_model_type import translation_names, rot_names, handmodeltype_to_joint_names, HandModelType
 
 from torch.multiprocessing import set_start_method
 from typing import List, Tuple
@@ -44,8 +45,6 @@ np.seterr(all="raise")
 
 def get_qpos(
     hand_pose: torch.Tensor,
-    translation_names: List[str],
-    rot_names: List[str],
     joint_names: List[str],
 ):
     assert len(hand_pose.shape) == 1
@@ -213,32 +212,7 @@ def generate(args_list):
         wandb.log(wandb_log_dict)
 
     # save results
-    translation_names = ["WRJTx", "WRJTy", "WRJTz"]
-    rot_names = ["WRJRx", "WRJRy", "WRJRz"]
-    joint_names = [
-        "robot0:FFJ3",
-        "robot0:FFJ2",
-        "robot0:FFJ1",
-        "robot0:FFJ0",
-        "robot0:MFJ3",
-        "robot0:MFJ2",
-        "robot0:MFJ1",
-        "robot0:MFJ0",
-        "robot0:RFJ3",
-        "robot0:RFJ2",
-        "robot0:RFJ1",
-        "robot0:RFJ0",
-        "robot0:LFJ4",
-        "robot0:LFJ3",
-        "robot0:LFJ2",
-        "robot0:LFJ1",
-        "robot0:LFJ0",
-        "robot0:THJ4",
-        "robot0:THJ3",
-        "robot0:THJ2",
-        "robot0:THJ1",
-        "robot0:THJ0",
-    ]
+    joint_names = handmodeltype_to_joint_names[args.hand_model_type]
     for i, object_code in enumerate(object_code_list):
         data_list = []
         for j in range(args.batch_size_each):
@@ -279,6 +253,7 @@ def generate(args_list):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # experiment settings
+    parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType, choices=list(HandModelType))
     parser.add_argument("--wandb_name", default="", type=str)
     parser.add_argument("--visualization_freq", default=2000, type=int)
     parser.add_argument("--result_path", default="../data/graspdata", type=str)

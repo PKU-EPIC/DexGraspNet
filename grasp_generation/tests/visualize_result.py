@@ -18,26 +18,20 @@ import plotly.graph_objects as go
 
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
-
-translation_names = ['WRJTx', 'WRJTy', 'WRJTz']
-rot_names = ['WRJRx', 'WRJRy', 'WRJRz']
-joint_names = [
-    'robot0:FFJ3', 'robot0:FFJ2', 'robot0:FFJ1', 'robot0:FFJ0',
-    'robot0:MFJ3', 'robot0:MFJ2', 'robot0:MFJ1', 'robot0:MFJ0',
-    'robot0:RFJ3', 'robot0:RFJ2', 'robot0:RFJ1', 'robot0:RFJ0',
-    'robot0:LFJ4', 'robot0:LFJ3', 'robot0:LFJ2', 'robot0:LFJ1', 'robot0:LFJ0',
-    'robot0:THJ4', 'robot0:THJ3', 'robot0:THJ2', 'robot0:THJ1', 'robot0:THJ0'
-]
+from utils.hand_model_type import translation_names, rot_names, handmodeltype_to_joint_names, HandModelType
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType, choices=list(HandModelType))
     parser.add_argument('--object_code', type=str, default='sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2')
     parser.add_argument('--num', type=int, default=0)
     parser.add_argument('--result_path', type=str, default='../data/dataset')
     args = parser.parse_args()
 
     device = 'cpu'
+
+    joint_names = handmodeltype_to_joint_names[args.hand_model_type]
 
     # load results
     data_dict = np.load(os.path.join(args.result_path, args.object_code + '.npy'), allow_pickle=True)[args.num]

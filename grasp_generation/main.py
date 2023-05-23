@@ -23,12 +23,14 @@ from utils.energy import cal_energy
 from utils.optimizer import Annealing
 from utils.logger import Logger
 from utils.rot6d import robust_compute_rotation_matrix_from_ortho6d
+from utils.hand_model_type import translation_names, rot_names, handmodeltype_to_joint_names, HandModelType
 
 
 # prepare arguments
 
 parser = argparse.ArgumentParser()
 # experiment settings
+parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType, choices=list(HandModelType))
 parser.add_argument('--seed', default=1, type=int)
 parser.add_argument('--gpu', default="2", type=str)
 parser.add_argument('--object_code_list', default=
@@ -171,15 +173,7 @@ for step in tqdm(range(1, args.n_iter + 1), desc='optimizing'):
 
 
 # save results
-translation_names = ['WRJTx', 'WRJTy', 'WRJTz']
-rot_names = ['WRJRx', 'WRJRy', 'WRJRz']
-joint_names = [
-    'robot0:FFJ3', 'robot0:FFJ2', 'robot0:FFJ1', 'robot0:FFJ0',
-    'robot0:MFJ3', 'robot0:MFJ2', 'robot0:MFJ1', 'robot0:MFJ0',
-    'robot0:RFJ3', 'robot0:RFJ2', 'robot0:RFJ1', 'robot0:RFJ0',
-    'robot0:LFJ4', 'robot0:LFJ3', 'robot0:LFJ2', 'robot0:LFJ1', 'robot0:LFJ0',
-    'robot0:THJ4', 'robot0:THJ3', 'robot0:THJ2', 'robot0:THJ1', 'robot0:THJ0'
-]
+joint_names = handmodeltype_to_joint_names[args.hand_model_type]
 try:
     shutil.rmtree(os.path.join('../data/experiments', args.name, 'results'))
 except FileNotFoundError:
