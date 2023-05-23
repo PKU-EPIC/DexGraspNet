@@ -86,10 +86,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('running on', device)
 
 hand_model = HandModel(
-    mjcf_path='mjcf/shadow_hand_wrist_free.xml',
-    mesh_path='mjcf/meshes',
-    contact_points_path='mjcf/contact_points.json',
-    penetration_points_path='mjcf/penetration_points.json',
+    hand_model_type=args.hand_model_type,
     device=device
 )
 

@@ -16,6 +16,7 @@ import trimesh as tm
 import transforms3d
 import plotly.graph_objects as go
 from utils.hand_model import HandModel
+from utils.hand_model_type import HandModelType, handmodeltype_to_joint_angles_mu, handmodeltype_to_rotation_hand
 
 
 torch.manual_seed(1)
@@ -26,18 +27,16 @@ if __name__ == '__main__':
     device = torch.device('cpu')
 
     # hand model
+    hand_model_type = HandModelType.SHADOW_HAND
 
     hand_model = HandModel(
-        mjcf_path='mjcf/shadow_hand_wrist_free.xml',
-        mesh_path='mjcf/meshes',
-        contact_points_path='mjcf/contact_points.json',
-        penetration_points_path='mjcf/penetration_points.json',
+        hand_model_type=hand_model_type,
         n_surface_points=2000,
         device=device
     )
-    joint_angles = torch.tensor([0.1, 0, 0.6, 0, 0, 0, 0.6, 0, -0.1, 0, 0.6, 0, 0, -0.2, 0, 0.6, 0, 0, 1.2, 0, -0.2, 0], dtype=torch.float, device=device)
+    joint_angles = handmodeltype_to_joint_angles_mu[hand_model_type].to(device)
 
-    rotation = torch.tensor(transforms3d.euler.euler2mat(0, -np.pi / 3, 0, axes='rzxz'), dtype=torch.float, device=device)
+    rotation = handmodeltype_to_rotation_hand[hand_model_type].to(device)
     hand_pose = torch.cat([torch.tensor([0, 0, 0], dtype=torch.float, device=device), rotation.T.ravel()[:6], joint_angles])
     hand_model.set_parameters(hand_pose.unsqueeze(0))
 
