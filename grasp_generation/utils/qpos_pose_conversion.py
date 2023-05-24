@@ -3,7 +3,7 @@ from utils.rot6d import robust_compute_rotation_matrix_from_ortho6d
 import transforms3d
 import torch
 import numpy as np
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 
 def pose_to_qpos(
@@ -38,3 +38,12 @@ def qpos_to_pose(
     else:
         assert len(hand_pose.shape) == 1
     return hand_pose
+
+
+def qpos_to_translation_rot_jointangles(
+    qpos: Dict[str, Any], joint_names: List[str]
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    translation = np.array([qpos[name] for name in translation_names])
+    rot = np.array([qpos[name] for name in rot_names])
+    joint_angles = np.array([qpos[name] for name in joint_names])
+    return translation, rot, joint_angles

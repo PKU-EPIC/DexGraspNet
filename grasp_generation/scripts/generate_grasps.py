@@ -179,7 +179,7 @@ def generate(args_list):
             fig_title = f"hand_object_visualization_{idx_to_visualize}"
             fig = go.Figure(
                 layout=go.Layout(
-                    scene=dict(xaxis=dict(title="X"), yaxis=dict(title="Y"), zaxis=dict(title="Z"), aspectmode="cube"),
+                    scene=dict(xaxis=dict(title="X"), yaxis=dict(title="Y"), zaxis=dict(title="Z"), aspectmode="data"),
                     showlegend=True,
                     title=fig_title,
                 )
@@ -296,7 +296,12 @@ if __name__ == "__main__":
             lines = f.readlines()
             object_code_list_all = [line[:-1] for line in lines]
     else:
-        object_code_list_all = os.listdir(args.data_root_path)
+        # object_code_list_all = os.listdir(args.data_root_path)
+        # TODO: REMOVE HACK TO USE SAME AS BEFORE
+        print("HACK: using graspdata_2023-05-22_distalonly")
+        object_code_list_all = [f.split('.')[0] for f in os.listdir('../data/graspdata_2023-05-22_distalonly')]
+        print(f"len(object_code_list_all): {len(object_code_list_all)}")
+        print(f"First 10: {object_code_list_all[:10]}")
 
     if args.object_code_list is not None:
         object_code_list = args.object_code_list

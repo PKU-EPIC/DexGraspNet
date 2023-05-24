@@ -64,7 +64,7 @@ class IsaacValidator():
         self.camera_props = gymapi.CameraProperties()
         self.camera_props.width = 800
         self.camera_props.height = 600
-        self.camera_props.use_collision_geometry = True
+        self.camera_props.use_collision_geometry = True  # TODO: Maybe change this to see true visual
 
         # set viewer
         self.viewer = None
@@ -127,8 +127,11 @@ class IsaacValidator():
         test_rot = self.test_rotations[test_rotation_index]
 
         # Create env
-        env = gym.create_env(self.sim, gymapi.Vec3(-1, -1, -1),
-                             gymapi.Vec3(1, 1, 1), 6)
+        env = gym.create_env(self.sim,
+                             gymapi.Vec3(-1, -1, -1),
+                             gymapi.Vec3(1, 1, 1),
+                             len(self.test_rotations),
+                             )
         self.envs.append(env)
 
         # Set hand pose
@@ -139,7 +142,7 @@ class IsaacValidator():
 
         # Create hand
         hand_actor_handle = gym.create_actor(
-            env, self.hand_asset, hand_pose, "shand", 0, -1)
+            env, self.hand_asset, hand_pose, "hand", 0, -1)
         self.hand_handles.append(hand_actor_handle)
 
         # Set hand dof props
@@ -304,7 +307,9 @@ class IsaacValidator():
         N_SECONDS = 5
         print(f"Sleeping for {N_SECONDS} seconds...")
         sleep(N_SECONDS)
+        print("Done sleeping")
 
     def _pause_sim_callback(self):
         self.is_paused = not self.is_paused
+        print(f"Simulation is {'paused' if self.is_paused else 'unpaused'}")
     ## KEYBOARD EVENT SUBSCRIPTIONS END ##
