@@ -284,7 +284,7 @@ class IsaacValidator():
         if self.has_viewer:
             self.event_to_key = {
                 "SLEEP": gymapi.KEY_S,
-                "PAUSE_SIM": gymapi.KEY_P,
+                "PAUSE_SIM": gymapi.KEY_SPACE,
             }
             self.event_to_function  = {
                 "SLEEP": self._sleep_callback,
