@@ -51,15 +51,27 @@ class HandModel:
         self.device = device
 
         # load articulation
+        # should create:
+        #   * self.chain: pytorch_kinematics.Chain
+        #   * self.mesh dict with link_name keys and dict values with:
+        #       * vertices: (N, 3) torch.FloatTensor
+        #       * faces: (N, 3) torch.LongTensor
+        #       * contact_candidates: (M, 3) torch.FloatTensor
+        #       * penetration_keypoints: (K, 3) torch.FloatTensor
+        #       * surface_points: (S, 3) torch.FloatTensor
+        #       * some others that are type and link specific
+        #   * self.areas dict with link_name keys and float values
+        #   * self.n_dofs: int
+        #   * self.joints_upper: (D,) torch.FloatTensor
+        #   * self.joints_lower: (D,) torch.FloatTensor
         if self.hand_model_type == HandModelType.ALLEGRO_HAND:
-            self._init_allegro()
+            self._init_allegro(n_surface_points=n_surface_points)
         elif self.hand_model_type == HandModelType.SHADOW_HAND:
-            self._init_shadow()
+            self._init_shadow(n_surface_points=n_surface_points)
         else:
             raise ValueError(f"Unknown hand model type: {self.hand_model_type}")
 
         # indexing
-
         self.link_name_to_link_index = dict(
             zip([link_name for link_name in self.mesh], range(len(self.mesh)))
         )
@@ -97,7 +109,6 @@ class HandModel:
         self.n_keypoints = self.penetration_keypoints.shape[0]
 
         # parameters
-
         self.hand_pose = None
         self.contact_point_indices = None
         self.global_translation = None
@@ -105,38 +116,47 @@ class HandModel:
         self.current_status = None
         self.contact_points = None
 
-    def _init_allegro(self):
-        urdf_path = "allegro_hand_description/allegro_hand_description_right.urdf"
-        contact_points_path = "allegro_hand_description/contact_points.json"
-        penetration_points_path = "allegro_hand_description/penetration_points.json"
+    def _init_allegro(
+        self,
+        urdf_path="allegro_hand_description/allegro_hand_description_right.urdf",
+        contact_points_path="allegro_hand_description/contact_points.json",
+        penetration_points_path="allegro_hand_description/penetration_points.json",
+        n_surface_points=0,
+    ):
         device = self.device
 
         self.chain = pk.build_chain_from_urdf(open(urdf_path).read()).to(
             dtype=torch.float, device=device
         )
-        self.robot = Robot.from_xml_file(urdf_path)
+        robot = Robot.from_xml_file(urdf_path)
         self.n_dofs = len(self.chain.get_joint_parameter_names())
 
         penetration_points = json.load(open(penetration_points_path, "r"))
         contact_points = json.load(open(contact_points_path, "r"))
 
         self.mesh = {}
-        for link in self.robot.links:
+        self.areas = {}
+        for link in robot.links:
             if link.visual is None or link.collision is None:
                 continue
             self.mesh[link.name] = {}
+
             # load collision mesh
             collision = link.collision
             if type(collision.geometry) == Sphere:
                 link_mesh = tm.primitives.Sphere(radius=collision.geometry.radius)
                 self.mesh[link.name]["radius"] = collision.geometry.radius
-            if type(collision.geometry) == Box:
+            elif type(collision.geometry) == Box:
                 # link_mesh = tm.primitives.Box(extents=collision.geometry.size)
                 link_mesh = tm.load_mesh(
                     os.path.join(os.path.dirname(urdf_path), "meshes", "box.obj"),
                     process=False,
                 )
                 link_mesh.vertices *= np.array(collision.geometry.size) / 2
+            else:
+                raise ValueError(
+                    f"Unknown collision geometry: {type(collision.geometry)}"
+                )
             vertices = torch.tensor(
                 link_mesh.vertices, dtype=torch.float, device=device
             )
@@ -175,6 +195,7 @@ class HandModel:
                 self.mesh[link.name]["face_verts"] = index_vertices_by_faces(
                     vertices, faces
                 )
+
             # load visual mesh
             visual = link.visual
             filename = os.path.join(
@@ -182,33 +203,35 @@ class HandModel:
                 visual.geometry.filename[10:],
             )
             link_mesh = tm.load_mesh(filename)
-            vertices = torch.tensor(
+            visual_vertices = torch.tensor(
                 link_mesh.vertices, dtype=torch.float, device=device
             )
-            faces = torch.tensor(link_mesh.faces, dtype=torch.long, device=device)
+            visual_faces = torch.tensor(
+                link_mesh.faces, dtype=torch.long, device=device
+            )
             if hasattr(visual.geometry, "scale") and visual.geometry.scale is None:
                 visual.geometry.scale = [1, 1, 1]
-            scale = torch.tensor(
+            visual_scale = torch.tensor(
                 getattr(visual.geometry, "scale", [1, 1, 1]),
                 dtype=torch.float,
                 device=device,
             )
-            translation = torch.tensor(
+            visual_translation = torch.tensor(
                 getattr(visual.origin, "xyz", [0, 0, 0]),
                 dtype=torch.float,
                 device=device,
             )
-            rotation = torch.tensor(
+            visual_rotation = torch.tensor(
                 transforms3d.euler.euler2mat(*getattr(visual.origin, "rpy", [0, 0, 0])),
                 dtype=torch.float,
                 device=device,
             )
-            vertices = vertices * scale
-            vertices = vertices @ rotation.T + translation
+            visual_vertices = visual_vertices * visual_scale
+            visual_vertices = visual_vertices @ visual_rotation.T + visual_translation
             self.mesh[link.name].update(
                 {
-                    "visual_vertices": vertices,
-                    "visual_faces": faces,
+                    "visual_vertices": visual_vertices,
+                    "visual_faces": visual_faces,
                 }
             )
             # load contact candidates and penetration keypoints
@@ -224,11 +247,14 @@ class HandModel:
                     "penetration_keypoints": penetration_keypoints,
                 }
             )
+            self.areas[link.name] = tm.Trimesh(
+                vertices.cpu().numpy(), faces.cpu().numpy()
+            ).area.item()
 
         self.joints_lower = torch.tensor(
             [
                 joint.limit.lower
-                for joint in self.robot.joints
+                for joint in robot.joints
                 if joint.joint_type == "revolute"
             ],
             dtype=torch.float,
@@ -237,19 +263,39 @@ class HandModel:
         self.joints_upper = torch.tensor(
             [
                 joint.limit.upper
-                for joint in self.robot.joints
+                for joint in robot.joints
                 if joint.joint_type == "revolute"
             ],
             dtype=torch.float,
             device=device,
         )
 
-    def _init_shadow(self):
-        mjcf_path = "mjcf/shadow_hand_wrist_free.xml"
-        mesh_path = "mjcf/meshes"
-        contact_points_path = "mjcf/contact_points.json"
-        penetration_points_path = "mjcf/penetration_points.json"
+        self._sample_surface_points(n_surface_points)
 
+    def _init_shadow(
+        self,
+        mjcf_path="mjcf/shadow_hand_wrist_free.xml",
+        mesh_path="mjcf/meshes",
+        contact_points_path="mjcf/contact_points.json",
+        penetration_points_path="mjcf/penetration_points.json",
+        n_surface_points=0,
+    ):
+        """
+        Create a Hand Model for a MJCF robot
+
+        Parameters
+        ----------
+        mjcf_path: str
+            path to mjcf file
+        mesh_path: str
+            path to mesh directory
+        contact_points_path: str
+            path to hand-selected contact candidates
+        penetration_points_path: str
+            path to hand-selected penetration keypoints
+        n_surface_points: int
+            number of points to sample from surface of hand, use fps
+        """
         device = self.device
 
         self.chain = pk.build_chain_from_mjcf(open(mjcf_path).read()).to(
@@ -273,7 +319,7 @@ class HandModel:
         # build mesh
 
         self.mesh = {}
-        areas = {}
+        self.areas = {}
 
         def build_mesh_recurse(body):
             if len(body.link.visuals) > 0:
@@ -349,7 +395,7 @@ class HandModel:
                     self.mesh[link_name]["face_verts"] = link_face_verts
                 else:
                     self.mesh[link_name]["geom_param"] = body.link.visuals[0].geom_param
-                areas[link_name] = tm.Trimesh(
+                self.areas[link_name] = tm.Trimesh(
                     link_vertices.cpu().numpy(), link_faces.cpu().numpy()
                 ).area.item()
             for children in body.children:
@@ -375,12 +421,13 @@ class HandModel:
         self.joints_lower = torch.stack(self.joints_lower).float().to(device)
         self.joints_upper = torch.stack(self.joints_upper).float().to(device)
 
-        # sample surface points
+        self._sample_surface_points(n_surface_points)
 
-        total_area = sum(areas.values())
+    def _sample_surface_points(self, n_surface_points):
+        total_area = sum(self.areas.values())
         num_samples = dict(
             [
-                (link_name, int(areas[link_name] / total_area * n_surface_points))
+                (link_name, int(self.areas[link_name] / total_area * n_surface_points))
                 for link_name in self.mesh
             ]
         )
