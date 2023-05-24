@@ -507,7 +507,7 @@ class HandModel:
         else:
             raise ValueError(f"Unknown hand model type: {self.hand_model_type}")
 
-    def _calc_distance_shadow(self, x):
+    def _cal_distance_shadow(self, x):
         """
         Calculate signed distances from object point clouds to hand surface meshes
 
