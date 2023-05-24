@@ -21,6 +21,7 @@ from utils.hand_model_type import (
     rot_names,
     HandModelType,
     handmodeltype_to_joint_names,
+    handmodeltype_to_hand_root_hand_file,
 )
 from utils.qpos_pose_conversion import qpos_to_pose, qpos_to_translation_rot_jointangles
 from typing import List
@@ -161,12 +162,12 @@ def main(args):
             .numpy()
         )
 
+    hand_root, hand_file = handmodeltype_to_hand_root_hand_file[args.hand_model_type]
+
     if args.index is not None:
         sim.set_asset(
-            hand_root="open_ai_assets",
-            hand_file="hand/shadow_hand.xml",
-            # hand_root="allegro_hand_description",
-            # hand_file="allegro_hand_description_right.urdf",
+            hand_root=hand_root,
+            hand_file=hand_file,
             obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
             obj_file="coacd.urdf",
         )
@@ -196,10 +197,8 @@ def main(args):
         for batch in range(batch_size // args.val_batch):
             offset_ = min(offset + args.val_batch, batch_size)
             sim.set_asset(
-                hand_root="open_ai_assets",
-                hand_file="hand/shadow_hand.xml",
-                # hand_root="allegro_hand_description",
-                # hand_file="allegro_hand_description_right.urdf",
+                hand_root=hand_root,
+                hand_file=hand_file,
                 obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
                 obj_file="coacd.urdf",
             )
