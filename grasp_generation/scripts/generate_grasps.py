@@ -205,6 +205,7 @@ def generate(args_list):
                 joint_names=joint_names,
             )
             qpos_st = pose_to_qpos(
+
                 hand_pose=hand_pose_st[idx].detach().cpu(),
                 joint_names=joint_names,
             )
@@ -231,7 +232,7 @@ def generate(args_list):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # experiment settings
-    parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType, choices=list(HandModelType))
+    parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType.from_string, choices=list(HandModelType))
     parser.add_argument("--wandb_name", default="", type=str)
     parser.add_argument("--visualization_freq", default=2000, type=int)
     parser.add_argument("--result_path", default="../data/graspdata", type=str)

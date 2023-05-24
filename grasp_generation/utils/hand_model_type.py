@@ -11,6 +11,16 @@ class HandModelType(Enum):
     ALLEGRO_HAND = auto()
     SHADOW_HAND = auto()
 
+    def __str__(self):
+        return self.name
+
+    @staticmethod
+    def from_string(s):
+        try:
+            return HandModelType[s]
+        except KeyError:
+            raise ValueError()
+
 
 _allegro_joint_names = [
     "joint_0.0",

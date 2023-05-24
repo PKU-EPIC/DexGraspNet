@@ -21,7 +21,7 @@ from utils.qpos_pose_conversion import qpos_to_pose
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType, choices=list(HandModelType))
+    parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType.from_string, choices=list(HandModelType))
     parser.add_argument('--gpu', default=3, type=int)
     parser.add_argument('--val_batch', default=500, type=int)
     parser.add_argument('--mesh_path', default="../data/meshdata", type=str)

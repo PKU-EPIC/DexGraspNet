@@ -23,7 +23,7 @@ from utils.qpos_pose_conversion import qpos_to_pose
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType, choices=list(HandModelType))
+    parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType.from_string, choices=list(HandModelType))
     parser.add_argument('--object_code', type=str, default='sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2')
     parser.add_argument('--num', type=int, default=0)
     parser.add_argument('--result_path', type=str, default='../data/dataset')

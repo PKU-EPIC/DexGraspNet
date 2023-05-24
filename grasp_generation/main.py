@@ -29,7 +29,7 @@ from utils.qpos_pose_conversion import pose_to_qpos
 
 parser = argparse.ArgumentParser()
 # experiment settings
-parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType, choices=list(HandModelType))
+parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType.from_string, choices=list(HandModelType))
 parser.add_argument('--seed', default=1, type=int)
 parser.add_argument('--gpu', default="2", type=str)
 parser.add_argument('--object_code_list', default=
