@@ -321,7 +321,7 @@ class HandModel:
         points = points @ self.global_rotation.transpose(1, 2) + self.global_translation.unsqueeze(1)
         return points
 
-    def get_plotly_data(self, i, opacity=0.5, color='lightblue', with_contact_points=False, pose=None):
+    def get_plotly_data(self, i, opacity=0.5, color='lightblue', with_contact_points=False, with_contact_candidates=False, pose=None):
         """
         Get visualization data for plotly.graph_objects
         
@@ -355,10 +355,36 @@ class HandModel:
             f = self.mesh[link_name]['faces'].detach().cpu()
             if pose is not None:
                 v = v @ pose[:3, :3].T + pose[:3, 3]
-            data.append(go.Mesh3d(x=v[:, 0], y=v[:, 1], z=v[:, 2], i=f[:, 0], j=f[:, 1], k=f[:, 2], color=color, opacity=opacity))
+            data.append(go.Mesh3d(x=v[:, 0], y=v[:, 1], z=v[:, 2], i=f[:, 0], j=f[:, 1], k=f[:, 2], color=color, opacity=opacity, name="hand"))
         if with_contact_points:
             contact_points = self.contact_points[i].detach().cpu()
             if pose is not None:
                 contact_points = contact_points @ pose[:3, :3].T + pose[:3, 3]
-            data.append(go.Scatter3d(x=contact_points[:, 0], y=contact_points[:, 1], z=contact_points[:, 2], mode='markers', marker=dict(color='red', size=5)))
+            data.append(go.Scatter3d(x=contact_points[:, 0], y=contact_points[:, 1], z=contact_points[:, 2], mode='markers', marker=dict(color='red', size=10), name="contact points"))
+        if with_contact_candidates:
+            contact_candidates = self.get_contact_candidates()[i].detach().cpu()
+            if pose is not None:
+                contact_candidates = contact_candidates @ pose[:3, :3].T + pose[:3, 3]
+            data.append(go.Scatter3d(x=contact_candidates[:, 0], y=contact_candidates[:, 1], z=contact_candidates[:, 2], mode='markers', marker=dict(color='blue', size=5), name="contact candidates"))
+        return data
+
+    def get_trimesh_data(self, i):
+        """
+        Get full mesh
+
+        Returns
+        -------
+        data: trimesh.Trimesh
+        """
+        import trimesh
+        data = trimesh.Trimesh()
+        for link_name in self.mesh:
+            v = self.current_status[link_name].transform_points(
+                self.mesh[link_name]['vertices'])
+            if len(v.shape) == 3:
+                v = v[i]
+            v = v @ self.global_rotation[i].T + self.global_translation[i]
+            v = v.detach().cpu()
+            f = self.mesh[link_name]['faces'].detach().cpu()
+            data += trimesh.Trimesh(vertices=v, faces=f)
         return data

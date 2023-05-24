@@ -51,6 +51,7 @@ if __name__ == '__main__':
     os.makedirs(args.result_path, exist_ok=True)
 
     if not args.no_force:
+        # Read in hand state and scale tensor
         device = torch.device(
             f'cuda:{args.gpu}' if torch.cuda.is_available() else 'cpu')
         data_dict = np.load(os.path.join(
@@ -70,7 +71,8 @@ if __name__ == '__main__':
             scale_tensor.append(scale)
         hand_state = torch.stack(hand_state).to(device).requires_grad_()
         scale_tensor = torch.tensor(scale_tensor).reshape(1, -1).to(device)
-        # print(scale_tensor.dtype)
+
+        # hand model
         hand_model = HandModel(
             mjcf_path='mjcf/shadow_hand_wrist_free.xml',
             mesh_path='mjcf/meshes',
@@ -80,6 +82,7 @@ if __name__ == '__main__':
             device=device
         )
         hand_model.set_parameters(hand_state)
+
         # object model
         object_model = ObjectModel(
             data_root_path=args.mesh_path,
@@ -125,9 +128,10 @@ if __name__ == '__main__':
             hand_state[:, 9:] += hand_state.grad[:, 9:] * args.grad_move
             hand_state.grad.zero_()
 
-    sim = IsaacValidator(gpu=args.gpu)
     if (args.index is not None):
         sim = IsaacValidator(gpu=args.gpu, mode="gui")
+    else:
+        sim = IsaacValidator(gpu=args.gpu)
 
     data_dict = np.load(os.path.join(
         args.grasp_path, args.object_code + '.npy'), allow_pickle=True)
@@ -147,7 +151,15 @@ if __name__ == '__main__':
                             for name in translation_names]))
         hand_poses.append(np.array([qpos[name] for name in joint_names]))
         scale_array.append(scale)
-        E_pen_array.append(data_dict[i]["E_pen"])
+
+        if "E_pen" in data_dict[i]:
+            E_pen_array.append(data_dict[i]["E_pen"])
+        elif args.index is not None:
+            print(f"Warning: E_pen not found in data_dict[{i}]")
+            print("This is expected behavior if you are validating already validated grasps")
+            E_pen_array.append(0)
+        else:
+            raise ValueError(f"E_pen not found in data_dict[{i}]")
     E_pen_array = np.array(E_pen_array)
     if not args.no_force:
         hand_poses = hand_state[:, 9:]
@@ -156,10 +168,12 @@ if __name__ == '__main__':
         sim.set_asset("open_ai_assets", "hand/shadow_hand.xml",
                        os.path.join(args.mesh_path, args.object_code, "coacd"), "coacd.urdf")
         index = args.index
-        sim.add_env_single(rotations[index], translations[index], hand_poses[index],
+        sim.add_env_single_test_rotation(rotations[index], translations[index], hand_poses[index],
                            scale_array[index], 0)
         result = sim.run_sim()
-        print(result)
+        print(f"result = {result}")
+        print(f"E_pen < args.penetration_threshold = {E_pen_array[index]:.7f} < {args.penetration_threshold:.7f} = {E_pen_array[index] < args.penetration_threshold}")
+        estimated = E_pen_array < args.penetration_threshold
     else:
         simulated = np.zeros(batch_size, dtype=np.bool8)
         offset = 0
@@ -169,7 +183,7 @@ if __name__ == '__main__':
             sim.set_asset("open_ai_assets", "hand/shadow_hand.xml",
                            os.path.join(args.mesh_path, args.object_code, "coacd"), "coacd.urdf")
             for index in range(offset, offset_):
-                sim.add_env(rotations[index], translations[index], hand_poses[index],
+                sim.add_env_all_test_rotations(rotations[index], translations[index], hand_poses[index],
                             scale_array[index])
             result = [*result, *sim.run_sim()]
             sim.reset_simulator()
