@@ -304,7 +304,9 @@ class IsaacValidator():
         N_SECONDS = 5
         print(f"Sleeping for {N_SECONDS} seconds...")
         sleep(N_SECONDS)
+        print("Done sleeping")
 
     def _pause_sim_callback(self):
         self.is_paused = not self.is_paused
+        print(f"Simulation is {'paused' if self.is_paused else 'unpaused'}")
     ## KEYBOARD EVENT SUBSCRIPTIONS END ##
