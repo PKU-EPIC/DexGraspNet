@@ -156,6 +156,7 @@ def main(args):
             compute_apply_force_hand_pose(
                 args=args, joint_names=joint_names, data_dict=data_dict
             )[:, 9:]
+            .detach()
             .cpu()
             .numpy()
         )
@@ -164,6 +165,8 @@ def main(args):
         sim.set_asset(
             hand_root="open_ai_assets",
             hand_file="hand/shadow_hand.xml",
+            # hand_root="allegro_hand_description",
+            # hand_file="allegro_hand_description_right.urdf",
             obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
             obj_file="coacd.urdf",
         )
@@ -195,6 +198,8 @@ def main(args):
             sim.set_asset(
                 hand_root="open_ai_assets",
                 hand_file="hand/shadow_hand.xml",
+                # hand_root="allegro_hand_description",
+                # hand_file="allegro_hand_description_right.urdf",
                 obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
                 obj_file="coacd.urdf",
             )

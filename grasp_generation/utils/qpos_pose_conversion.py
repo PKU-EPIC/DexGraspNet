@@ -39,7 +39,7 @@ def qpos_to_pose(
         assert len(hand_pose.shape) == 1
     return hand_pose
 
-def qpos_to_translation_rot_jointangles(qpos: Dict[str, Any], joint_names: List[str]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+def qpos_to_translation_rot_jointangles(qpos: Dict[str, Any], joint_names: List[str]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     translation = np.array([qpos[name] for name in translation_names])
     rot = np.array([qpos[name] for name in rot_names])
     joint_angles = np.array([qpos[name] for name in joint_names])
