@@ -20,7 +20,9 @@ def pose_to_qpos(
     return qpos
 
 
-def qpos_to_pose(qpos: Dict[str, Any], joint_names: List[str]):
+def qpos_to_pose(
+    qpos: Dict[str, Any], joint_names: List[str], unsqueeze_batch_dim: bool = True
+):
     rot = np.array(transforms3d.euler.euler2mat(*[qpos[name] for name in rot_names]))
     rot = rot[:, :2].T.ravel().tolist()
     hand_pose = torch.tensor(
@@ -28,5 +30,11 @@ def qpos_to_pose(qpos: Dict[str, Any], joint_names: List[str]):
         + rot
         + [qpos[name] for name in joint_names],
         dtype=torch.float,
-    ).unsqueeze(0)
+    )
+
+    if unsqueeze_batch_dim:
+        hand_pose = hand_pose.unsqueeze(0)
+        assert len(hand_pose.shape) == 2
+    else:
+        assert len(hand_pose.shape) == 1
     return hand_pose

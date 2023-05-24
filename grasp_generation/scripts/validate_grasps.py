@@ -57,7 +57,7 @@ if __name__ == '__main__':
         for i in range(batch_size):
             qpos = data_dict[i]['qpos']
             scale = data_dict[i]['scale']
-            hand_pose = qpos_to_pose(qpos=qpos, joint_names=joint_names).to(device)
+            hand_pose = qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False).to(device)
             hand_state.append(hand_pose)
             scale_tensor.append(scale)
         hand_state = torch.stack(hand_state).to(device).requires_grad_()

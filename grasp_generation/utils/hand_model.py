@@ -458,6 +458,9 @@ class HandModel:
         contact_point_indices: (B, `n_contact`) [Optional]torch.LongTensor
             indices of contact candidates
         """
+        assert len(hand_pose.shape) == 2
+        assert hand_pose.shape[1] == 3 + 6 + self.n_dofs
+
         self.hand_pose = hand_pose
         if self.hand_pose.requires_grad:
             self.hand_pose.retain_grad()
