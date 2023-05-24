@@ -34,16 +34,8 @@ class HandModel:
 
         Parameters
         ----------
-        mjcf_path: str
-            path to mjcf file
-        mesh_path: str
-            path to mesh directory
-        contact_points_path: str
-            path to hand-selected contact candidates
-        penetration_points_path: str
-            path to hand-selected penetration keypoints
-        n_surface_points: int
-            number of points to sample from surface of hand, use fps
+        hand_model_type: HandModelType
+            type of hand model
         device: str | torch.Device
             device for torch tensors
         """
@@ -424,6 +416,8 @@ class HandModel:
         self._sample_surface_points(n_surface_points)
 
     def _sample_surface_points(self, n_surface_points):
+        device = self.device
+
         total_area = sum(self.areas.values())
         num_samples = dict(
             [
