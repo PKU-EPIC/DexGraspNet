@@ -17,8 +17,6 @@ import transforms3d
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 from utils.hand_model_type import (
-    translation_names,
-    rot_names,
     HandModelType,
     handmodeltype_to_joint_names,
     handmodeltype_to_hand_root_hand_file,
