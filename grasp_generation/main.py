@@ -23,7 +23,8 @@ from utils.energy import cal_energy
 from utils.optimizer import Annealing
 from utils.logger import Logger
 from utils.rot6d import robust_compute_rotation_matrix_from_ortho6d
-from utils.hand_model_type import translation_names, rot_names, handmodeltype_to_joint_names, HandModelType
+from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
+from utils.qpos_pose_conversion import pose_to_qpos
 
 
 # prepare arguments
@@ -183,18 +184,8 @@ for i in range(len(args.object_code_list)):
     for j in range(args.batch_size):
         idx = i * args.batch_size + j
         scale = object_model.object_scale_tensor[i][j].item()
-        hand_pose = hand_model.hand_pose[idx].detach().cpu()
-        qpos = dict(zip(joint_names, hand_pose[9:].tolist()))
-        rot = robust_compute_rotation_matrix_from_ortho6d(hand_pose[3:9].unsqueeze(0))[0]
-        euler = transforms3d.euler.mat2euler(rot, axes='sxyz')
-        qpos.update(dict(zip(rot_names, euler)))
-        qpos.update(dict(zip(translation_names, hand_pose[:3].tolist())))
-        hand_pose = hand_pose_st[idx].detach().cpu()
-        qpos_st = dict(zip(joint_names, hand_pose[9:].tolist()))
-        rot = robust_compute_rotation_matrix_from_ortho6d(hand_pose[3:9].unsqueeze(0))[0]
-        euler = transforms3d.euler.mat2euler(rot, axes='sxyz')
-        qpos_st.update(dict(zip(rot_names, euler)))
-        qpos_st.update(dict(zip(translation_names, hand_pose[:3].tolist())))
+        qpos = pose_to_qpos(hand_pose=hand_model.hand_pose[idx].detach().cpu(), joint_names=joint_names)
+        qpos_st = pose_to_qpos(hand_pose=hand_pose_st[idx].detach().cpu(), joint_names=joint_names)
         data_list.append(dict(
             scale=scale,
             qpos=qpos,

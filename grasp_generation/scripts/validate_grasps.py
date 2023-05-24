@@ -17,6 +17,7 @@ import transforms3d
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 from utils.hand_model_type import translation_names, rot_names, HandModelType, handmodeltype_to_joint_names
+from utils.qpos_pose_conversion import qpos_to_pose
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -56,11 +57,7 @@ if __name__ == '__main__':
         for i in range(batch_size):
             qpos = data_dict[i]['qpos']
             scale = data_dict[i]['scale']
-            rot = np.array(transforms3d.euler.euler2mat(
-                *[qpos[name] for name in rot_names]))
-            rot = rot[:, :2].T.ravel().tolist()
-            hand_pose = torch.tensor([qpos[name] for name in translation_names] + rot + [
-                qpos[name] for name in joint_names], dtype=torch.float, device=device)
+            hand_pose = qpos_to_pose(qpos=qpos, joint_names=joint_names).to(device)
             hand_state.append(hand_pose)
             scale_tensor.append(scale)
         hand_state = torch.stack(hand_state).to(device).requires_grad_()

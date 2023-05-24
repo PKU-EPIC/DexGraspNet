@@ -16,18 +16,17 @@ import torch
 from tqdm import tqdm
 import math
 import random
-import transforms3d
 
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 from utils.initializations import initialize_convex_hull
 from utils.energy import cal_energy
 from utils.optimizer import Annealing
-from utils.rot6d import robust_compute_rotation_matrix_from_ortho6d
-from utils.hand_model_type import translation_names, rot_names, handmodeltype_to_joint_names, HandModelType
+from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
+from utils.qpos_pose_conversion import pose_to_qpos
 
 from torch.multiprocessing import set_start_method
-from typing import List, Tuple
+from typing import Tuple
 import trimesh
 import plotly.graph_objects as go
 import wandb
@@ -41,20 +40,6 @@ except RuntimeError:
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 np.seterr(all="raise")
-
-
-def get_qpos(
-    hand_pose: torch.Tensor,
-    joint_names: List[str],
-):
-    assert len(hand_pose.shape) == 1
-
-    qpos = dict(zip(joint_names, hand_pose[9:].tolist()))
-    rot = robust_compute_rotation_matrix_from_ortho6d(hand_pose[3:9].unsqueeze(0))[0]
-    euler = transforms3d.euler.mat2euler(rot, axes="sxyz")
-    qpos.update(dict(zip(rot_names, euler)))
-    qpos.update(dict(zip(translation_names, hand_pose[:3].tolist())))
-    return qpos
 
 
 def get_meshes(
@@ -215,16 +200,12 @@ def generate(args_list):
         for j in range(args.batch_size_each):
             idx = i * args.batch_size_each + j
             scale = object_model.object_scale_tensor[i][j].item()
-            qpos = get_qpos(
+            qpos = pose_to_qpos(
                 hand_pose=hand_model.hand_pose[idx].detach().cpu(),
-                translation_names=translation_names,
-                rot_names=rot_names,
                 joint_names=joint_names,
             )
-            qpos_st = get_qpos(
+            qpos_st = pose_to_qpos(
                 hand_pose=hand_pose_st[idx].detach().cpu(),
-                translation_names=translation_names,
-                rot_names=rot_names,
                 joint_names=joint_names,
             )
             data_list.append(
