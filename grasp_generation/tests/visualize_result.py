@@ -13,12 +13,12 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import argparse
 import torch
 import numpy as np
-import transforms3d
 import plotly.graph_objects as go
 
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
-from utils.hand_model_type import translation_names, rot_names, handmodeltype_to_joint_names, HandModelType
+from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
+from utils.qpos_pose_conversion import qpos_to_pose
 
 
 if __name__ == '__main__':
@@ -36,14 +36,10 @@ if __name__ == '__main__':
     # load results
     data_dict = np.load(os.path.join(args.result_path, args.object_code + '.npy'), allow_pickle=True)[args.num]
     qpos = data_dict['qpos']
-    rot = np.array(transforms3d.euler.euler2mat(*[qpos[name] for name in rot_names]))
-    rot = rot[:, :2].T.ravel().tolist()
-    hand_pose = torch.tensor([qpos[name] for name in translation_names] + rot + [qpos[name] for name in joint_names], dtype=torch.float, device=device)
+    hand_pose = qpos_to_pose(qpos=qpos, joint_names=joint_names).to(device)
     if 'qpos_st' in data_dict:
         qpos_st = data_dict['qpos_st']
-        rot = np.array(transforms3d.euler.euler2mat(*[qpos_st[name] for name in rot_names]))
-        rot = rot[:, :2].T.ravel().tolist()
-        hand_pose_st = torch.tensor([qpos_st[name] for name in translation_names] + rot + [qpos_st[name] for name in joint_names], dtype=torch.float, device=device)
+        hand_pose_st = qpos_to_pose(qpos=qpos_st, joint_names=joint_names).to(device)
 
     # hand model
     hand_model = HandModel(

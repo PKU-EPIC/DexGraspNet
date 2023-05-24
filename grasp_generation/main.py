@@ -14,7 +14,6 @@ import numpy as np
 import torch
 from tqdm import tqdm
 import math
-import transforms3d
 
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
@@ -22,7 +21,6 @@ from utils.initializations import initialize_convex_hull
 from utils.energy import cal_energy
 from utils.optimizer import Annealing
 from utils.logger import Logger
-from utils.rot6d import robust_compute_rotation_matrix_from_ortho6d
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import pose_to_qpos
 
