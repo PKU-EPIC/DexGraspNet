@@ -82,8 +82,9 @@ if __name__ == '__main__':
         object_model.object_scale_tensor = scale_tensor
 
         # calculate contact points and contact normals
-        contact_points_hand = torch.zeros((batch_size, 19, 3)).to(device)
-        contact_normals = torch.zeros((batch_size, 19, 3)).to(device)
+        num_links = len(hand_model.mesh)
+        contact_points_hand = torch.zeros((batch_size, num_links, 3)).to(device)
+        contact_normals = torch.zeros((batch_size, num_links, 3)).to(device)
 
         for i, link_name in enumerate(hand_model.mesh):
             if len(hand_model.mesh[link_name]['surface_points']) == 0:
