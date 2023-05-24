@@ -127,8 +127,11 @@ class IsaacValidator():
         test_rot = self.test_rotations[test_rotation_index]
 
         # Create env
-        env = gym.create_env(self.sim, gymapi.Vec3(-1, -1, -1),
-                             gymapi.Vec3(1, 1, 1), 6)
+        env = gym.create_env(self.sim,
+                             gymapi.Vec3(-1, -1, -1),
+                             gymapi.Vec3(1, 1, 1),
+                             len(self.test_rotations),
+                             )
         self.envs.append(env)
 
         # Set hand pose
