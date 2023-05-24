@@ -64,7 +64,7 @@ class IsaacValidator():
         self.camera_props = gymapi.CameraProperties()
         self.camera_props.width = 800
         self.camera_props.height = 600
-        self.camera_props.use_collision_geometry = True
+        self.camera_props.use_collision_geometry = True  # TODO: Maybe change this to see true visual
 
         # set viewer
         self.viewer = None
@@ -142,7 +142,7 @@ class IsaacValidator():
 
         # Create hand
         hand_actor_handle = gym.create_actor(
-            env, self.hand_asset, hand_pose, "shand", 0, -1)
+            env, self.hand_asset, hand_pose, "hand", 0, -1)
         self.hand_handles.append(hand_actor_handle)
 
         # Set hand dof props

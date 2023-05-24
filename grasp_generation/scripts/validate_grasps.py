@@ -162,10 +162,10 @@ def main(args):
 
     if args.index is not None:
         sim.set_asset(
-            "open_ai_assets",
-            "hand/shadow_hand.xml",
-            os.path.join(args.mesh_path, args.object_code, "coacd"),
-            "coacd.urdf",
+            hand_root="open_ai_assets",
+            hand_file="hand/shadow_hand.xml",
+            obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
+            obj_file="coacd.urdf",
         )
         index = args.index
         sim.add_env_single_test_rotation(
@@ -193,10 +193,10 @@ def main(args):
         for batch in range(batch_size // args.val_batch):
             offset_ = min(offset + args.val_batch, batch_size)
             sim.set_asset(
-                "open_ai_assets",
-                "hand/shadow_hand.xml",
-                os.path.join(args.mesh_path, args.object_code, "coacd"),
-                "coacd.urdf",
+                hand_root="open_ai_assets",
+                hand_file="hand/shadow_hand.xml",
+                obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
+                obj_file="coacd.urdf",
             )
             for index in range(offset, offset_):
                 sim.add_env_all_test_rotations(
