@@ -16,9 +16,12 @@ import numpy as np
 import transforms3d
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
+from utils.hand_model_type import translation_names, rot_names, HandModelType, handmodeltype_to_joint_names
+from utils.qpos_pose_conversion import qpos_to_pose
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType.from_string, choices=list(HandModelType))
     parser.add_argument('--gpu', default=3, type=int)
     parser.add_argument('--val_batch', default=500, type=int)
     parser.add_argument('--mesh_path', default="../data/meshdata", type=str)
@@ -37,15 +40,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    translation_names = ['WRJTx', 'WRJTy', 'WRJTz']
-    rot_names = ['WRJRx', 'WRJRy', 'WRJRz']
-    joint_names = [
-        'robot0:FFJ3', 'robot0:FFJ2', 'robot0:FFJ1', 'robot0:FFJ0',
-        'robot0:MFJ3', 'robot0:MFJ2', 'robot0:MFJ1', 'robot0:MFJ0',
-        'robot0:RFJ3', 'robot0:RFJ2', 'robot0:RFJ1', 'robot0:RFJ0',
-        'robot0:LFJ4', 'robot0:LFJ3', 'robot0:LFJ2', 'robot0:LFJ1', 'robot0:LFJ0',
-        'robot0:THJ4', 'robot0:THJ3', 'robot0:THJ2', 'robot0:THJ1', 'robot0:THJ0'
-    ]
+    joint_names = handmodeltype_to_joint_names[args.hand_model_type]
 
     os.environ.pop("CUDA_VISIBLE_DEVICES")
     os.makedirs(args.result_path, exist_ok=True)
@@ -62,11 +57,7 @@ if __name__ == '__main__':
         for i in range(batch_size):
             qpos = data_dict[i]['qpos']
             scale = data_dict[i]['scale']
-            rot = np.array(transforms3d.euler.euler2mat(
-                *[qpos[name] for name in rot_names]))
-            rot = rot[:, :2].T.ravel().tolist()
-            hand_pose = torch.tensor([qpos[name] for name in translation_names] + rot + [
-                qpos[name] for name in joint_names], dtype=torch.float, device=device)
+            hand_pose = qpos_to_pose(qpos=qpos, joint_names=joint_names).to(device)
             hand_state.append(hand_pose)
             scale_tensor.append(scale)
         hand_state = torch.stack(hand_state).to(device).requires_grad_()
@@ -74,10 +65,7 @@ if __name__ == '__main__':
 
         # hand model
         hand_model = HandModel(
-            mjcf_path='mjcf/shadow_hand_wrist_free.xml',
-            mesh_path='mjcf/meshes',
-            contact_points_path='mjcf/contact_points.json',
-            penetration_points_path='mjcf/penetration_points.json',
+            hand_model_type=args.hand_model_type,
             n_surface_points=2000,
             device=device
         )
@@ -129,9 +117,9 @@ if __name__ == '__main__':
             hand_state.grad.zero_()
 
     if (args.index is not None):
-        sim = IsaacValidator(gpu=args.gpu, mode="gui")
+        sim = IsaacValidator(hand_model_type=args.hand_model_type, gpu=args.gpu, mode="gui")
     else:
-        sim = IsaacValidator(gpu=args.gpu)
+        sim = IsaacValidator(hand_model_type=args.hand_model_type, gpu=args.gpu)
 
     data_dict = np.load(os.path.join(
         args.grasp_path, args.object_code + '.npy'), allow_pickle=True)

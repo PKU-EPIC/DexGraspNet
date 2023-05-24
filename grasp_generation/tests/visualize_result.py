@@ -13,25 +13,17 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import argparse
 import torch
 import numpy as np
-import transforms3d
 import plotly.graph_objects as go
 
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
-
-translation_names = ['WRJTx', 'WRJTy', 'WRJTz']
-rot_names = ['WRJRx', 'WRJRy', 'WRJRz']
-joint_names = [
-    'robot0:FFJ3', 'robot0:FFJ2', 'robot0:FFJ1', 'robot0:FFJ0',
-    'robot0:MFJ3', 'robot0:MFJ2', 'robot0:MFJ1', 'robot0:MFJ0',
-    'robot0:RFJ3', 'robot0:RFJ2', 'robot0:RFJ1', 'robot0:RFJ0',
-    'robot0:LFJ4', 'robot0:LFJ3', 'robot0:LFJ2', 'robot0:LFJ1', 'robot0:LFJ0',
-    'robot0:THJ4', 'robot0:THJ3', 'robot0:THJ2', 'robot0:THJ1', 'robot0:THJ0'
-]
+from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
+from utils.qpos_pose_conversion import qpos_to_pose
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType.from_string, choices=list(HandModelType))
     parser.add_argument('--object_code', type=str, default='sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2')
     parser.add_argument('--num', type=int, default=0)
     parser.add_argument('--result_path', type=str, default='../data/dataset')
@@ -39,24 +31,19 @@ if __name__ == '__main__':
 
     device = 'cpu'
 
+    joint_names = handmodeltype_to_joint_names[args.hand_model_type]
+
     # load results
     data_dict = np.load(os.path.join(args.result_path, args.object_code + '.npy'), allow_pickle=True)[args.num]
     qpos = data_dict['qpos']
-    rot = np.array(transforms3d.euler.euler2mat(*[qpos[name] for name in rot_names]))
-    rot = rot[:, :2].T.ravel().tolist()
-    hand_pose = torch.tensor([qpos[name] for name in translation_names] + rot + [qpos[name] for name in joint_names], dtype=torch.float, device=device)
+    hand_pose = qpos_to_pose(qpos=qpos, joint_names=joint_names).to(device)
     if 'qpos_st' in data_dict:
         qpos_st = data_dict['qpos_st']
-        rot = np.array(transforms3d.euler.euler2mat(*[qpos_st[name] for name in rot_names]))
-        rot = rot[:, :2].T.ravel().tolist()
-        hand_pose_st = torch.tensor([qpos_st[name] for name in translation_names] + rot + [qpos_st[name] for name in joint_names], dtype=torch.float, device=device)
+        hand_pose_st = qpos_to_pose(qpos=qpos_st, joint_names=joint_names).to(device)
 
     # hand model
     hand_model = HandModel(
-        mjcf_path='mjcf/shadow_hand_wrist_free.xml',
-        mesh_path='mjcf/meshes',
-        contact_points_path='mjcf/contact_points.json',
-        penetration_points_path='mjcf/penetration_points.json',
+        hand_model_type=args.hand_model_type,
         device=device
     )
 

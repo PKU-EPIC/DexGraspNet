@@ -1,0 +1,32 @@
+from utils.hand_model_type import translation_names, rot_names
+from utils.rot6d import robust_compute_rotation_matrix_from_ortho6d
+import transforms3d
+import torch
+import numpy as np
+from typing import List, Dict, Any
+
+
+def pose_to_qpos(
+    hand_pose: torch.Tensor,
+    joint_names: List[str],
+):
+    assert len(hand_pose.shape) == 1
+
+    qpos = dict(zip(joint_names, hand_pose[9:].tolist()))
+    rot = robust_compute_rotation_matrix_from_ortho6d(hand_pose[3:9].unsqueeze(0))[0]
+    euler = transforms3d.euler.mat2euler(rot, axes="sxyz")
+    qpos.update(dict(zip(rot_names, euler)))
+    qpos.update(dict(zip(translation_names, hand_pose[:3].tolist())))
+    return qpos
+
+
+def qpos_to_pose(qpos: Dict[str, Any], joint_names: List[str]):
+    rot = np.array(transforms3d.euler.euler2mat(*[qpos[name] for name in rot_names]))
+    rot = rot[:, :2].T.ravel().tolist()
+    hand_pose = torch.tensor(
+        [qpos[name] for name in translation_names]
+        + rot
+        + [qpos[name] for name in joint_names],
+        dtype=torch.float,
+    ).unsqueeze(0)
+    return hand_pose
