@@ -17,14 +17,15 @@ import pytorch3d.ops
 import trimesh as tm
 from torchsdf import index_vertices_by_faces, compute_sdf
 
+import transforms3d
+from urdf_parser_py.urdf import Robot, Box, Sphere
+from utils.hand_model_type import HandModelType
+
 
 class HandModel:
     def __init__(
         self,
-        mjcf_path,
-        mesh_path,
-        contact_points_path,
-        penetration_points_path,
+        hand_model_type=HandModelType.SHADOW_HAND,
         n_surface_points=0,
         device="cpu",
     ):
@@ -46,10 +47,210 @@ class HandModel:
         device: str | torch.Device
             device for torch tensors
         """
-
+        self.hand_model_type = hand_model_type
         self.device = device
 
         # load articulation
+        if self.hand_model_type == HandModelType.ALLEGRO_HAND:
+            self._init_allegro()
+        elif self.hand_model_type == HandModelType.SHADOW_HAND:
+            self._init_shadow()
+        else:
+            raise ValueError(f"Unknown hand model type: {self.hand_model_type}")
+
+        # indexing
+
+        self.link_name_to_link_index = dict(
+            zip([link_name for link_name in self.mesh], range(len(self.mesh)))
+        )
+
+        self.contact_candidates = [
+            self.mesh[link_name]["contact_candidates"] for link_name in self.mesh
+        ]
+        self.global_index_to_link_index = sum(
+            [
+                [i] * len(contact_candidates)
+                for i, contact_candidates in enumerate(self.contact_candidates)
+            ],
+            [],
+        )
+        self.contact_candidates = torch.cat(self.contact_candidates, dim=0)
+        self.global_index_to_link_index = torch.tensor(
+            self.global_index_to_link_index, dtype=torch.long, device=device
+        )
+        self.n_contact_candidates = self.contact_candidates.shape[0]
+
+        self.penetration_keypoints = [
+            self.mesh[link_name]["penetration_keypoints"] for link_name in self.mesh
+        ]
+        self.global_index_to_link_index_penetration = sum(
+            [
+                [i] * len(penetration_keypoints)
+                for i, penetration_keypoints in enumerate(self.penetration_keypoints)
+            ],
+            [],
+        )
+        self.penetration_keypoints = torch.cat(self.penetration_keypoints, dim=0)
+        self.global_index_to_link_index_penetration = torch.tensor(
+            self.global_index_to_link_index_penetration, dtype=torch.long, device=device
+        )
+        self.n_keypoints = self.penetration_keypoints.shape[0]
+
+        # parameters
+
+        self.hand_pose = None
+        self.contact_point_indices = None
+        self.global_translation = None
+        self.global_rotation = None
+        self.current_status = None
+        self.contact_points = None
+
+    def _init_allegro(self):
+        urdf_path = "allegro_hand_description/allegro_hand_description_right.urdf"
+        contact_points_path = "allegro_hand_description/contact_points.json"
+        penetration_points_path = "allegro_hand_description/penetration_points.json"
+        device = self.device
+
+        self.chain = pk.build_chain_from_urdf(open(urdf_path).read()).to(
+            dtype=torch.float, device=device
+        )
+        self.robot = Robot.from_xml_file(urdf_path)
+        self.n_dofs = len(self.chain.get_joint_parameter_names())
+
+        penetration_points = json.load(open(penetration_points_path, "r"))
+        contact_points = json.load(open(contact_points_path, "r"))
+
+        self.mesh = {}
+        for link in self.robot.links:
+            if link.visual is None or link.collision is None:
+                continue
+            self.mesh[link.name] = {}
+            # load collision mesh
+            collision = link.collision
+            if type(collision.geometry) == Sphere:
+                link_mesh = tm.primitives.Sphere(radius=collision.geometry.radius)
+                self.mesh[link.name]["radius"] = collision.geometry.radius
+            if type(collision.geometry) == Box:
+                # link_mesh = tm.primitives.Box(extents=collision.geometry.size)
+                link_mesh = tm.load_mesh(
+                    os.path.join(os.path.dirname(urdf_path), "meshes", "box.obj"),
+                    process=False,
+                )
+                link_mesh.vertices *= np.array(collision.geometry.size) / 2
+            vertices = torch.tensor(
+                link_mesh.vertices, dtype=torch.float, device=device
+            )
+            faces = torch.tensor(link_mesh.faces, dtype=torch.long, device=device)
+            if (
+                hasattr(collision.geometry, "scale")
+                and collision.geometry.scale is None
+            ):
+                collision.geometry.scale = [1, 1, 1]
+            scale = torch.tensor(
+                getattr(collision.geometry, "scale", [1, 1, 1]),
+                dtype=torch.float,
+                device=device,
+            )
+            translation = torch.tensor(
+                getattr(collision.origin, "xyz", [0, 0, 0]),
+                dtype=torch.float,
+                device=device,
+            )
+            rotation = torch.tensor(
+                transforms3d.euler.euler2mat(
+                    *getattr(collision.origin, "rpy", [0, 0, 0])
+                ),
+                dtype=torch.float,
+                device=device,
+            )
+            vertices = vertices * scale
+            vertices = vertices @ rotation.T + translation
+            self.mesh[link.name].update(
+                {
+                    "vertices": vertices,
+                    "faces": faces,
+                }
+            )
+            if "radius" not in self.mesh[link.name]:
+                self.mesh[link.name]["face_verts"] = index_vertices_by_faces(
+                    vertices, faces
+                )
+            # load visual mesh
+            visual = link.visual
+            filename = os.path.join(
+                os.path.dirname(os.path.dirname(urdf_path)),
+                visual.geometry.filename[10:],
+            )
+            link_mesh = tm.load_mesh(filename)
+            vertices = torch.tensor(
+                link_mesh.vertices, dtype=torch.float, device=device
+            )
+            faces = torch.tensor(link_mesh.faces, dtype=torch.long, device=device)
+            if hasattr(visual.geometry, "scale") and visual.geometry.scale is None:
+                visual.geometry.scale = [1, 1, 1]
+            scale = torch.tensor(
+                getattr(visual.geometry, "scale", [1, 1, 1]),
+                dtype=torch.float,
+                device=device,
+            )
+            translation = torch.tensor(
+                getattr(visual.origin, "xyz", [0, 0, 0]),
+                dtype=torch.float,
+                device=device,
+            )
+            rotation = torch.tensor(
+                transforms3d.euler.euler2mat(*getattr(visual.origin, "rpy", [0, 0, 0])),
+                dtype=torch.float,
+                device=device,
+            )
+            vertices = vertices * scale
+            vertices = vertices @ rotation.T + translation
+            self.mesh[link.name].update(
+                {
+                    "visual_vertices": vertices,
+                    "visual_faces": faces,
+                }
+            )
+            # load contact candidates and penetration keypoints
+            contact_candidates = torch.tensor(
+                contact_points[link.name], dtype=torch.float32, device=device
+            ).reshape(-1, 3)
+            penetration_keypoints = torch.tensor(
+                penetration_points[link.name], dtype=torch.float32, device=device
+            ).reshape(-1, 3)
+            self.mesh[link.name].update(
+                {
+                    "contact_candidates": contact_candidates,
+                    "penetration_keypoints": penetration_keypoints,
+                }
+            )
+
+        self.joints_lower = torch.tensor(
+            [
+                joint.limit.lower
+                for joint in self.robot.joints
+                if joint.joint_type == "revolute"
+            ],
+            dtype=torch.float,
+            device=device,
+        )
+        self.joints_upper = torch.tensor(
+            [
+                joint.limit.upper
+                for joint in self.robot.joints
+                if joint.joint_type == "revolute"
+            ],
+            dtype=torch.float,
+            device=device,
+        )
+
+    def _init_shadow(self):
+        mjcf_path = "mjcf/shadow_hand_wrist_free.xml"
+        mesh_path = "mjcf/meshes"
+        contact_points_path = "mjcf/contact_points.json"
+        penetration_points_path = "mjcf/penetration_points.json"
+
+        device = self.device
 
         self.chain = pk.build_chain_from_mjcf(open(mjcf_path).read()).to(
             dtype=torch.float, device=device
@@ -205,53 +406,6 @@ class HandModel:
             surface_points.to(dtype=float, device=device)
             self.mesh[link_name]["surface_points"] = surface_points
 
-        # indexing
-
-        self.link_name_to_link_index = dict(
-            zip([link_name for link_name in self.mesh], range(len(self.mesh)))
-        )
-
-        self.contact_candidates = [
-            self.mesh[link_name]["contact_candidates"] for link_name in self.mesh
-        ]
-        self.global_index_to_link_index = sum(
-            [
-                [i] * len(contact_candidates)
-                for i, contact_candidates in enumerate(self.contact_candidates)
-            ],
-            [],
-        )
-        self.contact_candidates = torch.cat(self.contact_candidates, dim=0)
-        self.global_index_to_link_index = torch.tensor(
-            self.global_index_to_link_index, dtype=torch.long, device=device
-        )
-        self.n_contact_candidates = self.contact_candidates.shape[0]
-
-        self.penetration_keypoints = [
-            self.mesh[link_name]["penetration_keypoints"] for link_name in self.mesh
-        ]
-        self.global_index_to_link_index_penetration = sum(
-            [
-                [i] * len(penetration_keypoints)
-                for i, penetration_keypoints in enumerate(self.penetration_keypoints)
-            ],
-            [],
-        )
-        self.penetration_keypoints = torch.cat(self.penetration_keypoints, dim=0)
-        self.global_index_to_link_index_penetration = torch.tensor(
-            self.global_index_to_link_index_penetration, dtype=torch.long, device=device
-        )
-        self.n_keypoints = self.penetration_keypoints.shape[0]
-
-        # parameters
-
-        self.hand_pose = None
-        self.contact_point_indices = None
-        self.global_translation = None
-        self.global_rotation = None
-        self.current_status = None
-        self.contact_points = None
-
     def set_parameters(self, hand_pose, contact_point_indices=None):
         """
         Set translation, rotation, joint angles, and contact points of grasps
@@ -305,6 +459,14 @@ class HandModel:
             ) + self.global_translation.unsqueeze(1)
 
     def cal_distance(self, x):
+        if self.hand_model_type == HandModelType.ALLEGRO_HAND:
+            return self._cal_distance_allegro(x)
+        elif self.hand_model_type == HandModelType.SHADOW_HAND:
+            return self._cal_distance_shadow(x)
+        else:
+            raise ValueError(f"Unknown hand model type: {self.hand_model_type}")
+
+    def _calc_distance_shadow(self, x):
         """
         Calculate signed distances from object point clouds to hand surface meshes
 
@@ -354,6 +516,30 @@ class HandModel:
                 nearest_point[:, :2] = 0
                 nearest_point[:, 2] = torch.clamp(nearest_point[:, 2], 0, height)
                 dis_local = radius - (x_local - nearest_point).norm(dim=1)
+            dis.append(dis_local.reshape(x.shape[0], x.shape[1]))
+        dis = torch.max(torch.stack(dis, dim=0), dim=0)[0]
+        return dis
+
+    def _cal_distance_allegro(self, x):
+        # x: (total_batch_size, num_samples, 3)
+        # 单独考虑每个link
+        # 先把x变换到link的局部坐标系里面，得到x_local: (total_batch_size, num_samples, 3)
+        # 然后计算dis，按照内外取符号，内部是正号
+        # 最后的dis就是所有link的dis的最大值
+        # 对于sphere的link，使用解析方法计算dis，否则用mesh的方法计算dis
+        dis = []
+        x = (x - self.global_translation.unsqueeze(1)) @ self.global_rotation
+        for link_name in self.mesh:
+            matrix = self.current_status[link_name].get_matrix()
+            x_local = (x - matrix[:, :3, 3].unsqueeze(1)) @ matrix[:, :3, :3]
+            x_local = x_local.reshape(-1, 3)  # (total_batch_size * num_samples, 3)
+            if "radius" not in self.mesh[link_name]:
+                face_verts = self.mesh[link_name]["face_verts"]
+                dis_local, dis_signs, _, _ = compute_sdf(x_local, face_verts)
+                dis_local = torch.sqrt(dis_local + 1e-8)
+                dis_local = dis_local * (-dis_signs)
+            else:
+                dis_local = self.mesh[link_name]["radius"] - x_local.norm(dim=1)
             dis.append(dis_local.reshape(x.shape[0], x.shape[1]))
         dis = torch.max(torch.stack(dis, dim=0), dim=0)[0]
         return dis
@@ -493,6 +679,7 @@ class HandModel:
         with_contact_points=False,
         with_contact_candidates=False,
         pose=None,
+        visual=True,
     ):
         """
         Get visualization data for plotly.graph_objects
@@ -509,6 +696,8 @@ class HandModel:
             whether to visualize contact points
         pose: (4, 4) matrix
             homogeneous transformation matrix
+        visual: bool
+            whether to visualize the hand with visual components
 
         Returns
         -------
@@ -520,13 +709,23 @@ class HandModel:
         data = []
         for link_name in self.mesh:
             v = self.current_status[link_name].transform_points(
-                self.mesh[link_name]["vertices"]
+                self.mesh[link_name]["visual_vertices"]
+                if visual and "visual_vertices" in self.mesh[link_name]
+                else self.mesh[link_name]["vertices"]
             )
             if len(v.shape) == 3:
                 v = v[i]
             v = v @ self.global_rotation[i].T + self.global_translation[i]
             v = v.detach().cpu()
-            f = self.mesh[link_name]["faces"].detach().cpu()
+            f = (
+                (
+                    self.mesh[link_name]["visual_faces"]
+                    if visual and "visual_faces" in self.mesh[link_name]
+                    else self.mesh[link_name]["faces"]
+                )
+                .detach()
+                .cpu()
+            )
             if pose is not None:
                 v = v @ pose[:3, :3].T + pose[:3, 3]
             data.append(
