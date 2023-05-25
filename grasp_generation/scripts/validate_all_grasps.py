@@ -2,6 +2,9 @@ import subprocess
 import os
 from tqdm import tqdm
 import argparse
+import sys
+
+sys.path.append(os.path.realpath("."))
 from utils.hand_model_type import HandModelType
 
 if __name__ == '__main__':
@@ -21,7 +24,7 @@ if __name__ == '__main__':
     # Compare input and output directories
     input_object_code_files = os.listdir(args.grasp_path)
     print(f"Found {len(input_object_code_files)} object codes in {args.grasp_path}")
-    existing_object_code_files = os.listdir(args.result_path)
+    existing_object_code_files = os.listdir(args.result_path) if os.path.exists(args.result_path) else []
     print(f"Found {len(existing_object_code_files)} object codes in {args.result_path}")
 
     # Sanity check that we are going into the right folder
@@ -39,6 +42,7 @@ if __name__ == '__main__':
     for object_code_file in pbar:
         object_code = object_code_file.split(".")[0]
         pbar.set_description(f"Processing {object_code}")
+
         command = " ".join([
             f"CUDA_VISIBLE_DEVICES={args.gpu}",
             "python scripts/validate_grasps.py",
@@ -49,4 +53,10 @@ if __name__ == '__main__':
             f"--object_code {object_code}"
         ])
         print(f"Running command: {command}")
-        subprocess.run(command, shell=True, check=True)
+
+        try:
+            subprocess.run(command, shell=True, check=True)
+        except Exception as e:
+            print(f"Exception: {e}")
+            print(f"Skipping {object_code} and continuing")
+            continue

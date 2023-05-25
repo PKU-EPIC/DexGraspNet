@@ -25,7 +25,9 @@ class IsaacValidator():
                  env_batch=1,
                  sim_step=100,
                  gpu=0,
-                 debug_interval=0.05):
+                 debug_interval=0.05,
+                 start_with_step_mode=False,
+                 ):
 
         self.hand_friction = hand_friction
         self.obj_friction = obj_friction
@@ -110,6 +112,7 @@ class IsaacValidator():
                                             -0.5 * math.pi)),
         ]
         self.is_paused = False
+        self.is_step_mode = self.has_viewer and start_with_step_mode
 
     def set_asset(self, hand_root, hand_file, obj_root, obj_file):
         self.hand_asset = gym.load_asset(self.sim, hand_root, hand_file,
@@ -162,14 +165,19 @@ class IsaacValidator():
             dof_states["pos"][joint_idx] = hand_qpos[i]
         gym.set_actor_dof_states(env, hand_actor_handle, dof_states,
                                  gymapi.STATE_ALL)
+
+        # Set hand dof targets
         if target_qpos is not None:
+            dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_actor_handle)
             for i, joint in enumerate(self.joint_names):
                 joint_idx = gym.find_actor_dof_index(env, hand_actor_handle,
                                                      joint,
                                                      gymapi.DOMAIN_ACTOR)
-                dof_states["pos"][joint_idx] = target_qpos[i]
+                dof_pos_targets[joint_idx] = target_qpos[i]
+        else:
+            dof_pos_targets = dof_states["pos"]
         gym.set_actor_dof_position_targets(env, hand_actor_handle,
-                                           dof_states["pos"])
+                                           dof_pos_targets)
 
         # Store hand rigid body set
         hand_rigid_body_set = set()
@@ -219,7 +227,8 @@ class IsaacValidator():
 
     def run_sim(self):
         sim_step_idx = 0
-        pbar = tqdm(total=self.sim_step, desc="Simulating")
+        default_desc = "Simulating"
+        pbar = tqdm(total=self.sim_step, desc=default_desc, dynamic_ncols=True)
         while sim_step_idx < self.sim_step:
 
             # Step physics if not paused
@@ -227,6 +236,19 @@ class IsaacValidator():
                 gym.simulate(self.sim)
                 sim_step_idx += 1
                 pbar.update(1)
+
+                # Step mode
+                if self.is_step_mode:
+                    self.is_paused = True
+
+            # Update progress bar
+            desc = default_desc
+            desc += ". 'KEY_SPACE' = toggle pause. 'KEY_S' = toggle step mode"
+            if self.is_paused:
+                desc += ". Paused"
+            if self.is_step_mode:
+                desc += ". Step mode on"
+            pbar.set_description(desc)
 
             # Update viewer
             if self.has_viewer:
@@ -286,11 +308,11 @@ class IsaacValidator():
     def subscribe_to_keyboard_events(self):
         if self.has_viewer:
             self.event_to_key = {
-                "SLEEP": gymapi.KEY_S,
+                "STEP_MODE": gymapi.KEY_S,
                 "PAUSE_SIM": gymapi.KEY_SPACE,
             }
             self.event_to_function  = {
-                "SLEEP": self._sleep_callback,
+                "STEP_MODE": self._step_mode_callback,
                 "PAUSE_SIM": self._pause_sim_callback,
             }
         else:
@@ -303,11 +325,10 @@ class IsaacValidator():
                 gym.subscribe_viewer_keyboard_event(self.viewer, key, event)
 
     ## KEYBOARD EVENT SUBSCRIPTIONS START ##
-    def _sleep_callback(self):
-        N_SECONDS = 5
-        print(f"Sleeping for {N_SECONDS} seconds...")
-        sleep(N_SECONDS)
-        print("Done sleeping")
+    def _step_mode_callback(self):
+        self.is_step_mode = not self.is_step_mode
+        print(f"Simulation is in {'step' if self.is_step_mode else 'continuous'} mode")
+        self._pause_sim_callback()
 
     def _pause_sim_callback(self):
         self.is_paused = not self.is_paused

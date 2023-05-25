@@ -6,7 +6,7 @@ Description: Entry of the program, generate small-scale experiments
 
 import os
 
-os.chdir(os.path.dirname(__file__))
+# os.chdir(os.path.dirname(__file__))
 
 import argparse
 import shutil
