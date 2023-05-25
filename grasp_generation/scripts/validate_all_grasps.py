@@ -42,6 +42,7 @@ if __name__ == '__main__':
     for object_code_file in pbar:
         object_code = object_code_file.split(".")[0]
         pbar.set_description(f"Processing {object_code}")
+
         command = " ".join([
             f"CUDA_VISIBLE_DEVICES={args.gpu}",
             "python scripts/validate_grasps.py",
@@ -52,4 +53,10 @@ if __name__ == '__main__':
             f"--object_code {object_code}"
         ])
         print(f"Running command: {command}")
-        subprocess.run(command, shell=True, check=True)
+
+        try:
+            subprocess.run(command, shell=True, check=True)
+        except Exception as e:
+            print(f"Exception: {e}")
+            print(f"Skipping {object_code} and continuing")
+            continue
