@@ -25,7 +25,9 @@ class IsaacValidator():
                  env_batch=1,
                  sim_step=100,
                  gpu=0,
-                 debug_interval=0.05):
+                 debug_interval=0.05,
+                 start_with_step_mode=False,
+                 ):
 
         self.hand_friction = hand_friction
         self.obj_friction = obj_friction
@@ -110,7 +112,7 @@ class IsaacValidator():
                                             -0.5 * math.pi)),
         ]
         self.is_paused = False
-        self.is_step_mode = self.has_viewer
+        self.is_step_mode = self.has_viewer and start_with_step_mode
 
     def set_asset(self, hand_root, hand_file, obj_root, obj_file):
         self.hand_asset = gym.load_asset(self.sim, hand_root, hand_file,
@@ -225,7 +227,8 @@ class IsaacValidator():
 
     def run_sim(self):
         sim_step_idx = 0
-        pbar = tqdm(total=self.sim_step, desc="Simulating")
+        default_desc = "Simulating"
+        pbar = tqdm(total=self.sim_step, desc=default_desc, dynamic_ncols=True)
         while sim_step_idx < self.sim_step:
 
             # Step physics if not paused
@@ -237,6 +240,15 @@ class IsaacValidator():
                 # Step mode
                 if self.is_step_mode:
                     self.is_paused = True
+
+            # Update progress bar
+            desc = default_desc
+            desc += ". 'KEY_SPACE' = toggle pause. 'KEY_S' = toggle step mode"
+            if self.is_paused:
+                desc += ". Paused"
+            if self.is_step_mode:
+                desc += ". Step mode on"
+            pbar.set_description(desc)
 
             # Update viewer
             if self.has_viewer:
@@ -316,6 +328,7 @@ class IsaacValidator():
     def _step_mode_callback(self):
         self.is_step_mode = not self.is_step_mode
         print(f"Simulation is in {'step' if self.is_step_mode else 'continuous'} mode")
+        self._pause_sim_callback()
 
     def _pause_sim_callback(self):
         self.is_paused = not self.is_paused
