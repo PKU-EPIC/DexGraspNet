@@ -151,7 +151,7 @@ def main(args):
     E_pen_array = np.array(E_pen_array)
 
     if not args.no_force:
-        joint_angles_array = (
+        joint_angle_targets_array = (
             compute_apply_force_hand_pose(
                 args=args, joint_names=joint_names, data_dict=data_dict
             )[:, 9:]
@@ -159,6 +159,8 @@ def main(args):
             .cpu()
             .numpy()
         )
+    else:
+        joint_angle_targets_array = None
 
     hand_root, hand_file = handmodeltype_to_hand_root_hand_file[args.hand_model_type]
 
@@ -171,10 +173,11 @@ def main(args):
         )
         index = args.index
         sim.add_env_single_test_rotation(
-            rotations[index],
-            translations[index],
-            joint_angles_array[index],
-            scale_array[index],
+            hand_rotation=rotations[index],
+            hand_translation=translations[index],
+            hand_qpos=joint_angles_array[index],
+            obj_scale=scale_array[index],
+            target_qpos=joint_angle_targets_array[index] if joint_angle_targets_array is not None else None,
         )
         result = sim.run_sim()
         print(f"result = {result}")
@@ -202,10 +205,11 @@ def main(args):
             )
             for index in range(offset, offset_):
                 sim.add_env_all_test_rotations(
-                    rotations[index],
-                    translations[index],
-                    joint_angles_array[index],
-                    scale_array[index],
+                    hand_rotation=rotations[index],
+                    hand_translation=translations[index],
+                    hand_qpos=joint_angles_array[index],
+                    obj_scale=scale_array[index],
+                    target_qpos=joint_angle_targets_array[index] if joint_angle_targets_array is not None else None,
                 )
             result = [*result, *sim.run_sim()]
             sim.reset_simulator()

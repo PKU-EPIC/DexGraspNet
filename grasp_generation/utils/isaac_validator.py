@@ -163,14 +163,19 @@ class IsaacValidator():
             dof_states["pos"][joint_idx] = hand_qpos[i]
         gym.set_actor_dof_states(env, hand_actor_handle, dof_states,
                                  gymapi.STATE_ALL)
+
+        # Set hand dof targets
         if target_qpos is not None:
+            dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_actor_handle)
             for i, joint in enumerate(self.joint_names):
                 joint_idx = gym.find_actor_dof_index(env, hand_actor_handle,
                                                      joint,
                                                      gymapi.DOMAIN_ACTOR)
-                dof_states["pos"][joint_idx] = target_qpos[i]
+                dof_pos_targets[joint_idx] = target_qpos[i]
+        else:
+            dof_pos_targets = dof_states["pos"]
         gym.set_actor_dof_position_targets(env, hand_actor_handle,
-                                           dof_states["pos"])
+                                           dof_pos_targets)
 
         # Store hand rigid body set
         hand_rigid_body_set = set()
