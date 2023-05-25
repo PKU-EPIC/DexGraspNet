@@ -2,17 +2,25 @@ import subprocess
 import os
 from tqdm import tqdm
 import argparse
+from utils.hand_model_type import HandModelType
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input_data_path', default="../data/graspdata_2023-05-22_distalonly", type=str)
+    parser.add_argument(
+        "--hand_model_type",
+        default=HandModelType.SHADOW_HAND,
+        type=HandModelType.from_string,
+        choices=list(HandModelType),
+    )
+    parser.add_argument("--gpu", default=0, type=int)
+    parser.add_argument('--grasp_path', default="../data/graspdata_2023-05-22_distalonly", type=str)
     parser.add_argument('--result_path', default="../data/dataset_2023-05-22_distalonly", type=str)
     args = parser.parse_args()
     print(f"args = {args}")
  
     # Compare input and output directories
-    input_object_code_files = os.listdir(args.input_data_path)
-    print(f"Found {len(input_object_code_files)} object codes in {args.input_data_path}")
+    input_object_code_files = os.listdir(args.grasp_path)
+    print(f"Found {len(input_object_code_files)} object codes in {args.grasp_path}")
     existing_object_code_files = os.listdir(args.result_path)
     print(f"Found {len(existing_object_code_files)} object codes in {args.result_path}")
 
@@ -32,10 +40,11 @@ if __name__ == '__main__':
         object_code = object_code_file.split(".")[0]
         pbar.set_description(f"Processing {object_code}")
         command = " ".join([
-            "CUDA_VISIBLE_DEVICES=0",
+            f"CUDA_VISIBLE_DEVICES={args.gpu}",
             "python scripts/validate_grasps.py",
-            f"--grasp_path {args.input_data_path}",
-            "--gpu 0",
+            f"--hand_model_type {args.hand_model_type}",
+            f"--gpu {args.gpu}",
+            f"--grasp_path {args.grasp_path}",
             f"--result_path {args.result_path}",
             f"--object_code {object_code}"
         ])
