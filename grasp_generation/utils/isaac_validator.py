@@ -110,6 +110,7 @@ class IsaacValidator():
                                             -0.5 * math.pi)),
         ]
         self.is_paused = False
+        self.is_step_mode = self.has_viewer
 
     def set_asset(self, hand_root, hand_file, obj_root, obj_file):
         self.hand_asset = gym.load_asset(self.sim, hand_root, hand_file,
@@ -228,6 +229,10 @@ class IsaacValidator():
                 sim_step_idx += 1
                 pbar.update(1)
 
+                # Step mode
+                if self.is_step_mode:
+                    self.is_paused = True
+
             # Update viewer
             if self.has_viewer:
                 sleep(self.debug_interval)
@@ -286,11 +291,11 @@ class IsaacValidator():
     def subscribe_to_keyboard_events(self):
         if self.has_viewer:
             self.event_to_key = {
-                "SLEEP": gymapi.KEY_S,
+                "STEP_MODE": gymapi.KEY_S,
                 "PAUSE_SIM": gymapi.KEY_SPACE,
             }
             self.event_to_function  = {
-                "SLEEP": self._sleep_callback,
+                "STEP_MODE": self._step_mode_callback,
                 "PAUSE_SIM": self._pause_sim_callback,
             }
         else:
@@ -303,11 +308,9 @@ class IsaacValidator():
                 gym.subscribe_viewer_keyboard_event(self.viewer, key, event)
 
     ## KEYBOARD EVENT SUBSCRIPTIONS START ##
-    def _sleep_callback(self):
-        N_SECONDS = 5
-        print(f"Sleeping for {N_SECONDS} seconds...")
-        sleep(N_SECONDS)
-        print("Done sleeping")
+    def _step_mode_callback(self):
+        self.is_step_mode = not self.is_step_mode
+        print(f"Simulation is in {'step' if self.is_step_mode else 'continuous'} mode")
 
     def _pause_sim_callback(self):
         self.is_paused = not self.is_paused
