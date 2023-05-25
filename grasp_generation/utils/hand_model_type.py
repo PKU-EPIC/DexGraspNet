@@ -124,8 +124,7 @@ _shadow_joint_angles_mu = torch.tensor(
     dtype=torch.float,
 )
 
-# _allegro_hand_root_hand_file = ("allegro_hand_description", "allegro_hand_description_right.urdf")
-_allegro_hand_root_hand_file = ("/juno/u/tylerlum/github_repos/IsaacGymEnvs/assets/", "urdf/kuka_allegro_description/allegro.urdf")
+_allegro_hand_root_hand_file = ("allegro_hand_description", "allegro_hand_description_right.urdf")
 _shadow_hand_root_hand_file = ("open_ai_assets", "hand/shadow_hand.xml")
 
 handmodeltype_to_joint_names = {
