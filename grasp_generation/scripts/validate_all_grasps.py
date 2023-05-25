@@ -2,6 +2,9 @@ import subprocess
 import os
 from tqdm import tqdm
 import argparse
+import sys
+
+sys.path.append(os.path.realpath("."))
 from utils.hand_model_type import HandModelType
 
 if __name__ == '__main__':
