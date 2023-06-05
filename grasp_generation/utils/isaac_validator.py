@@ -59,7 +59,7 @@ class IsaacValidator:
         self.obj_handles = []
         self.hand_link_idx_to_name_dicts = []
         self.obj_link_idx_to_name_dicts = []
-        self.env_transforms = []
+        self.init_obj_poses = []
         self.joint_names = handmodeltype_to_joint_names[hand_model_type]
         self.allowed_contact_link_names = handmodeltype_to_allowedcontactlinknames[
             hand_model_type
@@ -170,7 +170,6 @@ class IsaacValidator:
     ):
         # Set test rotation
         test_rot = self.test_rotations[test_rotation_index]
-        self.env_transforms.append(test_rot)
 
         # Create env
         env = gym.create_env(
@@ -237,6 +236,7 @@ class IsaacValidator:
         obj_pose.p = gymapi.Vec3(0, 0, 0)
         obj_pose.r = gymapi.Quat(0, 0, 0, 1)
         obj_pose = test_rot * obj_pose
+        self.init_obj_poses.append(obj_pose)
 
         # Create obj
         obj_actor_handle = gym.create_actor(env, self.obj_asset, obj_pose, "obj", 0, 1)
@@ -298,14 +298,14 @@ class IsaacValidator:
             hand_link_idx_to_name,
             obj_link_idx_to_name,
             obj_handle,
-            env_transform,
+            init_obj_pose,
         ) in enumerate(
             zip(
                 self.envs,
                 self.hand_link_idx_to_name_dicts,
                 self.obj_link_idx_to_name_dicts,
                 self.obj_handles,
-                self.env_transforms,
+                self.init_obj_poses,
             )
         ):
             contacts = gym.get_env_rigid_contacts(env)
@@ -342,14 +342,14 @@ class IsaacValidator:
                 env, obj_handle, gymapi.STATE_POS
             )[0]["pose"]
             init_obj_pos = torch.tensor(
-                [env_transform.p.x, env_transform.p.y, env_transform.p.z]
+                [init_obj_pose.p.x, init_obj_pose.p.y, init_obj_pose.p.z]
             )
             init_obj_quat = torch.tensor(
                 [
-                    env_transform.r.x,
-                    env_transform.r.y,
-                    env_transform.r.z,
-                    env_transform.r.w,
+                    init_obj_pose.r.x,
+                    init_obj_pose.r.y,
+                    init_obj_pose.r.z,
+                    init_obj_pose.r.w,
                 ]
             )
             obj_pos = torch.tensor([obj_pose["p"][s] for s in "xyz"])
