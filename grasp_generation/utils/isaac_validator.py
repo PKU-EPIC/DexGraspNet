@@ -59,6 +59,7 @@ class IsaacValidator:
         self.obj_handles = []
         self.hand_link_idx_to_name_dicts = []
         self.obj_link_idx_to_name_dicts = []
+        self.env_transforms = []
         self.joint_names = handmodeltype_to_joint_names[hand_model_type]
         self.allowed_contact_link_names = handmodeltype_to_allowedcontactlinknames[
             hand_model_type
@@ -167,7 +168,9 @@ class IsaacValidator:
         test_rotation_index=0,
         target_qpos=None,
     ):
+        # Set test rotation
         test_rot = self.test_rotations[test_rotation_index]
+        self.env_transforms.append(test_rot)
 
         # Create env
         env = gym.create_env(
@@ -290,11 +293,19 @@ class IsaacValidator:
                 pbar.set_description(desc)
 
         successes = []
-        for i, (env, hand_link_idx_to_name, obj_link_idx_to_name) in enumerate(
+        for i, (
+            env,
+            hand_link_idx_to_name,
+            obj_link_idx_to_name,
+            obj_handle,
+            env_transform,
+        ) in enumerate(
             zip(
                 self.envs,
                 self.hand_link_idx_to_name_dicts,
                 self.obj_link_idx_to_name_dicts,
+                self.obj_handles,
+                self.env_transforms,
             )
         ):
             contacts = gym.get_env_rigid_contacts(env)
@@ -328,19 +339,33 @@ class IsaacValidator:
             )
 
             obj_pose = gym.get_actor_rigid_body_states(
-                env, self.obj_handles[i], gymapi.STATE_POS
+                env, obj_handle, gymapi.STATE_POS
             )[0]["pose"]
-            default_obj_pos = torch.tensor([0, 0, 0])
-            default_obj_quat = torch.tensor([0, 0, 0, 1])
+            init_obj_pos = torch.tensor(
+                [env_transform.p.x, env_transform.p.y, env_transform.p.z]
+            )
+            init_obj_quat = torch.tensor(
+                [
+                    env_transform.r.x,
+                    env_transform.r.y,
+                    env_transform.r.z,
+                    env_transform.r.w,
+                ]
+            )
             obj_pos = torch.tensor([obj_pose["p"][s] for s in "xyz"])
             obj_quat = torch.tensor([obj_pose["r"][s] for s in "xyzw"])
 
             quat_diff = torch_utils.quat_mul(
-                obj_quat, torch_utils.quat_conjugate(default_obj_quat)
+                obj_quat, torch_utils.quat_conjugate(init_obj_quat)
             )
-            pos_change = torch.linalg.norm(obj_pos - default_obj_pos).item()
-            euler_change = torch.stack(torch_utils.get_euler_xyz(quat_diff[None, ...]))
-            max_euler_change = euler_change.abs().max().rad2deg().item()
+            pos_change = torch.linalg.norm(obj_pos - init_obj_pos).item()
+            euler_change = torch.stack(
+                torch_utils.get_euler_xyz(quat_diff[None, ...])
+            ).abs()
+            euler_change = torch.where(
+                euler_change > math.pi, 2 * math.pi - euler_change, euler_change
+            )
+            max_euler_change = euler_change.max().rad2deg().item()
 
             success = (
                 len(hand_object_contacts) > 0
@@ -351,9 +376,12 @@ class IsaacValidator:
 
             successes.append(success)
 
-            DEBUG = False
+            DEBUG = True
             if DEBUG and len(hand_object_contacts) > 0:
                 print(f"i = {i}")
+                print(f"success = {success}")
+                print(f"pos_change = {pos_change}")
+                print(f"max_euler_change = {max_euler_change}")
                 print(f"len(contacts) = {len(contacts)}")
                 print(f"len(hand_object_contacts) = {len(hand_object_contacts)}")
                 print(f"hand_link_contact_count = {hand_link_contact_count}")
