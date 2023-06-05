@@ -241,15 +241,6 @@ class IsaacValidator():
                 if self.is_step_mode:
                     self.is_paused = True
 
-            # Update progress bar
-            desc = default_desc
-            desc += ". 'KEY_SPACE' = toggle pause. 'KEY_S' = toggle step mode"
-            if self.is_paused:
-                desc += ". Paused"
-            if self.is_step_mode:
-                desc += ". Step mode on"
-            pbar.set_description(desc)
-
             # Update viewer
             if self.has_viewer:
                 sleep(self.debug_interval)
@@ -263,6 +254,15 @@ class IsaacValidator():
 
                 gym.step_graphics(self.sim)
                 gym.draw_viewer(self.viewer, self.sim, False)
+
+                # Update progress bar text
+                desc = default_desc
+                desc += ". 'KEY_SPACE' = toggle pause. 'KEY_S' = toggle step mode"
+                if self.is_paused:
+                    desc += ". Paused"
+                if self.is_step_mode:
+                    desc += ". Step mode on"
+                pbar.set_description(desc)
 
         success = []
         for i, env in enumerate(self.envs):
