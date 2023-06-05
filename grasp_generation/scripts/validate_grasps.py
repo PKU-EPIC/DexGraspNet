@@ -25,7 +25,7 @@ from utils.qpos_pose_conversion import qpos_to_pose, qpos_to_translation_rot_joi
 from typing import List
 
 
-def compute_apply_force_hand_pose(
+def compute_joint_angle_targets(
     args: argparse.Namespace, joint_names: List[str], data_dict: np.ndarray
 ):
     # Read in hand state and scale tensor
@@ -102,7 +102,9 @@ def compute_apply_force_hand_pose(
         hand_poses.grad.zero_()
 
     assert hand_poses.shape == (batch_size, 3 + 6 + hand_model.n_dofs)
-    return hand_poses
+    joint_angle_targets = hand_poses[:, 9:]
+
+    return joint_angle_targets
 
 
 def main(args):
@@ -111,7 +113,10 @@ def main(args):
 
     if args.index is not None:
         sim = IsaacValidator(
-            hand_model_type=args.hand_model_type, gpu=args.gpu, mode="gui", start_with_step_mode=args.start_with_step_mode
+            hand_model_type=args.hand_model_type,
+            gpu=args.gpu,
+            mode="gui",
+            start_with_step_mode=args.start_with_step_mode,
         )
     else:
         sim = IsaacValidator(hand_model_type=args.hand_model_type, gpu=args.gpu)
@@ -152,9 +157,9 @@ def main(args):
 
     if not args.no_force:
         joint_angle_targets_array = (
-            compute_apply_force_hand_pose(
+            compute_joint_angle_targets(
                 args=args, joint_names=joint_names, data_dict=data_dict
-            )[:, 9:]
+            )
             .detach()
             .cpu()
             .numpy()
@@ -177,7 +182,11 @@ def main(args):
             hand_translation=translations[index],
             hand_qpos=joint_angles_array[index],
             obj_scale=scale_array[index],
-            target_qpos=joint_angle_targets_array[index] if joint_angle_targets_array is not None else None,
+            target_qpos=(
+                joint_angle_targets_array[index]
+                if joint_angle_targets_array is not None
+                else None
+            ),
         )
         result = sim.run_sim()
         print(f"result = {result}")
@@ -209,7 +218,11 @@ def main(args):
                     hand_translation=translations[index],
                     hand_qpos=joint_angles_array[index],
                     obj_scale=scale_array[index],
-                    target_qpos=joint_angle_targets_array[index] if joint_angle_targets_array is not None else None,
+                    target_qpos=(
+                        joint_angle_targets_array[index]
+                        if joint_angle_targets_array is not None
+                        else None
+                    ),
                 )
             result = [*result, *sim.run_sim()]
             sim.reset_simulator()
@@ -217,7 +230,10 @@ def main(args):
 
         num_envs_per_grasp = len(sim.test_rotations)
         for i in range(batch_size):
-            simulated[i] = np.array(sum(result[i * num_envs_per_grasp : (i + 1) * num_envs_per_grasp]) == num_envs_per_grasp)
+            simulated[i] = np.array(
+                sum(result[i * num_envs_per_grasp : (i + 1) * num_envs_per_grasp])
+                == num_envs_per_grasp
+            )
 
         estimated = E_pen_array < args.penetration_threshold
         valid = simulated * estimated
