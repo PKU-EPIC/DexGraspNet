@@ -278,46 +278,27 @@ class IsaacValidator:
                     desc += ". Step mode on"
                 pbar.set_description(desc)
 
-        success = []
+        successes = []
         for i, (env, hand_rigid_body_set, obj_rigid_body_set) in enumerate(
             zip(self.envs, self.hand_rigid_body_sets, self.obj_rigid_body_sets)
         ):
             contacts = gym.get_env_rigid_contacts(env)
-            flag = False
 
-            # TODO: Maybe count number of contacts
-            hand_link_names = gym.get_actor_rigid_body_names(env, self.hand_handles[i])
+            # Get hand and obj link names and indices
             hand_link_idx_to_name = {
                 gym.find_actor_rigid_body_index(
                     env, self.hand_handles[i], link_name, gymapi.DOMAIN_ENV
                 ): link_name
-                for link_name in hand_link_names
+                for link_name in gym.get_actor_rigid_body_names(env, self.hand_handles[i])
             }
-            obj_link_names = gym.get_actor_rigid_body_names(env, self.obj_handles[i])
             obj_link_idx_to_name = {
                 gym.find_actor_rigid_body_index(
                     env, self.obj_handles[i], link_name, gymapi.DOMAIN_ENV
                 ): link_name
-                for link_name in obj_link_names
+                for link_name in gym.get_actor_rigid_body_names(env, self.obj_handles[i])
             }
-            print(f"len(contacts) = {len(contacts)}")
-            hand_self_contacts = []
-            for contact in contacts:
-                body0 = contact["body0"]
-                body1 = contact["body1"]
-                if body0 in hand_link_idx_to_name and body1 in hand_link_idx_to_name:
-                    hand_self_contacts.append(contact)
-            obj_self_contacts = []
-            for contact in contacts:
-                body0 = contact["body0"]
-                body1 = contact["body1"]
-                if body0 in obj_link_idx_to_name and body1 in obj_link_idx_to_name:
-                    obj_self_contacts.append(contact)
-
-            remaining_contacts = [contact for contact in contacts if contact not in hand_self_contacts and contact not in obj_self_contacts]
-            print(f"len(hand_self_contacts) = {len(hand_self_contacts)}")
-            print(f"len(obj_self_contacts) = {len(obj_self_contacts)}")
-            print(f"len(remaining_contacts) = {len(remaining_contacts)}")
+            assert set(hand_link_idx_to_name.keys()) == hand_rigid_body_set
+            assert set(obj_link_idx_to_name.keys()) == obj_rigid_body_set
 
             hand_object_contacts = []
             for contact in contacts:
@@ -327,52 +308,28 @@ class IsaacValidator:
                     hand_object_contacts.append(contact)
                 elif body1 in hand_link_idx_to_name and body0 in obj_link_idx_to_name:
                     hand_object_contacts.append(contact)
-            print(f"len(hand_object_contacts) = {len(hand_object_contacts)}")
 
             hand_link_contact_count = defaultdict(int)
             for contact in hand_object_contacts:
                 body0 = contact["body0"]
                 body1 = contact["body1"]
-                if body0 in hand_link_idx_to_name:
-                    body0_name = hand_link_idx_to_name[body0]
-                else:
-                    body0_name = obj_link_idx_to_name[body0]
-                if body1 in hand_link_idx_to_name:
-                    body1_name = hand_link_idx_to_name[body1]
-                else:
-                    body1_name = obj_link_idx_to_name[body1]
-
-                hand_link_name = body0_name if body0 in hand_link_idx_to_name else body1_name
+                hand_link_name = hand_link_idx_to_name[body0] if body0 in hand_link_idx_to_name else hand_link_idx_to_name[body1]
                 hand_link_contact_count[hand_link_name] += 1
-            print(f"hand_link_contact_count = {hand_link_contact_count}")
+            expected_contacts = set(["link_3.0", "link_7.0", "link_11.0", "link_15.0", "link_3.0_tip", "link_7.0_tip", "link_11.0_tip", "link_15.0_tip"])
+            unexpected_contacts = set(hand_link_contact_count.keys()) - expected_contacts
 
+            # successes.append(len(hand_object_contacts) > 0)
+            successes.append(len(hand_object_contacts) > 0 and len(unexpected_contacts) == 0)
 
-            for contact in contacts:
-                body0 = contact["body0"]
-                body1 = contact["body1"]
-                if body0 in hand_link_idx_to_name:
-                    print(f"Found body0 in hand: {hand_link_idx_to_name[body0]}")
-                elif body0 in obj_link_idx_to_name:
-                    print(f"Found body0 in obj: {obj_link_idx_to_name[body0]}")
-                else:
-                    print(f"Found body0 not in hand or obj: {body0}")
+            if len(hand_object_contacts) > 0:
+                print(f"i = {i}")
+                print(f"len(contacts) = {len(contacts)}")
+                print(f"len(hand_object_contacts) = {len(hand_object_contacts)}")
+                print(f"hand_link_contact_count = {hand_link_contact_count}")
+                print(f"unexpected_contacts = {unexpected_contacts}")
+                print("-------------")
 
-                if body1 in hand_link_idx_to_name:
-                    print(f"Found body1 in hand: {hand_link_idx_to_name[body1]}")
-                elif body1 in obj_link_idx_to_name:
-                    print(f"Found body1 in obj: {obj_link_idx_to_name[body1]}")
-                else:
-                    print(f"Found body1 not in hand or obj: {body1}")
-                print()
-
-                # hand_obj_in_contact = (
-                #     body0 in hand_rigid_body_set and body1 in obj_rigid_body_set
-                # ) or (body1 in hand_rigid_body_set and body0 in obj_rigid_body_set)
-                # if hand_obj_in_contact:
-                #     flag = True
-                #     break
-            success.append(flag)
-        return success
+        return successes
 
     def reset_simulator(self):
         gym.destroy_sim(self.sim)
