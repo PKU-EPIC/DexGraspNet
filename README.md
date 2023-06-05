@@ -91,3 +91,30 @@ If you find our work useful in your research, please consider citing:
 If you have any questions, please open a github issue or contact us:
 
 Ruicheng Wang: <wrc0326@stu.pku.edu.cn>, Jialiang Zhang: <jackzhang0906@126.com>, He Wang: <hewang@pku.edu.cn>
+
+## Useful Info (Added By Tyler)
+
+Anatomy: https://en.wikipedia.org/wiki/Phalanx_bone
+
+![image](https://github.com/tylerlum/DexGraspNet/assets/26510814/9800eefe-ffbf-40f9-8b1c-1dee04d689f6)
+
+* distal is tip of finger
+* middle is behind distal
+* proximal is behind middle
+
+Acronyms for shadow hand:
+
+* th = thumb
+* ff = fore finger
+* mf = middle finger
+* rf = ring finger
+* lf = little finger
+
+For allegro hand:
+
+* link 0 - 3 is fore finger (link 3 tip is fore fingertip)
+* link 4 - 7 is middle finger (link 7 tip is middle fingertip)
+* link 8 - 11 is ring finger (link 11 tip is ring fingertip)
+* link 12 - 15 is thumb (link 15 tip is thumbtip)
+
+
