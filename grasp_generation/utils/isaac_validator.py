@@ -9,10 +9,24 @@ from isaacgym import gymutil
 import math
 from time import sleep
 from tqdm import tqdm
-from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
+from utils.hand_model_type import handmodeltype_to_allowedcontactlinknames, handmodeltype_to_joint_names, HandModelType
 from collections import defaultdict
 
 gym = gymapi.acquire_gym()
+
+
+def get_link_idx_to_name_dict(env, actor_handle):
+    link_idx_to_name_dict = {}
+    num_links = gym.get_actor_rigid_body_count(env, actor_handle)
+    link_names = gym.get_actor_rigid_body_names(env, actor_handle)
+    assert len(link_names) == num_links
+    for i in range(num_links):
+        link_idx = gym.get_actor_rigid_body_index(
+            env, actor_handle, i, gymapi.DOMAIN_ENV
+        )
+        link_name = link_names[i]
+        link_idx_to_name_dict[link_idx] = link_name
+    return link_idx_to_name_dict
 
 
 class IsaacValidator:
@@ -39,9 +53,10 @@ class IsaacValidator:
         self.envs = []
         self.hand_handles = []
         self.obj_handles = []
-        self.hand_rigid_body_sets = []
-        self.obj_rigid_body_sets = []
+        self.hand_link_idx_to_name_dicts = []
+        self.obj_link_idx_to_name_dicts = []
         self.joint_names = handmodeltype_to_joint_names[hand_model_type]
+        self.allowed_contact_link_names = handmodeltype_to_allowedcontactlinknames[hand_model_type]
         self.hand_asset = None
         self.obj_asset = None
 
@@ -197,15 +212,10 @@ class IsaacValidator:
             dof_pos_targets = dof_states["pos"]
         gym.set_actor_dof_position_targets(env, hand_actor_handle, dof_pos_targets)
 
-        # Store hand rigid body set
-        hand_rigid_body_set = set()
-        for i in range(gym.get_actor_rigid_body_count(env, hand_actor_handle)):
-            hand_rigid_body_set.add(
-                gym.get_actor_rigid_body_index(
-                    env, hand_actor_handle, i, gymapi.DOMAIN_ENV
-                )
-            )
-        self.hand_rigid_body_sets.append(hand_rigid_body_set)
+        # Store hand link_idx_to_name_dict
+        self.hand_link_idx_to_name_dicts.append(
+            get_link_idx_to_name_dict(env=env, actor_handle=hand_actor_handle)
+        )
 
         # Set hand shape props
         hand_shape_props = gym.get_actor_rigid_shape_properties(env, hand_actor_handle)
@@ -224,15 +234,10 @@ class IsaacValidator:
         self.obj_handles.append(obj_actor_handle)
         gym.set_actor_scale(env, obj_actor_handle, obj_scale)
 
-        # Store obj rigid body set
-        obj_rigid_body_set = set()
-        for i in range(gym.get_actor_rigid_body_count(env, obj_actor_handle)):
-            obj_rigid_body_set.add(
-                gym.get_actor_rigid_body_index(
-                    env, obj_actor_handle, i, gymapi.DOMAIN_ENV
-                )
-            )
-        self.obj_rigid_body_sets.append(obj_rigid_body_set)
+        # Store obj link_idx_to_name_dict
+        self.obj_link_idx_to_name_dicts.append(
+            get_link_idx_to_name_dict(env=env, actor_handle=obj_actor_handle)
+        )
 
         # Set obj shape props
         obj_shape_props = gym.get_actor_rigid_shape_properties(env, obj_actor_handle)
@@ -279,54 +284,52 @@ class IsaacValidator:
                 pbar.set_description(desc)
 
         successes = []
-        for i, (env, hand_rigid_body_set, obj_rigid_body_set) in enumerate(
-            zip(self.envs, self.hand_rigid_body_sets, self.obj_rigid_body_sets)
+        for i, (env, hand_link_idx_to_name, obj_link_idx_to_name) in enumerate(
+            zip(
+                self.envs,
+                self.hand_link_idx_to_name_dicts,
+                self.obj_link_idx_to_name_dicts,
+            )
         ):
             contacts = gym.get_env_rigid_contacts(env)
 
-            # Get hand and obj link names and indices
-            hand_link_idx_to_name = {
-                gym.find_actor_rigid_body_index(
-                    env, self.hand_handles[i], link_name, gymapi.DOMAIN_ENV
-                ): link_name
-                for link_name in gym.get_actor_rigid_body_names(env, self.hand_handles[i])
-            }
-            obj_link_idx_to_name = {
-                gym.find_actor_rigid_body_index(
-                    env, self.obj_handles[i], link_name, gymapi.DOMAIN_ENV
-                ): link_name
-                for link_name in gym.get_actor_rigid_body_names(env, self.obj_handles[i])
-            }
-            assert set(hand_link_idx_to_name.keys()) == hand_rigid_body_set
-            assert set(obj_link_idx_to_name.keys()) == obj_rigid_body_set
-
+            # Find hand object contacts
             hand_object_contacts = []
             for contact in contacts:
                 body0 = contact["body0"]
                 body1 = contact["body1"]
-                if body0 in hand_link_idx_to_name and body1 in obj_link_idx_to_name:
-                    hand_object_contacts.append(contact)
-                elif body1 in hand_link_idx_to_name and body0 in obj_link_idx_to_name:
+                is_hand_object_contact = (
+                    body0 in hand_link_idx_to_name and body1 in obj_link_idx_to_name
+                ) or (body1 in hand_link_idx_to_name and body0 in obj_link_idx_to_name)
+                if is_hand_object_contact:
                     hand_object_contacts.append(contact)
 
+            # Count hand link contacts
             hand_link_contact_count = defaultdict(int)
             for contact in hand_object_contacts:
                 body0 = contact["body0"]
                 body1 = contact["body1"]
-                hand_link_name = hand_link_idx_to_name[body0] if body0 in hand_link_idx_to_name else hand_link_idx_to_name[body1]
+                hand_link_name = (
+                    hand_link_idx_to_name[body0]
+                    if body0 in hand_link_idx_to_name
+                    else hand_link_idx_to_name[body1]
+                )
                 hand_link_contact_count[hand_link_name] += 1
-            expected_contacts = set(["link_3.0", "link_7.0", "link_11.0", "link_15.0", "link_3.0_tip", "link_7.0_tip", "link_11.0_tip", "link_15.0_tip"])
-            unexpected_contacts = set(hand_link_contact_count.keys()) - expected_contacts
 
-            # successes.append(len(hand_object_contacts) > 0)
-            successes.append(len(hand_object_contacts) > 0 and len(unexpected_contacts) == 0)
+            not_allowed_contacts = (
+                set(hand_link_contact_count.keys()) - set(self.allowed_contact_link_names)
+            )
+
+            successes.append(
+                len(hand_object_contacts) > 0 and len(not_allowed_contacts) == 0
+            )
 
             if len(hand_object_contacts) > 0:
                 print(f"i = {i}")
                 print(f"len(contacts) = {len(contacts)}")
                 print(f"len(hand_object_contacts) = {len(hand_object_contacts)}")
                 print(f"hand_link_contact_count = {hand_link_contact_count}")
-                print(f"unexpected_contacts = {unexpected_contacts}")
+                print(f"not_allowed_contacts = {not_allowed_contacts}")
                 print("-------------")
 
         return successes
@@ -342,8 +345,8 @@ class IsaacValidator:
         self.envs = []
         self.hand_handles = []
         self.obj_handles = []
-        self.hand_rigid_body_sets = []
-        self.obj_rigid_body_sets = []
+        self.hand_link_idx_to_name_dicts = []
+        self.obj_link_idx_to_name_dicts = []
         self.hand_asset = None
         self.obj_asset = None
 
