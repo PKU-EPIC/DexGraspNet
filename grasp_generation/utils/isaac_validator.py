@@ -10,6 +10,7 @@ import math
 from time import sleep
 from tqdm import tqdm
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
+from collections import defaultdict
 
 gym = gymapi.acquire_gym()
 
@@ -327,6 +328,23 @@ class IsaacValidator:
                 elif body1 in hand_link_idx_to_name and body0 in obj_link_idx_to_name:
                     hand_object_contacts.append(contact)
             print(f"len(hand_object_contacts) = {len(hand_object_contacts)}")
+
+            hand_link_contact_count = defaultdict(int)
+            for contact in hand_object_contacts:
+                body0 = contact["body0"]
+                body1 = contact["body1"]
+                if body0 in hand_link_idx_to_name:
+                    body0_name = hand_link_idx_to_name[body0]
+                else:
+                    body0_name = obj_link_idx_to_name[body0]
+                if body1 in hand_link_idx_to_name:
+                    body1_name = hand_link_idx_to_name[body1]
+                else:
+                    body1_name = obj_link_idx_to_name[body1]
+
+                hand_link_name = body0_name if body0 in hand_link_idx_to_name else body1_name
+                hand_link_contact_count[hand_link_name] += 1
+            print(f"hand_link_contact_count = {hand_link_contact_count}")
 
 
             for contact in contacts:
