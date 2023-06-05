@@ -4,13 +4,17 @@ Author: Ruicheng Wang
 Description: Class IsaacValidator
 """
 
-from isaacgym import gymapi
-from isaacgym import gymutil
+from isaacgym import gymapi, torch_utils
 import math
 from time import sleep
 from tqdm import tqdm
-from utils.hand_model_type import handmodeltype_to_allowedcontactlinknames, handmodeltype_to_joint_names, HandModelType
+from utils.hand_model_type import (
+    handmodeltype_to_allowedcontactlinknames,
+    handmodeltype_to_joint_names,
+    HandModelType,
+)
 from collections import defaultdict
+import torch
 
 gym = gymapi.acquire_gym()
 
@@ -56,7 +60,9 @@ class IsaacValidator:
         self.hand_link_idx_to_name_dicts = []
         self.obj_link_idx_to_name_dicts = []
         self.joint_names = handmodeltype_to_joint_names[hand_model_type]
-        self.allowed_contact_link_names = handmodeltype_to_allowedcontactlinknames[hand_model_type]
+        self.allowed_contact_link_names = handmodeltype_to_allowedcontactlinknames[
+            hand_model_type
+        ]
         self.hand_asset = None
         self.obj_asset = None
 
@@ -316,15 +322,37 @@ class IsaacValidator:
                 )
                 hand_link_contact_count[hand_link_name] += 1
 
-            not_allowed_contacts = (
-                set(hand_link_contact_count.keys()) - set(self.allowed_contact_link_names)
+            # Success conditions
+            not_allowed_contacts = set(hand_link_contact_count.keys()) - set(
+                self.allowed_contact_link_names
             )
 
-            successes.append(
-                len(hand_object_contacts) > 0 and len(not_allowed_contacts) == 0
+            obj_pose = gym.get_actor_rigid_body_states(
+                env, self.obj_handles[i], gymapi.STATE_POS
+            )[0]["pose"]
+            default_obj_pos = torch.tensor([0, 0, 0])
+            default_obj_quat = torch.tensor([0, 0, 0, 1])
+            obj_pos = torch.tensor([obj_pose["p"][s] for s in "xyz"])
+            obj_quat = torch.tensor([obj_pose["r"][s] for s in "xyzw"])
+
+            quat_diff = torch_utils.quat_mul(
+                obj_quat, torch_utils.quat_conjugate(default_obj_quat)
+            )
+            pos_change = torch.linalg.norm(obj_pos - default_obj_pos).item()
+            euler_change = torch.stack(torch_utils.get_euler_xyz(quat_diff[None, ...]))
+            max_euler_change = euler_change.abs().max().rad2deg().item()
+
+            success = (
+                len(hand_object_contacts) > 0
+                and len(not_allowed_contacts) == 0
+                and pos_change < 0.1
+                and max_euler_change < 30
             )
 
-            if len(hand_object_contacts) > 0:
+            successes.append(success)
+
+            DEBUG = False
+            if DEBUG and len(hand_object_contacts) > 0:
                 print(f"i = {i}")
                 print(f"len(contacts) = {len(contacts)}")
                 print(f"len(hand_object_contacts) = {len(hand_object_contacts)}")
