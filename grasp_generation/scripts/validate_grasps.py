@@ -20,6 +20,7 @@ from utils.hand_model_type import (
     HandModelType,
     handmodeltype_to_joint_names,
     handmodeltype_to_hand_root_hand_file,
+    handmodeltype_to_expectedcontactlinknames
 )
 from utils.qpos_pose_conversion import qpos_to_pose, qpos_to_translation_rot_jointangles
 from typing import List
@@ -107,8 +108,95 @@ def compute_joint_angle_targets(
     return joint_angle_targets
 
 
+def compute_joint_angle_targets_v2(
+    args: argparse.Namespace, joint_names: List[str], data_dict: np.ndarray, expected_contact_link_names: List[str]
+):
+    # Read in hand state and scale tensor
+    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+    batch_size = data_dict.shape[0]
+    hand_poses = []
+    scale_tensor = []
+    for i in range(batch_size):
+        qpos = data_dict[i]["qpos"]
+        scale = data_dict[i]["scale"]
+        hand_pose = qpos_to_pose(
+            qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False
+        ).to(device)
+        hand_poses.append(hand_pose)
+        scale_tensor.append(scale)
+    hand_poses = torch.stack(hand_poses).to(device).requires_grad_()
+    scale_tensor = torch.tensor(scale_tensor).reshape(1, -1).to(device)
+
+    # hand model
+    hand_model = HandModel(
+        hand_model_type=args.hand_model_type, n_surface_points=2000, device=device
+    )
+    hand_model.set_parameters(hand_poses)
+
+    # object model
+    object_model = ObjectModel(
+        data_root_path=args.mesh_path,
+        batch_size_each=batch_size,
+        num_samples=0,
+        device=device,
+    )
+    object_model.initialize(args.object_code)
+    object_model.object_scale_tensor = scale_tensor
+
+    # calculate contact points and contact normals
+    num_links = len(hand_model.mesh)
+    contact_points_hand = torch.zeros((batch_size, num_links, 3)).to(device)
+    contact_normals = torch.zeros((batch_size, num_links, 3)).to(device)
+
+    for i, link_name in enumerate(hand_model.mesh):
+        if len(hand_model.mesh[link_name]["surface_points"]) == 0:
+            continue
+        if link_name not in expected_contact_link_names:
+            continue
+
+        surface_points = (
+            hand_model.current_status[link_name]
+            .transform_points(hand_model.mesh[link_name]["surface_points"])
+            .expand(batch_size, -1, 3)
+        )
+        surface_points = surface_points @ hand_model.global_rotation.transpose(
+            1, 2
+        ) + hand_model.global_translation.unsqueeze(1)
+        distances, normals = object_model.cal_distance(surface_points)
+        nearest_point_index = distances.argmax(dim=1)
+        nearest_distances = torch.gather(distances, 1, nearest_point_index.unsqueeze(1))
+        nearest_points_hand = torch.gather(
+            surface_points, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
+        )
+        nearest_normals = torch.gather(
+            normals, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
+        )
+        admited = -nearest_distances < args.thres_cont
+        admited = admited.reshape(-1, 1, 1).expand(-1, 1, 3)
+        contact_points_hand[:, i : i + 1, :] = torch.where(
+            admited, nearest_points_hand, contact_points_hand[:, i : i + 1, :]
+        )
+        contact_normals[:, i : i + 1, :] = torch.where(
+            admited, nearest_normals, contact_normals[:, i : i + 1, :]
+        )
+
+    target_points = contact_points_hand + contact_normals * args.dis_move
+    loss = (target_points.detach().clone() - contact_points_hand).square().sum()
+    loss.backward()
+    with torch.no_grad():
+        hand_poses[:, 9:] += hand_poses.grad[:, 9:] * args.grad_move
+        hand_poses.grad.zero_()
+
+    assert hand_poses.shape == (batch_size, 3 + 6 + hand_model.n_dofs)
+    joint_angle_targets = hand_poses[:, 9:]
+
+    return joint_angle_targets
+
+
+
 def main(args):
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
+    expected_contact_link_names = handmodeltype_to_expectedcontactlinknames[args.hand_model_type]
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
     if args.index is not None:
@@ -157,18 +245,27 @@ def main(args):
 
     if not args.no_force:
         joint_angle_targets_array = (
-            compute_joint_angle_targets(
-                args=args, joint_names=joint_names, data_dict=data_dict
+            compute_joint_angle_targets_v2(
+                args=args, joint_names=joint_names, data_dict=data_dict, expected_contact_link_names=expected_contact_link_names
             )
             .detach()
             .cpu()
             .numpy()
         )
+        # joint_angle_targets_array = (
+        #     compute_joint_angle_targets(
+        #         args=args, joint_names=joint_names, data_dict=data_dict
+        #     )
+        #     .detach()
+        #     .cpu()
+        #     .numpy()
+        # )
     else:
         joint_angle_targets_array = None
 
     hand_root, hand_file = handmodeltype_to_hand_root_hand_file[args.hand_model_type]
 
+    # Debug with single grasp
     if args.index is not None:
         sim.set_asset(
             hand_root=hand_root,
@@ -200,19 +297,21 @@ def main(args):
             )
         )
         estimated = E_pen_array < args.penetration_threshold
+
+    # Run validation on all grasps
     else:
         simulated = np.zeros(batch_size, dtype=np.bool8)
-        offset = 0
         result = []
-        for batch in range(batch_size // args.val_batch):
-            offset_ = min(offset + args.val_batch, batch_size)
+        for batch_idx in range(batch_size // args.val_batch):
+            start_offset = batch_idx * args.val_batch
+            end_offset = min(start_offset + args.val_batch, batch_size)
             sim.set_asset(
                 hand_root=hand_root,
                 hand_file=hand_file,
                 obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
                 obj_file="coacd.urdf",
             )
-            for index in range(offset, offset_):
+            for index in range(start_offset, end_offset):
                 sim.add_env_all_test_rotations(
                     hand_rotation=rotations[index],
                     hand_translation=translations[index],
@@ -226,7 +325,6 @@ def main(args):
                 )
             result = [*result, *sim.run_sim()]
             sim.reset_simulator()
-            offset = offset_
 
         num_envs_per_grasp = len(sim.test_rotations)
         for i in range(batch_size):
