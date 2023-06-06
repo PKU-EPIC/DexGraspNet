@@ -28,7 +28,7 @@ import math
 
 
 def compute_joint_angle_targets(
-    args: argparse.Namespace, joint_names: List[str], data_dict: np.ndarray
+    args: argparse.Namespace, joint_names: List[str], data_dict: np.ndarray, expected_contact_link_names: List[str]
 ):
     # Read in hand state and scale tensor
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
@@ -68,11 +68,15 @@ def compute_joint_angle_targets(
     contact_normals = torch.zeros((batch_size, num_links, 3)).to(device)
 
     for i, link_name in enumerate(hand_model.mesh):
-        if len(hand_model.mesh[link_name]["surface_points"]) == 0:
+        surface_points = hand_model.mesh[link_name]["surface_points"]
+        if len(surface_points) == 0:
             continue
+        if link_name not in expected_contact_link_names:
+            continue
+
         surface_points = (
             hand_model.current_status[link_name]
-            .transform_points(hand_model.mesh[link_name]["surface_points"])
+            .transform_points(surface_points)
             .expand(batch_size, -1, 3)
         )
         surface_points = surface_points @ hand_model.global_rotation.transpose(
@@ -167,7 +171,7 @@ def main(args):
                 args=args,
                 joint_names=joint_names,
                 data_dict=data_dict,
-                # expected_contact_link_names=expected_contact_link_names,
+                expected_contact_link_names=expected_contact_link_names,
             )
             .detach()
             .cpu()
