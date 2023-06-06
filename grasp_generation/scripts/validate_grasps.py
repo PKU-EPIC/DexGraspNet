@@ -25,10 +25,45 @@ from utils.hand_model_type import (
 from utils.qpos_pose_conversion import qpos_to_pose, qpos_to_translation_rot_jointangles
 from typing import List
 import math
+import random
+
+
+def set_seed(seed, torch_deterministic=False, rank=0):
+    """set seed across modules"""
+    if seed == -1 and torch_deterministic:
+        seed = 42 + rank
+    elif seed == -1:
+        seed = np.random.randint(0, 10000)
+    else:
+        seed = seed + rank
+
+    print("Setting seed: {}".format(seed))
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    if torch_deterministic:
+        # refer to https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        torch.use_deterministic_algorithms(True)
+    else:
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = False
+
+    return seed
 
 
 def compute_joint_angle_targets(
-    args: argparse.Namespace, joint_names: List[str], data_dict: np.ndarray, expected_contact_link_names: List[str]
+    args: argparse.Namespace,
+    joint_names: List[str],
+    data_dict: np.ndarray,
+    expected_contact_link_names: List[str],
 ):
     # Read in hand state and scale tensor
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
@@ -116,6 +151,7 @@ def compute_joint_angle_targets(
 
 
 def main(args):
+    set_seed(42)
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
     expected_contact_link_names = handmodeltype_to_expectedcontactlinknames[
         args.hand_model_type
