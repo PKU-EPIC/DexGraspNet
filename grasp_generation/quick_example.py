@@ -111,20 +111,22 @@ for plot in plots:
 fig.show()
 
 # %%
-print(f"hand_model.hand_pose[:, 9:] = {hand_model.hand_pose[:, 9:]}")
+original_hand_pose = hand_model.hand_pose.detach().clone()
+print(f"original_hand_pose[:, 9:] = {original_hand_pose[:, 9:]}")
+
+# %%
+joint_angle_targets_to_optimize = original_hand_pose[:, 9:].detach().clone().requires_grad_(True)
 
 # %%
 batch_size = 1
 num_links = len(hand_model.mesh)
 contact_points_hand = torch.zeros((batch_size, num_links, 3)).to(device)
 contact_normals = torch.zeros((batch_size, num_links, 3)).to(device)
+
 from utils.hand_model_type import handmodeltype_to_expectedcontactlinknames
 expected_contact_link_names = handmodeltype_to_expectedcontactlinknames[hand_model_type]
 dist_thresh_to_move_finger = 0.1
 dist_move_link = 0.001
-
-hand_model.hand_pose = hand_model.hand_pose.requires_grad_(True)
-joint_angle_targets_to_optimize = hand_model.hand_pose[:, 9:]
 
 current_status = hand_model.chain.forward_kinematics(
     joint_angle_targets_to_optimize
@@ -168,17 +170,19 @@ for i, link_name in enumerate(hand_model.mesh):
 target_points = contact_points_hand - contact_normals * dist_move_link
 
 loss = (target_points.detach().clone() - contact_points_hand).square().sum()
-loss.backward()
+loss.backward(retain_graph=True)
 with torch.no_grad():
-    hand_model.hand_pose[:, 9:] -= hand_model.hand_pose.grad[:, 9:] * 500
+    joint_angle_targets_to_optimize -= joint_angle_targets_to_optimize.grad * 500
 
 # %%
-print(f"hand_model.hand_pose[:, 9:] = {hand_model.hand_pose[:, 9:]}")
+print(f"joint_angle_targets_to_optimize = {joint_angle_targets_to_optimize}")
 
 
 # %%
 # Plotly fig
-hand_model.set_parameters(hand_model.hand_pose)
+new_hand_pose = hand_model.hand_pose.detach().clone()
+new_hand_pose[:, 9:] = joint_angle_targets_to_optimize
+hand_model.set_parameters(new_hand_pose)
 fig_title = f"Grasp Code: {grasp_code}, Index: {index}"
 idx_to_visualize = batch_idx
 
