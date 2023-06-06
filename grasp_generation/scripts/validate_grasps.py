@@ -20,75 +20,19 @@ from utils.hand_model_type import (
     HandModelType,
     handmodeltype_to_joint_names,
     handmodeltype_to_hand_root_hand_file,
-    handmodeltype_to_expectedcontactlinknames,
 )
 from utils.qpos_pose_conversion import qpos_to_pose, qpos_to_translation_rot_jointangles
 from typing import List
 import math
 from utils.seed import set_seed
+from utils.joint_angle_targets import compute_joint_angle_targets, OptimizationMethod
 
 
-def compute_loss(
-    hand_model: HandModel,
-    joint_angle_targets_to_optimize: torch.Tensor,
-    expected_contact_link_names: List[str],
-    object_model: ObjectModel,
-    batch_size: int,
-    dist_thresh_to_move_finger: float,
-    dist_move_link: float,
-    device: torch.device,
-) -> torch.Tensor:
-    num_links = len(hand_model.mesh)
-    contact_points_hand = torch.zeros((batch_size, num_links, 3)).to(device)
-    contact_normals = torch.zeros((batch_size, num_links, 3)).to(device)
-    current_status = hand_model.chain.forward_kinematics(
-        joint_angle_targets_to_optimize
-    )
-    for i, link_name in enumerate(hand_model.mesh):
-        surface_points = hand_model.mesh[link_name]["contact_candidates"]
-        if len(surface_points) == 0:
-            continue
-        if link_name not in expected_contact_link_names:
-            continue
-
-        surface_points = (
-            current_status[link_name]
-            .transform_points(surface_points)
-            .expand(batch_size, -1, 3)
-        )
-        surface_points = surface_points @ hand_model.global_rotation.transpose(
-            1, 2
-        ) + hand_model.global_translation.unsqueeze(1)
-
-        # Interiors are positive, exteriors are negative
-        distances, normals = object_model.cal_distance(surface_points)
-        nearest_point_index = distances.argmax(dim=1)
-        nearest_distances = torch.gather(distances, 1, nearest_point_index.unsqueeze(1))
-        nearest_points_hand = torch.gather(
-            surface_points, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
-        )
-        nearest_normals = torch.gather(
-            normals, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
-        )
-        admitted = -nearest_distances < dist_thresh_to_move_finger
-        admitted = admitted.reshape(-1, 1, 1).expand(-1, 1, 3)
-        contact_points_hand[:, i : i + 1, :] = torch.where(
-            admitted, nearest_points_hand, contact_points_hand[:, i : i + 1, :]
-        )
-        contact_normals[:, i : i + 1, :] = torch.where(
-            admitted, nearest_normals, contact_normals[:, i : i + 1, :]
-        )
-
-    target_points = contact_points_hand + contact_normals * dist_move_link
-    loss = (target_points.detach().clone() - contact_points_hand).square().sum()
-    return loss
-
-
-def compute_joint_angle_targets(
+def compute_joint_angle_targets_with_optimization(
     args: argparse.Namespace,
     joint_names: List[str],
     data_dict: np.ndarray,
-    expected_contact_link_names: List[str],
+    optimization_method: OptimizationMethod,
 ):
     # Read in hand state and scale tensor
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
@@ -122,52 +66,27 @@ def compute_joint_angle_targets(
     object_model.initialize(args.object_code)
     object_model.object_scale_tensor = scale_tensor
 
-    # calculate contact points and contact normals
-    # joint_angle_targets_to_optimize = (
-    #     hand_poses[:, 9:].detach().clone().requires_grad_()
-    # )
-    joint_angle_targets_to_optimize = hand_poses[:, 9:]
+    # Make copies
+    original_hand_pose = hand_model.hand_pose.detach().clone()
+    joint_angle_targets_to_optimize = (
+        original_hand_pose[:, 9:].detach().clone().requires_grad_(True)
+    )
 
-    loss = compute_loss(
-        hand_model=hand_model,
+    # Optimization
+    joint_angle_targets_to_optimize, losses, debug_infos = compute_joint_angle_targets(
+        optimization_method=optimization_method,
         joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
-        expected_contact_link_names=expected_contact_link_names,
+        hand_model=hand_model,
         object_model=object_model,
-        batch_size=batch_size,
-        dist_thresh_to_move_finger=args.thres_cont,
-        dist_move_link=args.dis_move,
         device=device,
     )
-    print(f"loss = {loss.item()}")
-    loss.backward()
-    with torch.no_grad():
-        hand_poses[:, 9:] += hand_poses.grad[:, 9:] * args.grad_move
-        hand_poses.grad.zero_()
 
-    loss = compute_loss(
-        hand_model=hand_model,
-        joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
-        expected_contact_link_names=expected_contact_link_names,
-        object_model=object_model,
-        batch_size=batch_size,
-        dist_thresh_to_move_finger=args.thres_cont,
-        dist_move_link=args.dis_move,
-        device=device,
-    )
-    print(f"after loss = {loss.item()}")
-
-    assert hand_poses.shape == (batch_size, 3 + 6 + hand_model.n_dofs)
-    joint_angle_targets = hand_poses[:, 9:]
-
-    return joint_angle_targets
+    return joint_angle_targets_to_optimize
 
 
 def main(args):
     set_seed(42)
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
-    expected_contact_link_names = handmodeltype_to_expectedcontactlinknames[
-        args.hand_model_type
-    ]
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
     if args.index is not None:
@@ -215,11 +134,11 @@ def main(args):
 
     if not args.no_force:
         joint_angle_targets_array = (
-            compute_joint_angle_targets(
+            compute_joint_angle_targets_with_optimization(
                 args=args,
                 joint_names=joint_names,
                 data_dict=data_dict,
-                expected_contact_link_names=expected_contact_link_names,
+                optimization_method=OptimizationMethod.DESIRED_DIST_MOVE_ONE_STEP,
             )
             .detach()
             .cpu()

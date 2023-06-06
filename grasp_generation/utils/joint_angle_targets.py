@@ -154,7 +154,7 @@ def compute_loss_desired_dist_move(
         contact_normals[:, i : i + 1, :] = torch.where(
             admitted, nearest_normals, contact_normals[:, i : i + 1, :]
         )
-        contact_nearest_point_indexes[:, i : i + 1] = nearest_point_index
+        contact_nearest_point_indexes[:, i] = nearest_point_index
 
     if cached_target_points is None:
         target_points = contact_points_hand - contact_normals * dist_move_link
@@ -179,6 +179,8 @@ def compute_joint_angle_targets(
     object_model: ObjectModel,
     device: torch.device,
 ):
+    original_hand_pose = hand_model.hand_pose.detach().clone()
+
     losses = []
     debug_infos = []
     if optimization_method == OptimizationMethod.DESIRED_PENETRATION_DIST:
@@ -266,6 +268,11 @@ def compute_joint_angle_targets(
 
     else:
         raise NotImplementedError
+
+    # Update hand pose parameters
+    new_hand_pose = original_hand_pose.detach().clone()
+    new_hand_pose[:, 9:] = joint_angle_targets_to_optimize
+    hand_model.set_parameters(new_hand_pose)
 
     return joint_angle_targets_to_optimize, losses, debug_infos
 
