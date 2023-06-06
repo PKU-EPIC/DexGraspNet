@@ -116,7 +116,7 @@ print(f"original_hand_pose[:, 9:] = {original_hand_pose[:, 9:]}")
 joint_angle_targets_to_optimize = original_hand_pose[:, 9:].detach().clone().requires_grad_(True)
 
 # %%
-from DUMMY import compute_loss
+from DUMMY import compute_loss, compute_loss_old
 
 N_ITERS = 10
 losses = []
