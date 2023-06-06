@@ -66,7 +66,7 @@ def compute_loss(
     object_model: ObjectModel,
     batch_size: int,
     dist_thresh_to_move_finger: float,
-    optimization_step_size: float,
+    dist_move_link: float,
     device: torch.device,
 ) -> torch.Tensor:
     num_links = len(hand_model.mesh)
@@ -110,7 +110,7 @@ def compute_loss(
             admited, nearest_normals, contact_normals[:, i : i + 1, :]
         )
 
-    target_points = contact_points_hand + contact_normals * optimization_step_size
+    target_points = contact_points_hand + contact_normals * dist_move_link
     loss = (target_points.detach().clone() - contact_points_hand).square().sum()
     return loss
 
@@ -166,7 +166,7 @@ def compute_joint_angle_targets(
         object_model=object_model,
         batch_size=batch_size,
         dist_thresh_to_move_finger=args.thres_cont,
-        optimization_step_size=args.dis_move,
+        dist_move_link=args.dis_move,
         device=device,
     )
     print(f"loss = {loss.item()}")
@@ -182,7 +182,7 @@ def compute_joint_angle_targets(
         object_model=object_model,
         batch_size=batch_size,
         dist_thresh_to_move_finger=args.thres_cont,
-        optimization_step_size=args.dis_move,
+        dist_move_link=args.dis_move,
         device=device,
     )
     print(f"after loss = {loss.item()}")
