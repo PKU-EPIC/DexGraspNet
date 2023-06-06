@@ -54,16 +54,16 @@ def compute_loss_desired_penetration_dist(
         nearest_normals = torch.gather(
             normals, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
         )
-        admited = -nearest_distances < dist_thresh_to_move_finger
+        admitted = -nearest_distances < dist_thresh_to_move_finger
         contact_distances[:, i : i + 1] = torch.where(
-            admited, -nearest_distances, contact_distances[:, i : i + 1]
+            admitted, -nearest_distances, contact_distances[:, i : i + 1]
         )
-        admited = admited.reshape(-1, 1, 1).expand(-1, 1, 3)
+        admitted = admitted.reshape(-1, 1, 1).expand(-1, 1, 3)
         contact_points_hand[:, i : i + 1, :] = torch.where(
-            admited, nearest_points_hand, contact_points_hand[:, i : i + 1, :]
+            admitted, nearest_points_hand, contact_points_hand[:, i : i + 1, :]
         )
         contact_normals[:, i : i + 1, :] = torch.where(
-            admited, nearest_normals, contact_normals[:, i : i + 1, :]
+            admitted, nearest_normals, contact_normals[:, i : i + 1, :]
         )
 
     target_points = contact_points_hand - contact_normals * (
@@ -136,13 +136,13 @@ def compute_loss_desired_dist_move(
         nearest_normals = torch.gather(
             normals, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
         )
-        admited = -nearest_distances < dist_thresh_to_move_finger
-        admited = admited.reshape(-1, 1, 1).expand(-1, 1, 3)
+        admitted = -nearest_distances < dist_thresh_to_move_finger
+        admitted = admitted.reshape(-1, 1, 1).expand(-1, 1, 3)
         contact_points_hand[:, i : i + 1, :] = torch.where(
-            admited, nearest_points_hand, contact_points_hand[:, i : i + 1, :]
+            admitted, nearest_points_hand, contact_points_hand[:, i : i + 1, :]
         )
         contact_normals[:, i : i + 1, :] = torch.where(
-            admited, nearest_normals, contact_normals[:, i : i + 1, :]
+            admitted, nearest_normals, contact_normals[:, i : i + 1, :]
         )
         contact_nearest_point_indexes[:, i : i + 1] = nearest_point_index
 

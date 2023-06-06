@@ -14,7 +14,6 @@
 # ---
 
 # %%
-from scripts.validate_grasps import set_seed
 import os
 import random
 from utils.hand_model import HandModel
@@ -25,6 +24,7 @@ import torch
 import trimesh
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import qpos_to_pose
+from utils.seed import set_seed
 
 
 # %%
@@ -127,7 +127,7 @@ joint_angle_targets_to_optimize = (
 )
 
 # %%
-from DUMMY import compute_loss_desired_penetration_dist, compute_loss_desired_dist_move
+from utils.joint_angle_targets import compute_loss_desired_penetration_dist, compute_loss_desired_dist_move
 from enum import Enum, auto
 
 
