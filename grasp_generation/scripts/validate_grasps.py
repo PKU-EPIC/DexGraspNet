@@ -24,6 +24,7 @@ from utils.hand_model_type import (
 )
 from utils.qpos_pose_conversion import qpos_to_pose, qpos_to_translation_rot_jointangles
 from typing import List
+import math
 
 
 def compute_joint_angle_targets(
@@ -77,6 +78,8 @@ def compute_joint_angle_targets(
         surface_points = surface_points @ hand_model.global_rotation.transpose(
             1, 2
         ) + hand_model.global_translation.unsqueeze(1)
+
+        # Interiors are positive, exteriors are negative
         distances, normals = object_model.cal_distance(surface_points)
         nearest_point_index = distances.argmax(dim=1)
         nearest_distances = torch.gather(distances, 1, nearest_point_index.unsqueeze(1))
@@ -149,14 +152,13 @@ def main(args):
 
         if "E_pen" in data_dict[i]:
             E_pen_array.append(data_dict[i]["E_pen"])
-        elif args.index is not None:
+        # Note: Will not do penetration check if E_pen is not found
+        else:
             print(f"Warning: E_pen not found in data_dict[{i}]")
             print(
                 "This is expected behavior if you are validating already validated grasps"
             )
             E_pen_array.append(0)
-        else:
-            raise ValueError(f"E_pen not found in data_dict[{i}]")
     E_pen_array = np.array(E_pen_array)
 
     if not args.no_force:
@@ -165,20 +167,12 @@ def main(args):
                 args=args,
                 joint_names=joint_names,
                 data_dict=data_dict,
-                expected_contact_link_names=expected_contact_link_names,
+                # expected_contact_link_names=expected_contact_link_names,
             )
             .detach()
             .cpu()
             .numpy()
         )
-        # joint_angle_targets_array = (
-        #     compute_joint_angle_targets(
-        #         args=args, joint_names=joint_names, data_dict=data_dict
-        #     )
-        #     .detach()
-        #     .cpu()
-        #     .numpy()
-        # )
     else:
         joint_angle_targets_array = None
 
@@ -204,8 +198,8 @@ def main(args):
                 else None
             ),
         )
-        result = sim.run_sim()
-        print(f"result = {result}")
+        successes = sim.run_sim()
+        print(f"successes = {successes}")
         print(
             " = ".join(
                 [
@@ -215,15 +209,16 @@ def main(args):
                 ]
             )
         )
-        estimated = E_pen_array < args.penetration_threshold
 
     # Run validation on all grasps
     else:
-        simulated = np.zeros(batch_size, dtype=np.bool8)
-        result = []
-        for batch_idx in range(batch_size // args.val_batch):
-            start_offset = batch_idx * args.val_batch
+        passed_simulation = np.zeros(batch_size, dtype=np.bool8)
+        successes = []
+        num_val_batches = math.ceil(batch_size / args.val_batch)
+        for val_batch_idx in range(num_val_batches):
+            start_offset = val_batch_idx * args.val_batch
             end_offset = min(start_offset + args.val_batch, batch_size)
+
             sim.set_asset(
                 hand_root=hand_root,
                 hand_file=hand_file,
@@ -242,35 +237,35 @@ def main(args):
                         else None
                     ),
                 )
-            result = [*result, *sim.run_sim()]
+            successes.extend([*sim.run_sim()])
             sim.reset_simulator()
 
         num_envs_per_grasp = len(sim.test_rotations)
         for i in range(batch_size):
-            simulated[i] = np.array(
-                sum(result[i * num_envs_per_grasp : (i + 1) * num_envs_per_grasp])
+            passed_simulation[i] = np.array(
+                sum(successes[i * num_envs_per_grasp : (i + 1) * num_envs_per_grasp])
                 == num_envs_per_grasp
             )
 
-        estimated = E_pen_array < args.penetration_threshold
-        valid = simulated * estimated
+        passed_penetration_threshold = E_pen_array < args.penetration_threshold
+        valid = passed_simulation * passed_penetration_threshold
         print(
-            f"estimated: {estimated.sum().item()}/{batch_size}, "
-            f"simulated: {simulated.sum().item()}/{batch_size}, "
-            f"valid: {valid.sum().item()}/{batch_size}"
+            f"passed_penetration_threshold: {passed_penetration_threshold.sum().item()}/{batch_size}, "
+            f"passed_simulation: {passed_simulation.sum().item()}/{batch_size}, "
+            f"valid = passed_simulation * passed_penetration_threshold: {valid.sum().item()}/{batch_size}"
         )
-        result_list = []
+        success_data_dicts = []
         for i in range(batch_size):
             if valid[i]:
                 new_data_dict = {}
                 new_data_dict["qpos"] = data_dict[i]["qpos"]
                 new_data_dict["scale"] = data_dict[i]["scale"]
-                result_list.append(new_data_dict)
+                success_data_dicts.append(new_data_dict)
 
         os.makedirs(args.result_path, exist_ok=True)
         np.save(
             os.path.join(args.result_path, args.object_code + ".npy"),
-            result_list,
+            success_data_dicts,
             allow_pickle=True,
         )
     sim.destroy()
