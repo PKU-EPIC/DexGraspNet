@@ -122,11 +122,13 @@ batch_size = 1
 num_links = len(hand_model.mesh)
 contact_points_hand = torch.zeros((batch_size, num_links, 3)).to(device)
 contact_normals = torch.zeros((batch_size, num_links, 3)).to(device)
+contact_distances = torch.zeros((batch_size, num_links)).to(device)
 
 from utils.hand_model_type import handmodeltype_to_expectedcontactlinknames
 expected_contact_link_names = handmodeltype_to_expectedcontactlinknames[hand_model_type]
-dist_thresh_to_move_finger = 0.1
-dist_move_link = 0.001
+dist_thresh_to_move_finger = 0.01
+desired_penetration_dist = 0.003
+grad_step_size = 50
 
 current_status = hand_model.chain.forward_kinematics(
     joint_angle_targets_to_optimize
@@ -159,6 +161,9 @@ for i, link_name in enumerate(hand_model.mesh):
         normals, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
     )
     admited = -nearest_distances < dist_thresh_to_move_finger
+    contact_distances[:, i : i + 1] = torch.where(
+        admited, -nearest_distances, contact_distances[:, i : i + 1]
+    )
     admited = admited.reshape(-1, 1, 1).expand(-1, 1, 3)
     contact_points_hand[:, i : i + 1, :] = torch.where(
         admited, nearest_points_hand, contact_points_hand[:, i : i + 1, :]
@@ -167,12 +172,14 @@ for i, link_name in enumerate(hand_model.mesh):
         admited, nearest_normals, contact_normals[:, i : i + 1, :]
     )
 
-target_points = contact_points_hand - contact_normals * dist_move_link
+target_points = contact_points_hand - contact_normals * (contact_distances[..., None] + desired_penetration_dist)
 
 loss = (target_points.detach().clone() - contact_points_hand).square().sum()
+print(f"Before step, loss = {loss.item()}")
 loss.backward(retain_graph=True)
 with torch.no_grad():
-    joint_angle_targets_to_optimize -= joint_angle_targets_to_optimize.grad * 500
+    joint_angle_targets_to_optimize -= joint_angle_targets_to_optimize.grad * grad_step_size
+# print(f"After step, loss = {loss.item()}")
 
 # %%
 print(f"joint_angle_targets_to_optimize = {joint_angle_targets_to_optimize}")
