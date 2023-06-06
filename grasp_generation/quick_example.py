@@ -28,13 +28,13 @@ from utils.qpos_pose_conversion import qpos_to_pose
 
 
 # %%
-set_seed(40)
+set_seed(42)
 
 # %%
 # PARAMS
 mesh_path = "../data/meshdata"
-data_path = "../data/dataset"
-hand_model_type = HandModelType.SHADOW_HAND
+data_path = "../data/graspdata_2023-05-24_allegro_distalonly/"
+hand_model_type = HandModelType.ALLEGRO_HAND
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # %%
@@ -113,8 +113,6 @@ fig.show()
 # %%
 original_hand_pose = hand_model.hand_pose.detach().clone()
 print(f"original_hand_pose[:, 9:] = {original_hand_pose[:, 9:]}")
-
-# %%
 joint_angle_targets_to_optimize = original_hand_pose[:, 9:].detach().clone().requires_grad_(True)
 
 # %%
@@ -122,6 +120,7 @@ from DUMMY import compute_loss
 
 N_ITERS = 10
 losses = []
+old_debug_info = None
 for i in range(N_ITERS):
     loss, debug_info = compute_loss(
         joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
@@ -133,6 +132,8 @@ for i in range(N_ITERS):
         desired_penetration_dist=0.003,
         return_debug_info=True,
     )
+    if old_debug_info is None:
+        old_debug_info = debug_info
     loss.backward(retain_graph=True)
 
     grad_step_size = 50
@@ -155,28 +156,24 @@ hand_model.set_parameters(original_hand_pose)
 old_hand_model_plotly = hand_model.get_plotly_data(i=idx_to_visualize, opacity=1.0, with_contact_candidates=True)
 
 fig = make_subplots(rows=1, cols=2, specs=[[{"type": "scene"}, {"type": "scene"}]], subplot_titles=("Original", "Optimized"))
-fig_title = f"Grasp Code: {grasp_code}, Index: {index}"
-idx_to_visualize = batch_idx
-target_points = debug_info["target_points"]
-contact_points_hand = debug_info["contact_points_hand"]
+old_target_points = old_debug_info["target_points"]
+old_contact_points_hand = old_debug_info["contact_points_hand"]
 
 plots = [
     *old_hand_model_plotly,
     *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
-]
-plots += [
     go.Scatter3d(
-        x=target_points[batch_idx, :, 0].detach().cpu().numpy(),
-        y=target_points[batch_idx, :, 1].detach().cpu().numpy(),
-        z=target_points[batch_idx, :, 2].detach().cpu().numpy(),
+        x=old_target_points[batch_idx, :, 0].detach().cpu().numpy(),
+        y=old_target_points[batch_idx, :, 1].detach().cpu().numpy(),
+        z=old_target_points[batch_idx, :, 2].detach().cpu().numpy(),
         mode="markers",
         marker=dict(size=10, color="red"),
         name="target_points",
     ),
     go.Scatter3d(
-        x=contact_points_hand[batch_idx, :, 0].detach().cpu().numpy(),
-        y=contact_points_hand[batch_idx, :, 1].detach().cpu().numpy(),
-        z=contact_points_hand[batch_idx, :, 2].detach().cpu().numpy(),
+        x=old_contact_points_hand[batch_idx, :, 0].detach().cpu().numpy(),
+        y=old_contact_points_hand[batch_idx, :, 1].detach().cpu().numpy(),
+        z=old_contact_points_hand[batch_idx, :, 2].detach().cpu().numpy(),
         mode="markers",
         marker=dict(size=10, color="green"),
         name="contact_points_hand",
@@ -193,23 +190,24 @@ new_hand_pose[:, 9:] = joint_angle_targets_to_optimize
 hand_model.set_parameters(new_hand_pose)
 new_hand_model_plotly = hand_model.get_plotly_data(i=idx_to_visualize, opacity=1.0, with_contact_candidates=True)
 
+new_target_points = debug_info["target_points"]
+new_contact_points_hand = debug_info["contact_points_hand"]
+
 plots = [
     *new_hand_model_plotly,
     *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
-]
-plots += [
     go.Scatter3d(
-        x=target_points[batch_idx, :, 0].detach().cpu().numpy(),
-        y=target_points[batch_idx, :, 1].detach().cpu().numpy(),
-        z=target_points[batch_idx, :, 2].detach().cpu().numpy(),
+        x=new_target_points[batch_idx, :, 0].detach().cpu().numpy(),
+        y=new_target_points[batch_idx, :, 1].detach().cpu().numpy(),
+        z=new_target_points[batch_idx, :, 2].detach().cpu().numpy(),
         mode="markers",
         marker=dict(size=10, color="red"),
-        name="target_points",
+        name="new_target_points",
     ),
     go.Scatter3d(
-        x=contact_points_hand[batch_idx, :, 0].detach().cpu().numpy(),
-        y=contact_points_hand[batch_idx, :, 1].detach().cpu().numpy(),
-        z=contact_points_hand[batch_idx, :, 2].detach().cpu().numpy(),
+        x=new_contact_points_hand[batch_idx, :, 0].detach().cpu().numpy(),
+        y=new_contact_points_hand[batch_idx, :, 1].detach().cpu().numpy(),
+        z=new_contact_points_hand[batch_idx, :, 2].detach().cpu().numpy(),
         mode="markers",
         marker=dict(size=10, color="green"),
         name="contact_points_hand",
