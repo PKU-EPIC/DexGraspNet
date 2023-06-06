@@ -117,26 +117,41 @@ joint_angle_targets_to_optimize = original_hand_pose[:, 9:].detach().clone().req
 
 # %%
 from DUMMY import compute_loss, compute_loss_old
+USE_OLD = True
 
-N_ITERS = 10
+N_ITERS = 1
 losses = []
 old_debug_info = None
 for i in range(N_ITERS):
-    loss, debug_info = compute_loss(
-        joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
-        hand_model=hand_model,
-        object_model=object_model,
-        batch_size=1,
-        device=device,
-        dist_thresh_to_move_finger=0.01,
-        desired_penetration_dist=0.003,
-        return_debug_info=True,
-    )
+    if USE_OLD:
+        loss, debug_info = compute_loss_old(
+            joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
+            hand_model=hand_model,
+            object_model=object_model,
+            batch_size=1,
+            device=device,
+            dist_thresh_to_move_finger=0.001,
+            dist_move_link=0.001,
+            return_debug_info=True,
+        )
+        grad_step_size = 500
+    else:
+        loss, debug_info = compute_loss(
+            joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
+            hand_model=hand_model,
+            object_model=object_model,
+            batch_size=1,
+            device=device,
+            dist_thresh_to_move_finger=0.01,
+            desired_penetration_dist=0.003,
+            return_debug_info=True,
+        )
+        grad_step_size = 50
+
     if old_debug_info is None:
         old_debug_info = debug_info
     loss.backward(retain_graph=True)
 
-    grad_step_size = 50
     with torch.no_grad():
         joint_angle_targets_to_optimize -= joint_angle_targets_to_optimize.grad * grad_step_size
         joint_angle_targets_to_optimize.grad.zero_()
