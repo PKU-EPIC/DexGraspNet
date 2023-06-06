@@ -129,7 +129,7 @@ joint_angle_targets_to_optimize = (
 # %%
 from utils.joint_angle_targets import OptimizationMethod, compute_joint_angle_targets
 
-optimization_method = OptimizationMethod.DESIRED_DIST_MOVE_MULTIPLE_STEPS
+optimization_method = OptimizationMethod.DESIRED_DIST_MOVE_TOWARDS_CENTER_ONE_STEP
 
 joint_angle_targets_to_optimize, losses, debug_infos = compute_joint_angle_targets(
     optimization_method=optimization_method,
