@@ -127,112 +127,19 @@ joint_angle_targets_to_optimize = (
 )
 
 # %%
-from utils.joint_angle_targets import compute_loss_desired_penetration_dist, compute_loss_desired_dist_move
-from enum import Enum, auto
+from utils.joint_angle_targets import OptimizationMethod, compute_joint_angle_targets
 
+optimization_method = OptimizationMethod.DESIRED_DIST_MOVE_MULTIPLE_STEPS
 
-class OptimizationMethod(Enum):
-    DESIRED_PENETRATION_DIST = auto()
-    DESIRED_DIST_MOVE_ONE_STEP = auto()
-    DESIRED_DIST_MOVE_MULTIPLE_STEPS = auto()
-
-
-optimization_method = OptimizationMethod.DESIRED_DIST_MOVE_ONE_STEP
-
-losses = []
-old_debug_info = None
-if optimization_method == OptimizationMethod.DESIRED_PENETRATION_DIST:
-    N_ITERS = 100
-    for i in range(N_ITERS):
-        loss, debug_info = compute_loss_desired_penetration_dist(
-            joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
-            hand_model=hand_model,
-            object_model=object_model,
-            batch_size=1,
-            device=device,
-            dist_thresh_to_move_finger=0.01,
-            desired_penetration_dist=0.003,
-            return_debug_info=True,
-        )
-        grad_step_size = 50
-
-        if old_debug_info is None:
-            old_debug_info = debug_info
-        loss.backward(retain_graph=True)
-
-        with torch.no_grad():
-            joint_angle_targets_to_optimize -= (
-                joint_angle_targets_to_optimize.grad * grad_step_size
-            )
-            joint_angle_targets_to_optimize.grad.zero_()
-        losses.append(loss.item())
-
-elif optimization_method == OptimizationMethod.DESIRED_DIST_MOVE_ONE_STEP:
-    N_ITERS = 1
-    for i in range(N_ITERS):
-        loss, debug_info = compute_loss_desired_dist_move(
-            joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
-            hand_model=hand_model,
-            object_model=object_model,
-            batch_size=1,
-            device=device,
-            dist_thresh_to_move_finger=0.001,
-            dist_move_link=0.001,
-            return_debug_info=True,
-        )
-        grad_step_size = 500
-
-        if old_debug_info is None:
-            old_debug_info = debug_info
-        loss.backward(retain_graph=True)
-
-        with torch.no_grad():
-            joint_angle_targets_to_optimize -= (
-                joint_angle_targets_to_optimize.grad * grad_step_size
-            )
-            joint_angle_targets_to_optimize.grad.zero_()
-        losses.append(loss.item())
-
-elif optimization_method == OptimizationMethod.DESIRED_DIST_MOVE_MULTIPLE_STEPS:
-    N_ITERS = 100
-    # Use cached target and indices to continue moving the same points toward the same targets for each iter
-    # Otherwise, would be moving different points to different targets each iter
-    cached_target_points = None
-    cached_contact_nearest_point_indexes = None
-    for i in range(N_ITERS):
-        loss, debug_info = compute_loss_desired_dist_move(
-            joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
-            hand_model=hand_model,
-            object_model=object_model,
-            batch_size=1,
-            device=device,
-            cached_target_points=cached_target_points,
-            cached_contact_nearest_point_indexes=cached_contact_nearest_point_indexes,
-            dist_thresh_to_move_finger=0.01,
-            dist_move_link=0.01,
-            return_debug_info=True,
-        )
-        if cached_target_points is None:
-            cached_target_points = debug_info["target_points"]
-        if cached_contact_nearest_point_indexes is None:
-            cached_contact_nearest_point_indexes = debug_info[
-                "contact_nearest_point_indexes"
-            ]
-        grad_step_size = 5
-
-        if old_debug_info is None:
-            old_debug_info = debug_info
-        loss.backward(retain_graph=True)
-
-        with torch.no_grad():
-            joint_angle_targets_to_optimize -= (
-                joint_angle_targets_to_optimize.grad * grad_step_size
-            )
-            joint_angle_targets_to_optimize.grad.zero_()
-        losses.append(loss.item())
-
-else:
-    raise NotImplementedError
+joint_angle_targets_to_optimize, losses, debug_infos = compute_joint_angle_targets(
+    optimization_method=optimization_method,
+    joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
+    hand_model=hand_model,
+    object_model=object_model,
+    device=device,
+)
+old_debug_info = debug_infos[0]
+debug_info = debug_infos[-1]
 
 # %%
 import plotly.express as px

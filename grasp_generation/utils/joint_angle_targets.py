@@ -4,18 +4,27 @@ from utils.hand_model_type import handmodeltype_to_expectedcontactlinknames
 import torch
 from typing import Union, Dict, Any, Tuple, Optional
 
+from enum import Enum, auto
+
+
+class OptimizationMethod(Enum):
+    DESIRED_PENETRATION_DIST = auto()
+    DESIRED_DIST_MOVE_ONE_STEP = auto()
+    DESIRED_DIST_MOVE_MULTIPLE_STEPS = auto()
+
 
 def compute_loss_desired_penetration_dist(
     joint_angle_targets_to_optimize: torch.Tensor,
     hand_model: HandModel,
     object_model: ObjectModel,
-    batch_size: int,
     device: torch.device,
     dist_thresh_to_move_finger: float = 0.01,
     desired_penetration_dist: float = 0.003,
     return_debug_info: bool = False,
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
     num_links = len(hand_model.mesh)
+    batch_size = joint_angle_targets_to_optimize.shape[0]
+
     contact_points_hand = torch.zeros((batch_size, num_links, 3)).to(device)
     contact_normals = torch.zeros((batch_size, num_links, 3)).to(device)
     contact_distances = torch.zeros((batch_size, num_links)).to(device)
@@ -86,7 +95,6 @@ def compute_loss_desired_dist_move(
     joint_angle_targets_to_optimize: torch.Tensor,
     hand_model: HandModel,
     object_model: ObjectModel,
-    batch_size: int,
     device: torch.device,
     cached_target_points: Optional[torch.Tensor] = None,
     cached_contact_nearest_point_indexes: Optional[torch.Tensor] = None,
@@ -95,6 +103,8 @@ def compute_loss_desired_dist_move(
     return_debug_info: bool = False,
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
     num_links = len(hand_model.mesh)
+    batch_size = joint_angle_targets_to_optimize.shape[0]
+
     contact_points_hand = torch.zeros((batch_size, num_links, 3)).to(device)
     contact_normals = torch.zeros((batch_size, num_links, 3)).to(device)
     contact_nearest_point_indexes = torch.zeros((batch_size, num_links)).long().to(device)
@@ -160,3 +170,102 @@ def compute_loss_desired_dist_move(
         "contact_normals": contact_normals,
         "contact_nearest_point_indexes": contact_nearest_point_indexes,
     }
+
+
+def compute_joint_angle_targets(
+    optimization_method: OptimizationMethod,
+    joint_angle_targets_to_optimize: torch.Tensor,
+    hand_model: HandModel,
+    object_model: ObjectModel,
+    device: torch.device,
+):
+    losses = []
+    debug_infos = []
+    if optimization_method == OptimizationMethod.DESIRED_PENETRATION_DIST:
+        N_ITERS = 100
+        for i in range(N_ITERS):
+            loss, debug_info = compute_loss_desired_penetration_dist(
+                joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
+                hand_model=hand_model,
+                object_model=object_model,
+                device=device,
+                dist_thresh_to_move_finger=0.01,
+                desired_penetration_dist=0.003,
+                return_debug_info=True,
+            )
+            grad_step_size = 50
+            loss.backward(retain_graph=True)
+
+            with torch.no_grad():
+                joint_angle_targets_to_optimize -= (
+                    joint_angle_targets_to_optimize.grad * grad_step_size
+                )
+                joint_angle_targets_to_optimize.grad.zero_()
+            losses.append(loss.item())
+            debug_infos.append(debug_info)
+
+    elif optimization_method == OptimizationMethod.DESIRED_DIST_MOVE_ONE_STEP:
+        N_ITERS = 1
+        for i in range(N_ITERS):
+            loss, debug_info = compute_loss_desired_dist_move(
+                joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
+                hand_model=hand_model,
+                object_model=object_model,
+                device=device,
+                dist_thresh_to_move_finger=0.001,
+                dist_move_link=0.001,
+                return_debug_info=True,
+            )
+            grad_step_size = 500
+
+            loss.backward(retain_graph=True)
+
+            with torch.no_grad():
+                joint_angle_targets_to_optimize -= (
+                    joint_angle_targets_to_optimize.grad * grad_step_size
+                )
+                joint_angle_targets_to_optimize.grad.zero_()
+            losses.append(loss.item())
+            debug_infos.append(debug_info)
+
+    elif optimization_method == OptimizationMethod.DESIRED_DIST_MOVE_MULTIPLE_STEPS:
+        N_ITERS = 100
+        # Use cached target and indices to continue moving the same points toward the same targets for each iter
+        # Otherwise, would be moving different points to different targets each iter
+        cached_target_points = None
+        cached_contact_nearest_point_indexes = None
+        for i in range(N_ITERS):
+            loss, debug_info = compute_loss_desired_dist_move(
+                joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
+                hand_model=hand_model,
+                object_model=object_model,
+                device=device,
+                cached_target_points=cached_target_points,
+                cached_contact_nearest_point_indexes=cached_contact_nearest_point_indexes,
+                dist_thresh_to_move_finger=0.01,
+                dist_move_link=0.01,
+                return_debug_info=True,
+            )
+            if cached_target_points is None:
+                cached_target_points = debug_info["target_points"]
+            if cached_contact_nearest_point_indexes is None:
+                cached_contact_nearest_point_indexes = debug_info[
+                    "contact_nearest_point_indexes"
+                ]
+            grad_step_size = 5
+
+            loss.backward(retain_graph=True)
+
+            with torch.no_grad():
+                joint_angle_targets_to_optimize -= (
+                    joint_angle_targets_to_optimize.grad * grad_step_size
+                )
+                joint_angle_targets_to_optimize.grad.zero_()
+            losses.append(loss.item())
+            debug_infos.append(debug_info)
+
+    else:
+        raise NotImplementedError
+
+    return joint_angle_targets_to_optimize, losses, debug_infos
+
