@@ -139,7 +139,7 @@ def compute_joint_angle_targets(
 
     # hand model
     hand_model = HandModel(
-        hand_model_type=args.hand_model_type, n_surface_points=2000, device=device
+        hand_model_type=args.hand_model_type, device=device
     )
     hand_model.set_parameters(hand_poses)
 
