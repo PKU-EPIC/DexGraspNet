@@ -127,6 +127,54 @@ _shadow_joint_angles_mu = torch.tensor(
 _allegro_hand_root_hand_file = ("allegro_hand_description", "allegro_hand_description_right.urdf")
 _shadow_hand_root_hand_file = ("open_ai_assets", "hand/shadow_hand.xml")
 
+_allegro_hand_allowed_contact_link_names = [
+    "link_3.0",
+    "link_7.0",
+    "link_11.0",
+    "link_15.0",
+    "link_3.0_tip",
+    "link_7.0_tip",
+    "link_11.0_tip",
+    "link_15.0_tip",
+    # Allow some contact with parts before
+    "link_2.0",
+    "link_6.0",
+    "link_10.0",
+    "link_14.0",
+    # Allow some contact with parts before
+    "link_1.0",
+    "link_5.0",
+    "link_9.0",
+    "link_13.0",
+]
+
+_shadow_hand_allowed_contact_link_names = [
+    "robot0:ffdistal_child",
+    "robot0:mfdistal_child",
+    "robot0:rfdistal_child",
+    "robot0:lfdistal_child",
+    "robot0:thdistal_child",
+]
+
+_allegro_hand_expected_contact_link_names = [
+    "link_3.0",
+    "link_7.0",
+    "link_11.0",
+    "link_15.0",
+    "link_3.0_tip",
+    "link_7.0_tip",
+    "link_11.0_tip",
+    "link_15.0_tip",
+]
+
+_shadow_hand_expected_contact_link_names = [
+    "robot0:ffdistal_child",
+    "robot0:mfdistal_child",
+    "robot0:rfdistal_child",
+    "robot0:lfdistal_child",
+    "robot0:thdistal_child",
+]
+
 handmodeltype_to_joint_names = {
     HandModelType.ALLEGRO_HAND: _allegro_joint_names,
     HandModelType.SHADOW_HAND: _shadow_joint_names,
@@ -142,4 +190,15 @@ handmodeltype_to_joint_angles_mu = {
 handmodeltype_to_hand_root_hand_file = {
     HandModelType.ALLEGRO_HAND: _allegro_hand_root_hand_file,
     HandModelType.SHADOW_HAND: _shadow_hand_root_hand_file,
+}
+
+# HACK: This is a list of allowed contact link names for each hand model type for precision grasps
+handmodeltype_to_allowedcontactlinknames = {
+    HandModelType.ALLEGRO_HAND: _allegro_hand_allowed_contact_link_names,
+    HandModelType.SHADOW_HAND: _shadow_hand_allowed_contact_link_names,
+}
+
+handmodeltype_to_expectedcontactlinknames = {
+    HandModelType.ALLEGRO_HAND: _allegro_hand_expected_contact_link_names,
+    HandModelType.SHADOW_HAND: _shadow_hand_expected_contact_link_names,
 }

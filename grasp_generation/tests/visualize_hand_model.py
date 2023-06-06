@@ -21,10 +21,11 @@ from utils.hand_model_type import (
     handmodeltype_to_joint_angles_mu,
     handmodeltype_to_rotation_hand,
 )
+from utils.seed import set_seed
 import argparse
 
 
-torch.manual_seed(1)
+set_seed(1)
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 

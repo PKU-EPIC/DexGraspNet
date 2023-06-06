@@ -23,6 +23,7 @@ from utils.optimizer import Annealing
 from utils.logger import Logger
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import pose_to_qpos
+from utils.seed import set_seed
 
 
 # prepare arguments
@@ -72,9 +73,7 @@ args = parser.parse_args()
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 np.seterr(all='raise')
-np.random.seed(args.seed)
-torch.manual_seed(args.seed)
-
+set_seed(args.seed)
 
 # prepare models
 

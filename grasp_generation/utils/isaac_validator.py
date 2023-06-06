@@ -4,31 +4,49 @@ Author: Ruicheng Wang
 Description: Class IsaacValidator
 """
 
-from isaacgym import gymapi
-from isaacgym import gymutil
+from isaacgym import gymapi, torch_utils
 import math
 from time import sleep
 from tqdm import tqdm
-from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
+from utils.hand_model_type import (
+    handmodeltype_to_allowedcontactlinknames,
+    handmodeltype_to_joint_names,
+    HandModelType,
+)
+from collections import defaultdict
+import torch
 
 gym = gymapi.acquire_gym()
 
 
-class IsaacValidator():
+def get_link_idx_to_name_dict(env, actor_handle):
+    link_idx_to_name_dict = {}
+    num_links = gym.get_actor_rigid_body_count(env, actor_handle)
+    link_names = gym.get_actor_rigid_body_names(env, actor_handle)
+    assert len(link_names) == num_links
+    for i in range(num_links):
+        link_idx = gym.get_actor_rigid_body_index(
+            env, actor_handle, i, gymapi.DOMAIN_ENV
+        )
+        link_name = link_names[i]
+        link_idx_to_name_dict[link_idx] = link_name
+    return link_idx_to_name_dict
 
-    def __init__(self,
-                 hand_model_type=HandModelType.SHADOW_HAND,
-                 mode='direct',
-                 hand_friction=3.,
-                 obj_friction=3.,
-                 threshold_dis=0.1,
-                 env_batch=1,
-                 sim_step=100,
-                 gpu=0,
-                 debug_interval=0.05,
-                 start_with_step_mode=False,
-                 ):
 
+class IsaacValidator:
+    def __init__(
+        self,
+        hand_model_type=HandModelType.SHADOW_HAND,
+        mode="direct",
+        hand_friction=3.0,
+        obj_friction=3.0,
+        threshold_dis=0.1,
+        env_batch=1,
+        sim_step=100,
+        gpu=0,
+        debug_interval=0.05,
+        start_with_step_mode=False,
+    ):
         self.hand_friction = hand_friction
         self.obj_friction = obj_friction
         self.debug_interval = debug_interval
@@ -39,9 +57,13 @@ class IsaacValidator():
         self.envs = []
         self.hand_handles = []
         self.obj_handles = []
-        self.hand_rigid_body_sets = []
-        self.obj_rigid_body_sets = []
+        self.hand_link_idx_to_name_dicts = []
+        self.obj_link_idx_to_name_dicts = []
+        self.init_obj_poses = []
         self.joint_names = handmodeltype_to_joint_names[hand_model_type]
+        self.allowed_contact_link_names = handmodeltype_to_allowedcontactlinknames[
+            hand_model_type
+        ]
         self.hand_asset = None
         self.obj_asset = None
 
@@ -61,20 +83,22 @@ class IsaacValidator():
         self.sim_params.physx.rest_offset = 0.0
 
         self.sim_params.use_gpu_pipeline = False
-        self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX,
-                                  self.sim_params)
+        self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
         self.camera_props = gymapi.CameraProperties()
         self.camera_props.width = 800
         self.camera_props.height = 600
-        self.camera_props.use_collision_geometry = True  # TODO: Maybe change this to see true visual
+        self.camera_props.use_collision_geometry = (
+            True  # TODO: Maybe change this to see true visual
+        )
 
         # set viewer
         self.viewer = None
         if mode == "gui":
             self.has_viewer = True
             self.viewer = gym.create_viewer(self.sim, self.camera_props)
-            gym.viewer_camera_look_at(self.viewer, None, gymapi.Vec3(0, 0, 1),
-                                      gymapi.Vec3(0, 0, 0))
+            gym.viewer_camera_look_at(
+                self.viewer, None, gymapi.Vec3(0, 0, 1), gymapi.Vec3(0, 0, 0)
+            )
             self.subscribe_to_keyboard_events()
         else:
             self.has_viewer = False
@@ -92,49 +116,68 @@ class IsaacValidator():
             gymapi.Transform(gymapi.Vec3(0, 0, 0), gymapi.Quat(0, 0, 0, 1)),
             gymapi.Transform(
                 gymapi.Vec3(0, 0, 0),
-                gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1),
-                                            1 * math.pi)),
+                gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), 1 * math.pi),
+            ),
             gymapi.Transform(
                 gymapi.Vec3(0, 0, 0),
-                gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1),
-                                            0.5 * math.pi)),
+                gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), 0.5 * math.pi),
+            ),
             gymapi.Transform(
                 gymapi.Vec3(0, 0, 0),
-                gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1),
-                                            -0.5 * math.pi)),
+                gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), -0.5 * math.pi),
+            ),
             gymapi.Transform(
                 gymapi.Vec3(0, 0, 0),
-                gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0),
-                                            0.5 * math.pi)),
+                gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), 0.5 * math.pi),
+            ),
             gymapi.Transform(
                 gymapi.Vec3(0, 0, 0),
-                gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0),
-                                            -0.5 * math.pi)),
+                gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), -0.5 * math.pi),
+            ),
         ]
         self.is_paused = False
         self.is_step_mode = self.has_viewer and start_with_step_mode
 
     def set_asset(self, hand_root, hand_file, obj_root, obj_file):
-        self.hand_asset = gym.load_asset(self.sim, hand_root, hand_file,
-                                         self.hand_asset_options)
-        self.obj_asset = gym.load_asset(self.sim, obj_root, obj_file,
-                                        self.obj_asset_options)
+        self.hand_asset = gym.load_asset(
+            self.sim, hand_root, hand_file, self.hand_asset_options
+        )
+        self.obj_asset = gym.load_asset(
+            self.sim, obj_root, obj_file, self.obj_asset_options
+        )
 
-    def add_env_all_test_rotations(self, hand_rotation, hand_translation, hand_qpos, obj_scale, target_qpos=None):
+    def add_env_all_test_rotations(
+        self, hand_rotation, hand_translation, hand_qpos, obj_scale, target_qpos=None
+    ):
         for test_rotation_idx in range(len(self.test_rotations)):
-            self.add_env_single_test_rotation(hand_rotation, hand_translation,
-                                              hand_qpos, obj_scale,
-                                              test_rotation_idx, target_qpos)
+            self.add_env_single_test_rotation(
+                hand_rotation,
+                hand_translation,
+                hand_qpos,
+                obj_scale,
+                test_rotation_idx,
+                target_qpos,
+            )
 
-    def add_env_single_test_rotation(self, hand_rotation, hand_translation, hand_qpos, obj_scale, test_rotation_index=0, target_qpos=None):
+    def add_env_single_test_rotation(
+        self,
+        hand_rotation,
+        hand_translation,
+        hand_qpos,
+        obj_scale,
+        test_rotation_index=0,
+        target_qpos=None,
+    ):
+        # Set test rotation
         test_rot = self.test_rotations[test_rotation_index]
 
         # Create env
-        env = gym.create_env(self.sim,
-                             gymapi.Vec3(-1, -1, -1),
-                             gymapi.Vec3(1, 1, 1),
-                             len(self.test_rotations),
-                             )
+        env = gym.create_env(
+            self.sim,
+            gymapi.Vec3(-1, -1, -1),
+            gymapi.Vec3(1, 1, 1),
+            len(self.test_rotations),
+        )
         self.envs.append(env)
 
         # Set hand pose
@@ -145,7 +188,8 @@ class IsaacValidator():
 
         # Create hand
         hand_actor_handle = gym.create_actor(
-            env, self.hand_asset, hand_pose, "hand", 0, -1)
+            env, self.hand_asset, hand_pose, "hand", 0, -1
+        )
         self.hand_handles.append(hand_actor_handle)
 
         # Set hand dof props
@@ -156,81 +200,65 @@ class IsaacValidator():
         gym.set_actor_dof_properties(env, hand_actor_handle, hand_props)
 
         # Set hand dof states
-        dof_states = gym.get_actor_dof_states(env, hand_actor_handle,
-                                              gymapi.STATE_ALL)
+        dof_states = gym.get_actor_dof_states(env, hand_actor_handle, gymapi.STATE_ALL)
         for i, joint in enumerate(self.joint_names):
-            joint_idx = gym.find_actor_dof_index(env, hand_actor_handle,
-                                                 joint,
-                                                 gymapi.DOMAIN_ACTOR)
+            joint_idx = gym.find_actor_dof_index(
+                env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
+            )
             dof_states["pos"][joint_idx] = hand_qpos[i]
-        gym.set_actor_dof_states(env, hand_actor_handle, dof_states,
-                                 gymapi.STATE_ALL)
+        gym.set_actor_dof_states(env, hand_actor_handle, dof_states, gymapi.STATE_ALL)
 
         # Set hand dof targets
         if target_qpos is not None:
             dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_actor_handle)
             for i, joint in enumerate(self.joint_names):
-                joint_idx = gym.find_actor_dof_index(env, hand_actor_handle,
-                                                     joint,
-                                                     gymapi.DOMAIN_ACTOR)
+                joint_idx = gym.find_actor_dof_index(
+                    env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
+                )
                 dof_pos_targets[joint_idx] = target_qpos[i]
         else:
             dof_pos_targets = dof_states["pos"]
-        gym.set_actor_dof_position_targets(env, hand_actor_handle,
-                                           dof_pos_targets)
+        gym.set_actor_dof_position_targets(env, hand_actor_handle, dof_pos_targets)
 
-        # Store hand rigid body set
-        hand_rigid_body_set = set()
-        for i in range(
-                gym.get_actor_rigid_body_count(env, hand_actor_handle)):
-            hand_rigid_body_set.add(
-                gym.get_actor_rigid_body_index(env, hand_actor_handle, i,
-                                               gymapi.DOMAIN_ENV))
-        self.hand_rigid_body_sets.append(hand_rigid_body_set)
+        # Store hand link_idx_to_name_dict
+        self.hand_link_idx_to_name_dicts.append(
+            get_link_idx_to_name_dict(env=env, actor_handle=hand_actor_handle)
+        )
 
         # Set hand shape props
-        hand_shape_props = gym.get_actor_rigid_shape_properties(
-            env, hand_actor_handle)
+        hand_shape_props = gym.get_actor_rigid_shape_properties(env, hand_actor_handle)
         for i in range(len(hand_shape_props)):
             hand_shape_props[i].friction = self.hand_friction
-        gym.set_actor_rigid_shape_properties(env, hand_actor_handle,
-                                             hand_shape_props)
+        gym.set_actor_rigid_shape_properties(env, hand_actor_handle, hand_shape_props)
 
         # Set obj pose
         obj_pose = gymapi.Transform()
         obj_pose.p = gymapi.Vec3(0, 0, 0)
         obj_pose.r = gymapi.Quat(0, 0, 0, 1)
         obj_pose = test_rot * obj_pose
+        self.init_obj_poses.append(obj_pose)
 
         # Create obj
-        obj_actor_handle = gym.create_actor(
-            env, self.obj_asset, obj_pose, "obj", 0, 1)
+        obj_actor_handle = gym.create_actor(env, self.obj_asset, obj_pose, "obj", 0, 1)
         self.obj_handles.append(obj_actor_handle)
         gym.set_actor_scale(env, obj_actor_handle, obj_scale)
 
-        # Store obj rigid body set
-        obj_rigid_body_set = set()
-        for i in range(
-                gym.get_actor_rigid_body_count(env, obj_actor_handle)):
-            obj_rigid_body_set.add(
-                gym.get_actor_rigid_body_index(env, obj_actor_handle, i,
-                                               gymapi.DOMAIN_ENV))
-        self.obj_rigid_body_sets.append(obj_rigid_body_set)
+        # Store obj link_idx_to_name_dict
+        self.obj_link_idx_to_name_dicts.append(
+            get_link_idx_to_name_dict(env=env, actor_handle=obj_actor_handle)
+        )
 
         # Set obj shape props
-        obj_shape_props = gym.get_actor_rigid_shape_properties(
-            env, obj_actor_handle)
+        obj_shape_props = gym.get_actor_rigid_shape_properties(env, obj_actor_handle)
         for i in range(len(obj_shape_props)):
             obj_shape_props[i].friction = self.obj_friction
-        gym.set_actor_rigid_shape_properties(env, obj_actor_handle,
-                                             obj_shape_props)
+        gym.set_actor_rigid_shape_properties(env, obj_actor_handle, obj_shape_props)
 
     def run_sim(self):
         sim_step_idx = 0
         default_desc = "Simulating"
         pbar = tqdm(total=self.sim_step, desc=default_desc, dynamic_ncols=True)
         while sim_step_idx < self.sim_step:
-
             # Step physics if not paused
             if not self.is_paused:
                 gym.simulate(self.sim)
@@ -240,15 +268,6 @@ class IsaacValidator():
                 # Step mode
                 if self.is_step_mode:
                     self.is_paused = True
-
-            # Update progress bar
-            desc = default_desc
-            desc += ". 'KEY_SPACE' = toggle pause. 'KEY_S' = toggle step mode"
-            if self.is_paused:
-                desc += ". Paused"
-            if self.is_step_mode:
-                desc += ". Step mode on"
-            pbar.set_description(desc)
 
             # Update viewer
             if self.has_viewer:
@@ -264,39 +283,126 @@ class IsaacValidator():
                 gym.step_graphics(self.sim)
                 gym.draw_viewer(self.viewer, self.sim, False)
 
-        success = []
-        for i, env in enumerate(self.envs):
-            contacts = gym.get_env_rigid_contacts(env)
-            flag = False
+                # Update progress bar text
+                desc = default_desc
+                desc += ". 'KEY_SPACE' = toggle pause. 'KEY_S' = toggle step mode"
+                if self.is_paused:
+                    desc += ". Paused"
+                if self.is_step_mode:
+                    desc += ". Step mode on"
+                pbar.set_description(desc)
 
-            # TODO: Maybe count number of contacts
+        successes = []
+        for i, (
+            env,
+            hand_link_idx_to_name,
+            obj_link_idx_to_name,
+            obj_handle,
+            init_obj_pose,
+        ) in enumerate(
+            zip(
+                self.envs,
+                self.hand_link_idx_to_name_dicts,
+                self.obj_link_idx_to_name_dicts,
+                self.obj_handles,
+                self.init_obj_poses,
+            )
+        ):
+            contacts = gym.get_env_rigid_contacts(env)
+
+            # Find hand object contacts
+            hand_object_contacts = []
             for contact in contacts:
-                body0 = contact['body0']
-                body1 = contact['body1']
-                hand_obj_in_contact = (
-                    (body0 in self.hand_rigid_body_sets[i] and body1 in self.obj_rigid_body_sets[i])
-                    or (body1 in self.hand_rigid_body_sets[i] and body0 in self.obj_rigid_body_sets[i])
+                body0 = contact["body0"]
+                body1 = contact["body1"]
+                is_hand_object_contact = (
+                    body0 in hand_link_idx_to_name and body1 in obj_link_idx_to_name
+                ) or (body1 in hand_link_idx_to_name and body0 in obj_link_idx_to_name)
+                if is_hand_object_contact:
+                    hand_object_contacts.append(contact)
+
+            # Count hand link contacts
+            hand_link_contact_count = defaultdict(int)
+            for contact in hand_object_contacts:
+                body0 = contact["body0"]
+                body1 = contact["body1"]
+                hand_link_name = (
+                    hand_link_idx_to_name[body0]
+                    if body0 in hand_link_idx_to_name
+                    else hand_link_idx_to_name[body1]
                 )
-                if hand_obj_in_contact:
-                    flag = True
-                    break
-            success.append(flag)
-        return success
+                hand_link_contact_count[hand_link_name] += 1
+
+            # Success conditions
+            not_allowed_contacts = set(hand_link_contact_count.keys()) - set(
+                self.allowed_contact_link_names
+            )
+
+            obj_pose = gym.get_actor_rigid_body_states(
+                env, obj_handle, gymapi.STATE_POS
+            )[0]["pose"]
+            init_obj_pos = torch.tensor(
+                [init_obj_pose.p.x, init_obj_pose.p.y, init_obj_pose.p.z]
+            )
+            init_obj_quat = torch.tensor(
+                [
+                    init_obj_pose.r.x,
+                    init_obj_pose.r.y,
+                    init_obj_pose.r.z,
+                    init_obj_pose.r.w,
+                ]
+            )
+            obj_pos = torch.tensor([obj_pose["p"][s] for s in "xyz"])
+            obj_quat = torch.tensor([obj_pose["r"][s] for s in "xyzw"])
+
+            quat_diff = torch_utils.quat_mul(
+                obj_quat, torch_utils.quat_conjugate(init_obj_quat)
+            )
+            pos_change = torch.linalg.norm(obj_pos - init_obj_pos).item()
+            euler_change = torch.stack(
+                torch_utils.get_euler_xyz(quat_diff[None, ...])
+            ).abs()
+            euler_change = torch.where(
+                euler_change > math.pi, 2 * math.pi - euler_change, euler_change
+            )
+            max_euler_change = euler_change.max().rad2deg().item()
+
+            success = (
+                len(hand_object_contacts) > 0
+                and len(not_allowed_contacts) == 0
+                and pos_change < 0.1
+                and max_euler_change < 30
+            )
+
+            successes.append(success)
+
+            DEBUG = False
+            if DEBUG and len(hand_object_contacts) > 0:
+                print(f"i = {i}")
+                print(f"success = {success}")
+                print(f"pos_change = {pos_change}")
+                print(f"max_euler_change = {max_euler_change}")
+                print(f"len(contacts) = {len(contacts)}")
+                print(f"len(hand_object_contacts) = {len(hand_object_contacts)}")
+                print(f"hand_link_contact_count = {hand_link_contact_count}")
+                print(f"not_allowed_contacts = {not_allowed_contacts}")
+                print("-------------")
+
+        return successes
 
     def reset_simulator(self):
         gym.destroy_sim(self.sim)
         if self.has_viewer:
             gym.destroy_viewer(self.sim)
             self.viewer = gym.create_viewer(self.sim, self.camera_props)
-        self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX,
-                                  self.sim_params)
+        self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
         for env in self.envs:
             gym.destroy_env(env)
         self.envs = []
         self.hand_handles = []
         self.obj_handles = []
-        self.hand_rigid_body_sets = []
-        self.obj_rigid_body_sets = []
+        self.hand_link_idx_to_name_dicts = []
+        self.obj_link_idx_to_name_dicts = []
         self.hand_asset = None
         self.obj_asset = None
 
@@ -311,7 +417,7 @@ class IsaacValidator():
                 "STEP_MODE": gymapi.KEY_S,
                 "PAUSE_SIM": gymapi.KEY_SPACE,
             }
-            self.event_to_function  = {
+            self.event_to_function = {
                 "STEP_MODE": self._step_mode_callback,
                 "PAUSE_SIM": self._pause_sim_callback,
             }
@@ -333,4 +439,5 @@ class IsaacValidator():
     def _pause_sim_callback(self):
         self.is_paused = not self.is_paused
         print(f"Simulation is {'paused' if self.is_paused else 'unpaused'}")
+
     ## KEYBOARD EVENT SUBSCRIPTIONS END ##

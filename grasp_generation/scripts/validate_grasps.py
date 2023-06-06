@@ -23,10 +23,16 @@ from utils.hand_model_type import (
 )
 from utils.qpos_pose_conversion import qpos_to_pose, qpos_to_translation_rot_jointangles
 from typing import List
+import math
+from utils.seed import set_seed
+from utils.joint_angle_targets import compute_joint_angle_targets, OptimizationMethod
 
 
-def compute_apply_force_hand_pose(
-    args: argparse.Namespace, joint_names: List[str], data_dict: np.ndarray
+def compute_joint_angle_targets_with_optimization(
+    args: argparse.Namespace,
+    joint_names: List[str],
+    data_dict: np.ndarray,
+    optimization_method: OptimizationMethod,
 ):
     # Read in hand state and scale tensor
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
@@ -46,7 +52,7 @@ def compute_apply_force_hand_pose(
 
     # hand model
     hand_model = HandModel(
-        hand_model_type=args.hand_model_type, n_surface_points=2000, device=device
+        hand_model_type=args.hand_model_type, device=device
     )
     hand_model.set_parameters(hand_poses)
 
@@ -60,58 +66,35 @@ def compute_apply_force_hand_pose(
     object_model.initialize(args.object_code)
     object_model.object_scale_tensor = scale_tensor
 
-    # calculate contact points and contact normals
-    num_links = len(hand_model.mesh)
-    contact_points_hand = torch.zeros((batch_size, num_links, 3)).to(device)
-    contact_normals = torch.zeros((batch_size, num_links, 3)).to(device)
+    # Make copies
+    original_hand_pose = hand_model.hand_pose.detach().clone()
+    joint_angle_targets_to_optimize = (
+        original_hand_pose[:, 9:].detach().clone().requires_grad_(True)
+    )
 
-    for i, link_name in enumerate(hand_model.mesh):
-        if len(hand_model.mesh[link_name]["surface_points"]) == 0:
-            continue
-        surface_points = (
-            hand_model.current_status[link_name]
-            .transform_points(hand_model.mesh[link_name]["surface_points"])
-            .expand(batch_size, -1, 3)
-        )
-        surface_points = surface_points @ hand_model.global_rotation.transpose(
-            1, 2
-        ) + hand_model.global_translation.unsqueeze(1)
-        distances, normals = object_model.cal_distance(surface_points)
-        nearest_point_index = distances.argmax(dim=1)
-        nearest_distances = torch.gather(distances, 1, nearest_point_index.unsqueeze(1))
-        nearest_points_hand = torch.gather(
-            surface_points, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
-        )
-        nearest_normals = torch.gather(
-            normals, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
-        )
-        admited = -nearest_distances < args.thres_cont
-        admited = admited.reshape(-1, 1, 1).expand(-1, 1, 3)
-        contact_points_hand[:, i : i + 1, :] = torch.where(
-            admited, nearest_points_hand, contact_points_hand[:, i : i + 1, :]
-        )
-        contact_normals[:, i : i + 1, :] = torch.where(
-            admited, nearest_normals, contact_normals[:, i : i + 1, :]
-        )
+    # Optimization
+    joint_angle_targets_to_optimize, losses, debug_infos = compute_joint_angle_targets(
+        optimization_method=optimization_method,
+        joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
+        hand_model=hand_model,
+        object_model=object_model,
+        device=device,
+    )
 
-    target_points = contact_points_hand + contact_normals * args.dis_move
-    loss = (target_points.detach().clone() - contact_points_hand).square().sum()
-    loss.backward()
-    with torch.no_grad():
-        hand_poses[:, 9:] += hand_poses.grad[:, 9:] * args.grad_move
-        hand_poses.grad.zero_()
-
-    assert hand_poses.shape == (batch_size, 3 + 6 + hand_model.n_dofs)
-    return hand_poses
+    return joint_angle_targets_to_optimize
 
 
 def main(args):
+    set_seed(42)
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
     if args.index is not None:
         sim = IsaacValidator(
-            hand_model_type=args.hand_model_type, gpu=args.gpu, mode="gui", start_with_step_mode=args.start_with_step_mode
+            hand_model_type=args.hand_model_type,
+            gpu=args.gpu,
+            mode="gui",
+            start_with_step_mode=args.start_with_step_mode,
         )
     else:
         sim = IsaacValidator(hand_model_type=args.hand_model_type, gpu=args.gpu)
@@ -140,21 +123,23 @@ def main(args):
 
         if "E_pen" in data_dict[i]:
             E_pen_array.append(data_dict[i]["E_pen"])
-        elif args.index is not None:
+        # Note: Will not do penetration check if E_pen is not found
+        else:
             print(f"Warning: E_pen not found in data_dict[{i}]")
             print(
                 "This is expected behavior if you are validating already validated grasps"
             )
             E_pen_array.append(0)
-        else:
-            raise ValueError(f"E_pen not found in data_dict[{i}]")
     E_pen_array = np.array(E_pen_array)
 
     if not args.no_force:
         joint_angle_targets_array = (
-            compute_apply_force_hand_pose(
-                args=args, joint_names=joint_names, data_dict=data_dict
-            )[:, 9:]
+            compute_joint_angle_targets_with_optimization(
+                args=args,
+                joint_names=joint_names,
+                data_dict=data_dict,
+                optimization_method=OptimizationMethod.DESIRED_DIST_MOVE_ONE_STEP,
+            )
             .detach()
             .cpu()
             .numpy()
@@ -164,6 +149,7 @@ def main(args):
 
     hand_root, hand_file = handmodeltype_to_hand_root_hand_file[args.hand_model_type]
 
+    # Debug with single grasp
     if args.index is not None:
         sim.set_asset(
             hand_root=hand_root,
@@ -177,10 +163,14 @@ def main(args):
             hand_translation=translations[index],
             hand_qpos=joint_angles_array[index],
             obj_scale=scale_array[index],
-            target_qpos=joint_angle_targets_array[index] if joint_angle_targets_array is not None else None,
+            target_qpos=(
+                joint_angle_targets_array[index]
+                if joint_angle_targets_array is not None
+                else None
+            ),
         )
-        result = sim.run_sim()
-        print(f"result = {result}")
+        successes = sim.run_sim()
+        print(f"successes = {successes}")
         print(
             " = ".join(
                 [
@@ -190,54 +180,63 @@ def main(args):
                 ]
             )
         )
-        estimated = E_pen_array < args.penetration_threshold
+
+    # Run validation on all grasps
     else:
-        simulated = np.zeros(batch_size, dtype=np.bool8)
-        offset = 0
-        result = []
-        for batch in range(batch_size // args.val_batch):
-            offset_ = min(offset + args.val_batch, batch_size)
+        passed_simulation = np.zeros(batch_size, dtype=np.bool8)
+        successes = []
+        num_val_batches = math.ceil(batch_size / args.val_batch)
+        for val_batch_idx in range(num_val_batches):
+            start_offset = val_batch_idx * args.val_batch
+            end_offset = min(start_offset + args.val_batch, batch_size)
+
             sim.set_asset(
                 hand_root=hand_root,
                 hand_file=hand_file,
                 obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
                 obj_file="coacd.urdf",
             )
-            for index in range(offset, offset_):
+            for index in range(start_offset, end_offset):
                 sim.add_env_all_test_rotations(
                     hand_rotation=rotations[index],
                     hand_translation=translations[index],
                     hand_qpos=joint_angles_array[index],
                     obj_scale=scale_array[index],
-                    target_qpos=joint_angle_targets_array[index] if joint_angle_targets_array is not None else None,
+                    target_qpos=(
+                        joint_angle_targets_array[index]
+                        if joint_angle_targets_array is not None
+                        else None
+                    ),
                 )
-            result = [*result, *sim.run_sim()]
+            successes.extend([*sim.run_sim()])
             sim.reset_simulator()
-            offset = offset_
 
         num_envs_per_grasp = len(sim.test_rotations)
         for i in range(batch_size):
-            simulated[i] = np.array(sum(result[i * num_envs_per_grasp : (i + 1) * num_envs_per_grasp]) == num_envs_per_grasp)
+            passed_simulation[i] = np.array(
+                sum(successes[i * num_envs_per_grasp : (i + 1) * num_envs_per_grasp])
+                == num_envs_per_grasp
+            )
 
-        estimated = E_pen_array < args.penetration_threshold
-        valid = simulated * estimated
+        passed_penetration_threshold = E_pen_array < args.penetration_threshold
+        valid = passed_simulation * passed_penetration_threshold
         print(
-            f"estimated: {estimated.sum().item()}/{batch_size}, "
-            f"simulated: {simulated.sum().item()}/{batch_size}, "
-            f"valid: {valid.sum().item()}/{batch_size}"
+            f"passed_penetration_threshold: {passed_penetration_threshold.sum().item()}/{batch_size}, "
+            f"passed_simulation: {passed_simulation.sum().item()}/{batch_size}, "
+            f"valid = passed_simulation * passed_penetration_threshold: {valid.sum().item()}/{batch_size}"
         )
-        result_list = []
+        success_data_dicts = []
         for i in range(batch_size):
             if valid[i]:
                 new_data_dict = {}
                 new_data_dict["qpos"] = data_dict[i]["qpos"]
                 new_data_dict["scale"] = data_dict[i]["scale"]
-                result_list.append(new_data_dict)
+                success_data_dicts.append(new_data_dict)
 
         os.makedirs(args.result_path, exist_ok=True)
         np.save(
             os.path.join(args.result_path, args.object_code + ".npy"),
-            result_list,
+            success_data_dicts,
             allow_pickle=True,
         )
     sim.destroy()

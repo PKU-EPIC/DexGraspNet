@@ -24,6 +24,7 @@ from utils.energy import cal_energy
 from utils.optimizer import Annealing
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import pose_to_qpos
+from utils.seed import set_seed
 
 from torch.multiprocessing import set_start_method
 from typing import Tuple
@@ -73,8 +74,7 @@ def generate(args_list):
         config=args,
     )
 
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
+    set_seed(args.seed)
 
     # prepare models
 
@@ -275,11 +275,7 @@ if __name__ == "__main__":
     print(f"gpu_list: {gpu_list}")
 
     # check whether arguments are valid and process arguments
-
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    random.seed(args.seed)
-
+    set_seed(args.seed)
     if not os.path.exists(args.result_path):
         os.makedirs(args.result_path)
 
@@ -326,7 +322,7 @@ if __name__ == "__main__":
 
     # generate
 
-    random.seed(args.seed)
+    set_seed(args.seed)
     random.shuffle(object_code_list)
     objects_each = args.max_total_batch_size // args.batch_size_each
     object_code_groups = [

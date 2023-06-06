@@ -111,7 +111,7 @@ class HandModel:
     def _init_allegro(
         self,
         urdf_path="allegro_hand_description/allegro_hand_description_right.urdf",
-        contact_points_path="allegro_hand_description/contact_points.json",
+        contact_points_path="allegro_hand_description/contact_points_precision_grasp.json",
         penetration_points_path="allegro_hand_description/penetration_points.json",
         n_surface_points=0,
     ):
@@ -268,7 +268,7 @@ class HandModel:
         self,
         mjcf_path="mjcf/shadow_hand_wrist_free.xml",
         mesh_path="mjcf/meshes",
-        contact_points_path="mjcf/contact_points.json",
+        contact_points_path="mjcf/contact_points_precision_grasp.json",
         penetration_points_path="mjcf/penetration_points.json",
         n_surface_points=0,
     ):
