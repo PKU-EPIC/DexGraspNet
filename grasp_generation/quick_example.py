@@ -116,12 +116,14 @@ print(f"original_hand_pose[:, 9:] = {original_hand_pose[:, 9:]}")
 joint_angle_targets_to_optimize = original_hand_pose[:, 9:].detach().clone().requires_grad_(True)
 
 # %%
-from DUMMY import compute_loss, compute_loss_old
-USE_OLD = True
+from DUMMY import compute_loss_desired_penetration_dist, compute_loss_old, compute_loss_old_v2
+USE_OLD = False
 
-N_ITERS = 1
+N_ITERS = 100
 losses = []
 old_debug_info = None
+target_points = None
+contact_nearest_point_indexes = None
 for i in range(N_ITERS):
     if USE_OLD:
         loss, debug_info = compute_loss_old(
@@ -135,8 +137,24 @@ for i in range(N_ITERS):
             return_debug_info=True,
         )
         grad_step_size = 500
+    elif True:
+        loss, debug_info = compute_loss_old_v2(
+            joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
+            hand_model=hand_model,
+            object_model=object_model,
+            batch_size=1,
+            device=device,
+            cached_target_points=target_points,
+            cached_contact_nearest_point_indexes=contact_nearest_point_indexes,
+            dist_thresh_to_move_finger=0.01,
+            dist_move_link=0.01,
+            return_debug_info=True,
+        )
+        target_points = debug_info["target_points"]
+        contact_nearest_point_indexes = debug_info["contact_nearest_point_indexes"]
+        grad_step_size = 5
     else:
-        loss, debug_info = compute_loss(
+        loss, debug_info = compute_loss_desired_penetration_dist(
             joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
             hand_model=hand_model,
             object_model=object_model,
