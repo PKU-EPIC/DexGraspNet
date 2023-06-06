@@ -76,7 +76,7 @@ def compute_loss(
         joint_angle_targets_to_optimize
     )
     for i, link_name in enumerate(hand_model.mesh):
-        surface_points = hand_model.mesh[link_name]["surface_points"]
+        surface_points = hand_model.mesh[link_name]["contact_candidates"]
         if len(surface_points) == 0:
             continue
         if link_name not in expected_contact_link_names:
