@@ -376,7 +376,7 @@ class IsaacValidator:
 
             successes.append(success)
 
-            DEBUG = True
+            DEBUG = False
             if DEBUG and len(hand_object_contacts) > 0:
                 print(f"i = {i}")
                 print(f"success = {success}")

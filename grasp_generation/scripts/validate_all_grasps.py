@@ -16,8 +16,8 @@ if __name__ == '__main__':
         choices=list(HandModelType),
     )
     parser.add_argument("--gpu", default=0, type=int)
-    parser.add_argument('--grasp_path', default="../data/graspdata_2023-05-22_distalonly", type=str)
-    parser.add_argument('--result_path', default="../data/dataset_2023-05-22_distalonly", type=str)
+    parser.add_argument('--grasp_path', default="../data/graspdata_2023-05-24_allegro_distalonly", type=str)
+    parser.add_argument('--result_path', default="../data/dataset_2023-05-24_allegro_distalonly", type=str)
     args = parser.parse_args()
     print(f"args = {args}")
  
