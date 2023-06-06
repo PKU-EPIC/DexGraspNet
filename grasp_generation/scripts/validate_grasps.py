@@ -138,7 +138,7 @@ def main(args):
                 args=args,
                 joint_names=joint_names,
                 data_dict=data_dict,
-                optimization_method=OptimizationMethod.DESIRED_DIST_MOVE_TOWARDS_CENTER_MULTIPLE_STEP,
+                optimization_method=OptimizationMethod.DESIRED_DIST_MOVE_ONE_STEP,
             )
             .detach()
             .cpu()
