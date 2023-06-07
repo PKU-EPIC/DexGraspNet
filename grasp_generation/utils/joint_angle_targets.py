@@ -17,36 +17,11 @@ class OptimizationMethod(Enum):
 def compute_fingers_center(
     hand_model: HandModel,
 ):
-    expected_contact_link_names = handmodeltype_to_expectedcontactlinknames[
-        hand_model.hand_model_type
-    ]
-    current_status = hand_model.chain.forward_kinematics(
-        hand_model.hand_pose[:, 9:]
-    )
     batch_size = hand_model.hand_pose.shape[0]
 
-    surface_points_list = []
-    for i, link_name in enumerate(hand_model.mesh):
-        surface_points = hand_model.mesh[link_name]["contact_candidates"]
-        if len(surface_points) == 0:
-            continue
-        if link_name not in expected_contact_link_names:
-            continue
-
-        surface_points = (
-            current_status[link_name]
-            .transform_points(surface_points)
-            .expand(batch_size, -1, 3)
-        )
-        surface_points = surface_points @ hand_model.global_rotation.transpose(
-            1, 2
-        ) + hand_model.global_translation.unsqueeze(1)
-
-        surface_points_list.append(surface_points)
-
-    surface_points = torch.cat(surface_points_list, dim=1)
-    assert len(surface_points.shape) == 3 and surface_points.shape[0] == batch_size and surface_points.shape[2] == 3
-    center = surface_points.mean(dim=1)
+    contact_candidates = hand_model.get_contact_candidates()
+    assert len(contact_candidates.shape) == 3 and contact_candidates.shape[0] == batch_size and contact_candidates.shape[2] == 3
+    center = contact_candidates.mean(dim=1)
     assert center.shape == (batch_size, 3)
     return center
 
@@ -74,28 +49,28 @@ def compute_loss_desired_penetration_dist(
         joint_angle_targets_to_optimize
     )
     for i, link_name in enumerate(hand_model.mesh):
-        surface_points = hand_model.mesh[link_name]["contact_candidates"]
-        if len(surface_points) == 0:
+        contact_candidates = hand_model.mesh[link_name]["contact_candidates"]
+        if len(contact_candidates) == 0:
             continue
         if link_name not in expected_contact_link_names:
             continue
 
-        surface_points = (
+        contact_candidates = (
             current_status[link_name]
-            .transform_points(surface_points)
+            .transform_points(contact_candidates)
             .expand(batch_size, -1, 3)
         )
-        surface_points = surface_points @ hand_model.global_rotation.transpose(
+        contact_candidates = contact_candidates @ hand_model.global_rotation.transpose(
             1, 2
         ) + hand_model.global_translation.unsqueeze(1)
 
         # Interiors are positive dist, exteriors are negative dist
         # Normals point from object to hand
-        distances, normals = object_model.cal_distance(surface_points)
+        distances, normals = object_model.cal_distance(contact_candidates)
         nearest_point_index = distances.argmax(dim=1)
         nearest_distances = torch.gather(distances, 1, nearest_point_index.unsqueeze(1))
         nearest_points_hand = torch.gather(
-            surface_points, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
+            contact_candidates, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
         )
         nearest_normals = torch.gather(
             normals, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
@@ -154,31 +129,31 @@ def compute_loss_desired_dist_move(
         joint_angle_targets_to_optimize
     )
     for i, link_name in enumerate(hand_model.mesh):
-        surface_points = hand_model.mesh[link_name]["contact_candidates"]
-        if len(surface_points) == 0:
+        contact_candidates = hand_model.mesh[link_name]["contact_candidates"]
+        if len(contact_candidates) == 0:
             continue
         if link_name not in expected_contact_link_names:
             continue
 
-        surface_points = (
+        contact_candidates = (
             current_status[link_name]
-            .transform_points(surface_points)
+            .transform_points(contact_candidates)
             .expand(batch_size, -1, 3)
         )
-        surface_points = surface_points @ hand_model.global_rotation.transpose(
+        contact_candidates = contact_candidates @ hand_model.global_rotation.transpose(
             1, 2
         ) + hand_model.global_translation.unsqueeze(1)
 
         # Interiors are positive dist, exteriors are negative dist
         # Normals point from object to hand
-        distances, normals = object_model.cal_distance(surface_points)
+        distances, normals = object_model.cal_distance(contact_candidates)
         if cached_contact_nearest_point_indexes is None:
             nearest_point_index = distances.argmax(dim=1)
         else:
             nearest_point_index = cached_contact_nearest_point_indexes[:, i]
         nearest_distances = torch.gather(distances, 1, nearest_point_index.unsqueeze(1))
         nearest_points_hand = torch.gather(
-            surface_points, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
+            contact_candidates, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
         )
         nearest_normals = torch.gather(
             normals, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
