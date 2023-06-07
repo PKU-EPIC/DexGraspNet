@@ -19,33 +19,43 @@ import random
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 import numpy as np
-import transforms3d
 import torch
-import trimesh
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import qpos_to_pose
 from utils.seed import set_seed
+from utils.joint_angle_targets import OptimizationMethod, compute_optimized_joint_angle_targets
 
+
+# %% [markdown]
+# ## PARAMS
 
 # %%
-set_seed(42)
-
-# %%
-# PARAMS
 mesh_path = "../data/meshdata"
 data_path = "../data/graspdata_2023-05-24_allegro_distalonly/"
 hand_model_type = HandModelType.ALLEGRO_HAND
+seed = 42
+joint_angle_targets_optimization_method = OptimizationMethod.DESIRED_DIST_MOVE_TOWARDS_CENTER_ONE_STEP
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# %% [markdown]
+# ## Set Seed
+
 # %%
-# Grasp codes
+set_seed(seed)
+
+# %% [markdown]
+# ## Grasp codes|
+
+# %%
 grasp_code_list = []
 for filename in os.listdir(data_path):
     code = filename.split(".")[0]
     grasp_code_list.append(code)
 
+# %% [markdown]
+# ## Sample and read in data
+
 # %%
-# Sample and read in data
 grasp_code = random.choice(grasp_code_list)
 grasp_data = np.load(os.path.join(data_path, grasp_code + ".npy"), allow_pickle=True)
 print(f"Randomly sampled grasp_code = {grasp_code}")
@@ -56,8 +66,10 @@ scale = grasp_data[index]["scale"]
 print(f"Randomly sampled index = {index}")
 print(f"scale = {scale}")
 
+# %% [markdown]
+# ## Object model
+
 # %%
-# Object model
 object_model = ObjectModel(
     data_root_path=mesh_path,
     batch_size_each=1,
@@ -68,8 +80,10 @@ object_model.object_scale_tensor = torch.tensor(
     scale, dtype=torch.float, device=device
 ).reshape(object_model.object_scale_tensor.shape)
 
+# %% [markdown]
+# ## Hand model
+
 # %%
-# Hand model
 joint_names = handmodeltype_to_joint_names[hand_model_type]
 hand_model = HandModel(hand_model_type, device=device)
 
@@ -82,15 +96,20 @@ batch_idx = 0
 hand_mesh = hand_model.get_trimesh_data(batch_idx)
 object_mesh = object_model.object_mesh_list[batch_idx].copy().apply_scale(scale)
 
+# %% [markdown]
+# ## Visualize hand and object
+
 # %%
 (hand_mesh + object_mesh).show()
+
+# %% [markdown]
+# ## Visualize hand and object plotly
 
 # %%
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 # %%
-# Plotly fig
 fig_title = f"Grasp Code: {grasp_code}, Index: {index}"
 idx_to_visualize = batch_idx
 
@@ -119,21 +138,16 @@ for plot in plots:
     fig.add_trace(plot)
 fig.show()
 
+# %% [markdown]
+# ## Compute optimized joint angle targets
+
 # %%
 original_hand_pose = hand_model.hand_pose.detach().clone()
 print(f"original_hand_pose[:, 9:] = {original_hand_pose[:, 9:]}")
-joint_angle_targets_to_optimize = (
-    original_hand_pose[:, 9:].detach().clone().requires_grad_(True)
-)
 
 # %%
-from utils.joint_angle_targets import OptimizationMethod, compute_joint_angle_targets
-
-optimization_method = OptimizationMethod.DESIRED_DIST_MOVE_TOWARDS_CENTER_ONE_STEP
-
-joint_angle_targets_to_optimize, losses, debug_infos = compute_joint_angle_targets(
-    optimization_method=optimization_method,
-    joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
+joint_angle_targets_to_optimize, losses, debug_infos = compute_optimized_joint_angle_targets(
+    optimization_method=joint_angle_targets_optimization_method,
     hand_model=hand_model,
     object_model=object_model,
     device=device,
@@ -144,11 +158,20 @@ debug_info = debug_infos[-1]
 # %%
 import plotly.express as px
 
-px.line(y=losses)
+fig = px.line(y=losses)
+fig.update_layout(
+    title="Loss vs. Iterations",
+    xaxis_title="Iterations",
+    yaxis_title="Loss"
+)
+fig.show()
 
 # %%
 print(f"joint_angle_targets_to_optimize = {joint_angle_targets_to_optimize}")
 
+
+# %% [markdown]
+# ## Visualize hand pose before and after optimization
 
 # %%
 # Plotly fig
@@ -230,11 +253,7 @@ fig.update_layout(
     autosize=False,
     width=1600,
     height=800,
-    title_text=f"Optimization Method: {optimization_method.name}",
-    # scene1=dict(title="Original"),
-    # scene2=dict(title="Optimized"),
+    title_text=f"Optimization Method: {joint_angle_targets_optimization_method.name}",
 )
 fig.show()
 
-
-# %%

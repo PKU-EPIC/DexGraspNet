@@ -25,10 +25,10 @@ from utils.qpos_pose_conversion import qpos_to_pose, qpos_to_translation_rot_joi
 from typing import List
 import math
 from utils.seed import set_seed
-from utils.joint_angle_targets import compute_joint_angle_targets, OptimizationMethod
+from utils.joint_angle_targets import compute_optimized_joint_angle_targets, OptimizationMethod
 
 
-def compute_joint_angle_targets_with_optimization(
+def compute_joint_angle_targets(
     args: argparse.Namespace,
     joint_names: List[str],
     data_dict: np.ndarray,
@@ -66,16 +66,9 @@ def compute_joint_angle_targets_with_optimization(
     object_model.initialize(args.object_code)
     object_model.object_scale_tensor = scale_tensor
 
-    # Make copies
-    original_hand_pose = hand_model.hand_pose.detach().clone()
-    joint_angle_targets_to_optimize = (
-        original_hand_pose[:, 9:].detach().clone().requires_grad_(True)
-    )
-
     # Optimization
-    joint_angle_targets_to_optimize, losses, debug_infos = compute_joint_angle_targets(
+    joint_angle_targets_to_optimize, losses, debug_infos = compute_optimized_joint_angle_targets(
         optimization_method=optimization_method,
-        joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
         hand_model=hand_model,
         object_model=object_model,
         device=device,
@@ -134,7 +127,7 @@ def main(args):
 
     if not args.no_force:
         joint_angle_targets_array = (
-            compute_joint_angle_targets_with_optimization(
+            compute_joint_angle_targets(
                 args=args,
                 joint_names=joint_names,
                 data_dict=data_dict,
@@ -262,9 +255,6 @@ if __name__ == "__main__":
     parser.add_argument("--index", type=int)
     parser.add_argument("--start_with_step_mode", action="store_true")
     parser.add_argument("--no_force", action="store_true")
-    parser.add_argument("--thres_cont", default=0.001, type=float)
-    parser.add_argument("--dis_move", default=0.001, type=float)
-    parser.add_argument("--grad_move", default=500, type=float)
     parser.add_argument("--penetration_threshold", default=0.001, type=float)
 
     args = parser.parse_args()

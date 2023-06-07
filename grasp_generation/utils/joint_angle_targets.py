@@ -209,14 +209,14 @@ def compute_loss_desired_dist_move(
     }
 
 
-def compute_joint_angle_targets(
+def compute_optimized_joint_angle_targets(
     optimization_method: OptimizationMethod,
-    joint_angle_targets_to_optimize: torch.Tensor,
     hand_model: HandModel,
     object_model: ObjectModel,
     device: torch.device,
 ):
     original_hand_pose = hand_model.hand_pose.detach().clone()
+    joint_angle_targets_to_optimize = original_hand_pose.detach().clone()[:, 9:].requires_grad_(True)
 
     losses = []
     debug_infos = []
