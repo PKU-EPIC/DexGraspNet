@@ -20,7 +20,7 @@ import random
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 from utils.initializations import initialize_convex_hull
-from utils.energy import cal_energy
+from utils.energy import cal_energy, ENERGY_NAMES, ENERGY_NAME_TO_SHORTHAND_DICT
 from utils.optimizer import Annealing
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import pose_to_qpos
@@ -113,15 +113,18 @@ def generate(args_list):
     optimizer = Annealing(hand_model, **optim_config)
 
     # optimize
+    energy_name_to_weight_dict = {
+        "Force Closure": args.w_fc,
+        "Hand Contact Point to Object Distance": args.w_dis,
+        "Hand Object Penetration": args.w_pen,
+        "Hand Self Penetration": args.w_spen,
+        "Joint Limits Violation": args.w_joints,
+        "Finger Finger Distance": args.w_ff,
+        "Finger Palm Distance": args.w_fp,
+    }
 
-    weight_dict = dict(
-        w_dis=args.w_dis,
-        w_pen=args.w_pen,
-        w_spen=args.w_spen,
-        w_joints=args.w_joints,
-    )
-    energy, E_fc, E_dis, E_pen, E_spen, E_joints = cal_energy(
-        hand_model, object_model, verbose=True, **weight_dict
+    energy, unweighted_energy_matrix, weighted_energy_matrix = cal_energy(
+        hand_model, object_model, energy_name_to_weight_dict=energy_name_to_weight_dict
     )
 
     energy.sum().backward(retain_graph=True)
@@ -134,58 +137,73 @@ def generate(args_list):
         s = optimizer.try_step()
 
         optimizer.zero_grad()
+
         (
             new_energy,
-            new_E_fc,
-            new_E_dis,
-            new_E_pen,
-            new_E_spen,
-            new_E_joints,
-        ) = cal_energy(hand_model, object_model, verbose=True, **weight_dict)
-
+            new_unweighted_energy_matrix,
+            new_weighted_energy_matrix,
+        ) = cal_energy(
+            hand_model,
+            object_model,
+            energy_name_to_weight_dict=energy_name_to_weight_dict,
+        )
         new_energy.sum().backward(retain_graph=True)
 
         with torch.no_grad():
             accept, temperature = optimizer.accept_step(energy, new_energy)
 
             energy[accept] = new_energy[accept]
-            E_dis[accept] = new_E_dis[accept]
-            E_fc[accept] = new_E_fc[accept]
-            E_pen[accept] = new_E_pen[accept]
-            E_spen[accept] = new_E_spen[accept]
-            E_joints[accept] = new_E_joints[accept]
+            unweighted_energy_matrix[accept] = new_unweighted_energy_matrix[accept]
+            weighted_energy_matrix[accept] = new_weighted_energy_matrix[accept]
 
         # Log
-        wandb_log_dict.update({
-            "accept": accept.sum().item(),
-            "temperature": temperature.item(),
-            "energy": energy.mean().item(),
-            "E_fc": E_fc.mean().item(),
-            "E_dis": E_dis.mean().item(),
-            "E_pen": E_pen.mean().item(),
-            "E_spen": E_spen.mean().item(),
-            "E_joints": E_joints.mean().item(),
-            f"accept_{idx_to_visualize}": accept[idx_to_visualize].item(),
-            f"energy_{idx_to_visualize}": energy[idx_to_visualize].item(),
-            f"E_fc_{idx_to_visualize}": E_fc[idx_to_visualize].item(),
-            f"E_dis_{idx_to_visualize}": E_dis[idx_to_visualize].item(),
-            f"E_pen_{idx_to_visualize}": E_pen[idx_to_visualize].item(),
-            f"E_spen_{idx_to_visualize}": E_spen[idx_to_visualize].item(),
-            f"E_joints_{idx_to_visualize}": E_joints[idx_to_visualize].item(),
-        })
+        wandb_log_dict.update(
+            {
+                "accept": accept.sum().item(),
+                "temperature": temperature.item(),
+                "energy": energy.mean().item(),
+                f"accept_{idx_to_visualize}": accept[idx_to_visualize].item(),
+                f"energy_{idx_to_visualize}": energy[idx_to_visualize].item(),
+            }
+        )
+        for i, energy_name in enumerate(ENERGY_NAMES):
+            shorthand = ENERGY_NAME_TO_SHORTHAND_DICT[energy_name]
+            uw_shorthand = f"unweighted_{shorthand}"
+            wandb_log_dict.update(
+                {
+                    uw_shorthand: unweighted_energy_matrix[:, i].mean().item(),
+                    shorthand: weighted_energy_matrix[:, i].mean().item(),
+                    f"{uw_shorthand}_{idx_to_visualize}": unweighted_energy_matrix[
+                        idx_to_visualize, i
+                    ].item(),
+                    f"{shorthand}_{idx_to_visualize}": weighted_energy_matrix[
+                        idx_to_visualize, i
+                    ].item(),
+                }
+            )
 
         # Visualize
         if step % args.visualization_freq == 0:
             fig_title = f"hand_object_visualization_{idx_to_visualize}"
             fig = go.Figure(
                 layout=go.Layout(
-                    scene=dict(xaxis=dict(title="X"), yaxis=dict(title="Y"), zaxis=dict(title="Z"), aspectmode="data"),
+                    scene=dict(
+                        xaxis=dict(title="X"),
+                        yaxis=dict(title="Y"),
+                        zaxis=dict(title="Z"),
+                        aspectmode="data",
+                    ),
                     showlegend=True,
                     title=fig_title,
                 )
             )
             plots = [
-                *hand_model.get_plotly_data(i=idx_to_visualize, opacity=1.0, with_contact_points=True, with_contact_candidates=True),
+                *hand_model.get_plotly_data(
+                    i=idx_to_visualize,
+                    opacity=1.0,
+                    with_contact_points=True,
+                    with_contact_candidates=True,
+                ),
                 *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
             ]
             for plot in plots:
@@ -205,23 +223,22 @@ def generate(args_list):
                 joint_names=joint_names,
             )
             qpos_st = pose_to_qpos(
-
                 hand_pose=hand_pose_st[idx].detach().cpu(),
                 joint_names=joint_names,
             )
-            data_list.append(
-                dict(
-                    scale=scale,
-                    qpos=qpos,
-                    qpos_st=qpos_st,
-                    energy=energy[idx].item(),
-                    E_fc=E_fc[idx].item(),
-                    E_dis=E_dis[idx].item(),
-                    E_pen=E_pen[idx].item(),
-                    E_spen=E_spen[idx].item(),
-                    E_joints=E_joints[idx].item(),
-                )
+            data = dict(
+                scale=scale,
+                qpos=qpos,
+                qpos_st=qpos_st,
+                energy=energy[idx].item(),
             )
+
+            for i, energy_name in enumerate(ENERGY_NAMES):
+                shorthand = ENERGY_NAME_TO_SHORTHAND_DICT[energy_name]
+                data[f"{shorthand}"] = weighted_energy_matrix[idx, i].item()
+
+            data_list.append(data)
+
         np.save(
             os.path.join(args.result_path, object_code + ".npy"),
             data_list,
@@ -232,7 +249,12 @@ def generate(args_list):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # experiment settings
-    parser.add_argument('--hand_model_type', default=HandModelType.SHADOW_HAND, type=HandModelType.from_string, choices=list(HandModelType))
+    parser.add_argument(
+        "--hand_model_type",
+        default=HandModelType.SHADOW_HAND,
+        type=HandModelType.from_string,
+        choices=list(HandModelType),
+    )
     parser.add_argument("--wandb_name", default="", type=str)
     parser.add_argument("--visualization_freq", default=2000, type=int)
     parser.add_argument("--result_path", default="../data/graspdata", type=str)
@@ -254,10 +276,13 @@ if __name__ == "__main__":
     parser.add_argument("--starting_temperature", default=18, type=float)
     parser.add_argument("--annealing_period", default=30, type=int)
     parser.add_argument("--temperature_decay", default=0.95, type=float)
+    parser.add_argument("--w_fc", default=1.0, type=float)
     parser.add_argument("--w_dis", default=100.0, type=float)
     parser.add_argument("--w_pen", default=100.0, type=float)
     parser.add_argument("--w_spen", default=10.0, type=float)
     parser.add_argument("--w_joints", default=1.0, type=float)
+    parser.add_argument("--w_ff", default=0.0, type=float)
+    parser.add_argument("--w_fp", default=0.0, type=float)
     # initialization settings
     parser.add_argument("--jitter_strength", default=0.1, type=float)
     parser.add_argument("--distance_lower", default=0.2, type=float)
@@ -295,7 +320,10 @@ if __name__ == "__main__":
         # object_code_list_all = os.listdir(args.data_root_path)
         # TODO: REMOVE HACK TO USE SAME AS BEFORE
         print("HACK: using graspdata_2023-05-22_distalonly")
-        object_code_list_all = [f.split('.')[0] for f in os.listdir('../data/graspdata_2023-05-22_distalonly')]
+        object_code_list_all = [
+            f.split(".")[0]
+            for f in os.listdir("../data/graspdata_2023-05-22_distalonly")
+        ]
         print(f"len(object_code_list_all): {len(object_code_list_all)}")
         print(f"First 10: {object_code_list_all[:10]}")
 
