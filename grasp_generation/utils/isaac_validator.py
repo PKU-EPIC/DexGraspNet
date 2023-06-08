@@ -4,7 +4,7 @@ Author: Ruicheng Wang
 Description: Class IsaacValidator
 """
 
-from isaacgym import gymapi, torch_utils
+from isaacgym import gymapi, torch_utils, gymtorch
 import math
 from time import sleep
 from tqdm import tqdm
@@ -15,6 +15,7 @@ from utils.hand_model_type import (
 )
 from collections import defaultdict
 import torch
+from enum import Enum, auto
 
 gym = gymapi.acquire_gym()
 
@@ -33,6 +34,11 @@ def get_link_idx_to_name_dict(env, actor_handle):
     return link_idx_to_name_dict
 
 
+class ValidationType(Enum):
+    GRAVITY_IN_6_DIRS = auto()
+    NO_GRAVITY_SHAKING = auto()
+
+
 class IsaacValidator:
     def __init__(
         self,
@@ -46,14 +52,17 @@ class IsaacValidator:
         gpu=0,
         debug_interval=0.05,
         start_with_step_mode=False,
+        validation_type=ValidationType.NO_GRAVITY_SHAKING,
     ):
         self.hand_friction = hand_friction
         self.obj_friction = obj_friction
         self.debug_interval = debug_interval
         self.threshold_dis = threshold_dis
         self.env_batch = env_batch
-        self.gpu = gpu
         self.sim_step = sim_step
+        self.gpu = gpu
+        self.validation_type = validation_type
+
         self.envs = []
         self.hand_handles = []
         self.obj_handles = []
@@ -105,12 +114,21 @@ class IsaacValidator:
 
         self.hand_asset_options = gymapi.AssetOptions()
         self.hand_asset_options.disable_gravity = True
-        self.hand_asset_options.fix_base_link = True
         self.hand_asset_options.collapse_fixed_joints = True
+
         self.obj_asset_options = gymapi.AssetOptions()
         self.obj_asset_options.override_com = True
         self.obj_asset_options.override_inertia = True
         self.obj_asset_options.density = 500
+
+        if self.validation_type == ValidationType.GRAVITY_IN_6_DIRS:
+            self.hand_asset_options.fix_base_link = True
+            self.obj_asset_options.disable_gravity = False
+        elif self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
+            self.hand_asset_options.fix_base_link = False
+            self.obj_asset_options.disable_gravity = True
+        else:
+            raise ValueError(f"Unknown validation type: {validation_type}")
 
         self.test_rotations = [
             gymapi.Transform(gymapi.Vec3(0, 0, 0), gymapi.Quat(0, 0, 0, 1)),
@@ -135,6 +153,7 @@ class IsaacValidator:
                 gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), -0.5 * math.pi),
             ),
         ]
+
         self.is_paused = False
         self.is_step_mode = self.has_viewer and start_with_step_mode
 
@@ -255,10 +274,84 @@ class IsaacValidator:
         gym.set_actor_rigid_shape_properties(env, obj_actor_handle, obj_shape_props)
 
     def run_sim(self):
+        num_envs = len(self.envs)
+        num_bodies = gym.get_env_rigid_body_count(self.envs[0])  # Assume same for all envs
+        num_states = 13
+        num_xyz = 3
+        rigid_body_state_tensor = gymtorch.wrap_tensor(gym.acquire_rigid_body_state_tensor(self.sim))
+        base_link_idxs = torch.tensor([gym.find_actor_rigid_body_index(env, hand_handle, "base_link", gymapi.DOMAIN_SIM)
+                                       for env, hand_handle in zip(self.envs, self.hand_handles)], dtype=torch.long)
+        orig_base_link_pos = None
+        orig_base_link_quat = None
+
         sim_step_idx = 0
         default_desc = "Simulating"
         pbar = tqdm(total=self.sim_step, desc=default_desc, dynamic_ncols=True)
         while sim_step_idx < self.sim_step:
+            if self.validation_type == ValidationType.GRAVITY_IN_6_DIRS:
+                pass
+            elif self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
+                if sim_step_idx == 0:
+                    pass
+                else:
+                    # If shake, apply forces to the gripper
+                    force_tensor = torch.zeros(
+                        (num_envs*num_bodies, num_xyz), dtype=torch.float
+                    )
+                    torque_tensor = torch.zeros(
+                        (num_envs*num_bodies, num_xyz), dtype=torch.float
+                    )
+
+                    # Get state of base link
+                    gym.refresh_rigid_body_state_tensor(self.sim)
+
+                    base_link_state_tensor = rigid_body_state_tensor[base_link_idxs, :]
+                    base_link_pos = base_link_state_tensor[:, :3]
+                    base_link_quat = base_link_state_tensor[:, 3:7]
+                    base_link_vel = base_link_state_tensor[:, 7:10]
+                    base_link_angular_vel = base_link_state_tensor[:, 10:13]
+                    if orig_base_link_pos is None and orig_base_link_quat is None and sim_step_idx == 1:
+                        orig_base_link_pos = base_link_pos.clone()
+                        orig_base_link_quat = base_link_quat.clone()
+
+                    # force_tensor[base_link_idxs, :] = -base_link_vel * 0.001 - (base_link_pos - orig_base_link_pos) * 0.001
+
+                    quat_diff = torch_utils.quat_mul(
+                        base_link_quat, torch_utils.quat_conjugate(orig_base_link_quat)
+                    )
+                    print(f"orig_base_link_quat = {orig_base_link_quat}")
+                    print(f"base_link_quat = {base_link_quat}")
+                    euler_change = torch.stack(
+                        torch_utils.get_euler_xyz(quat_diff),
+                        dim=-1
+                    )
+                    euler_change = torch.where(
+                        euler_change > math.pi, 2 * math.pi - euler_change, euler_change
+                    )
+                    print(f"in degrees, euler_change = {euler_change.rad2deg()}")
+                    orig_euler = torch.stack(
+                        torch_utils.get_euler_xyz(orig_base_link_quat),
+                        dim=-1
+                    )
+                    euler = torch.stack(
+                        torch_utils.get_euler_xyz(base_link_quat),
+                        dim=-1
+                    )
+                    print(f"in degrees, orig_euler = {orig_euler.rad2deg()}")
+                    print(f"in degrees, euler = {euler.rad2deg()}")
+                    print()
+                    # torque_tensor[base_link_idxs, :] = -base_link_angular_vel * 0.001 - euler_change * 0.1
+                    torque_tensor[base_link_idxs, :] = -euler_change * 0.01
+
+                    gym.apply_rigid_body_force_tensors(
+                        sim=self.sim,
+                        forceTensor=gymtorch.unwrap_tensor(force_tensor.reshape(num_envs, num_bodies, num_xyz)),
+                        torqueTensor=gymtorch.unwrap_tensor(torque_tensor.reshape(num_envs, num_bodies, num_xyz)),
+                        space=gymapi.CoordinateSpace.ENV_SPACE,
+                    )
+            else:
+                raise ValueError(f"Unknown validation type: {self.validation_type}")
+
             # Step physics if not paused
             if not self.is_paused:
                 gym.simulate(self.sim)
