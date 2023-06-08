@@ -232,9 +232,14 @@ def generate(args_list):
                 energy=energy[idx].item(),
             )
 
-            for k, energy_name in enumerate(ENERGY_NAMES):
-                shorthand = ENERGY_NAME_TO_SHORTHAND_DICT[energy_name]
-                data[f"{shorthand}"] = weighted_energy_matrix[idx, k].item()
+            data.update(
+                {
+                    ENERGY_NAME_TO_SHORTHAND_DICT[
+                        energy_name
+                    ]: unweighted_energy_matrix[idx, k].item()
+                    for k, energy_name in enumerate(ENERGY_NAMES)
+                }
+            )
 
             data_list.append(data)
 
