@@ -9,7 +9,7 @@ import sys
 
 sys.path.append(os.path.realpath("."))
 
-from utils.isaac_validator import IsaacValidator
+from utils.isaac_validator import IsaacValidator, ValidationType
 import argparse
 import torch
 import numpy as np
@@ -25,14 +25,13 @@ from utils.qpos_pose_conversion import qpos_to_pose, qpos_to_translation_rot_joi
 from typing import List
 import math
 from utils.seed import set_seed
-from utils.joint_angle_targets import compute_joint_angle_targets, OptimizationMethod
+from utils.joint_angle_targets import compute_optimized_joint_angle_targets, OptimizationMethod
 
 
-def compute_joint_angle_targets_with_optimization(
+def compute_joint_angle_targets(
     args: argparse.Namespace,
     joint_names: List[str],
     data_dict: np.ndarray,
-    optimization_method: OptimizationMethod,
 ):
     # Read in hand state and scale tensor
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
@@ -66,16 +65,9 @@ def compute_joint_angle_targets_with_optimization(
     object_model.initialize(args.object_code)
     object_model.object_scale_tensor = scale_tensor
 
-    # Make copies
-    original_hand_pose = hand_model.hand_pose.detach().clone()
-    joint_angle_targets_to_optimize = (
-        original_hand_pose[:, 9:].detach().clone().requires_grad_(True)
-    )
-
     # Optimization
-    joint_angle_targets_to_optimize, losses, debug_infos = compute_joint_angle_targets(
-        optimization_method=optimization_method,
-        joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
+    joint_angle_targets_to_optimize, losses, debug_infos = compute_optimized_joint_angle_targets(
+        optimization_method=args.optimization_method,
         hand_model=hand_model,
         object_model=object_model,
         device=device,
@@ -93,11 +85,12 @@ def main(args):
         sim = IsaacValidator(
             hand_model_type=args.hand_model_type,
             gpu=args.gpu,
+            validation_type=args.validation_type,
             mode="gui",
             start_with_step_mode=args.start_with_step_mode,
         )
     else:
-        sim = IsaacValidator(hand_model_type=args.hand_model_type, gpu=args.gpu)
+        sim = IsaacValidator(hand_model_type=args.hand_model_type, gpu=args.gpu, validation_type=args.validation_type)
 
     # Read in data
     data_dict = np.load(
@@ -134,11 +127,10 @@ def main(args):
 
     if not args.no_force:
         joint_angle_targets_array = (
-            compute_joint_angle_targets_with_optimization(
+            compute_joint_angle_targets(
                 args=args,
                 joint_names=joint_names,
                 data_dict=data_dict,
-                optimization_method=OptimizationMethod.DESIRED_DIST_MOVE_ONE_STEP,
             )
             .detach()
             .cpu()
@@ -147,13 +139,9 @@ def main(args):
     else:
         joint_angle_targets_array = None
 
-    hand_root, hand_file = handmodeltype_to_hand_root_hand_file[args.hand_model_type]
-
     # Debug with single grasp
     if args.index is not None:
-        sim.set_asset(
-            hand_root=hand_root,
-            hand_file=hand_file,
+        sim.set_obj_asset(
             obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
             obj_file="coacd.urdf",
         )
@@ -190,9 +178,7 @@ def main(args):
             start_offset = val_batch_idx * args.val_batch
             end_offset = min(start_offset + args.val_batch, batch_size)
 
-            sim.set_asset(
-                hand_root=hand_root,
-                hand_file=hand_file,
+            sim.set_obj_asset(
                 obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
                 obj_file="coacd.urdf",
             )
@@ -250,6 +236,18 @@ if __name__ == "__main__":
         type=HandModelType.from_string,
         choices=list(HandModelType),
     )
+    parser.add_argument(
+        "--optimization_method",
+        default=OptimizationMethod.DESIRED_DIST_MOVE_MULTIPLE_STEPS,
+        type=OptimizationMethod.from_string,
+        choices=list(OptimizationMethod),
+    )
+    parser.add_argument(
+        "--validation_type",
+        default=ValidationType.NO_GRAVITY_SHAKING,
+        type=ValidationType.from_string,
+        choices=list(ValidationType),
+    )
     parser.add_argument("--gpu", default=3, type=int)
     parser.add_argument("--val_batch", default=500, type=int)
     parser.add_argument("--mesh_path", default="../data/meshdata", type=str)
@@ -262,9 +260,6 @@ if __name__ == "__main__":
     parser.add_argument("--index", type=int)
     parser.add_argument("--start_with_step_mode", action="store_true")
     parser.add_argument("--no_force", action="store_true")
-    parser.add_argument("--thres_cont", default=0.001, type=float)
-    parser.add_argument("--dis_move", default=0.001, type=float)
-    parser.add_argument("--grad_move", default=500, type=float)
     parser.add_argument("--penetration_threshold", default=0.001, type=float)
 
     args = parser.parse_args()
