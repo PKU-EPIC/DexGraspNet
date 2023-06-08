@@ -231,7 +231,8 @@ class IsaacValidator:
 
         # Set hand pose
         hand_pose = gymapi.Transform()
-        hand_pose.r = gymapi.Quat(*hand_rotation[1:], hand_rotation[0])
+        # hand_pose.r = gymapi.Quat(*hand_rotation[1:], hand_rotation[0])
+        hand_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
         hand_pose.p = gymapi.Vec3(*hand_translation)
         hand_pose = test_rot * hand_pose
         self.init_hand_poses.append(hand_pose)
@@ -260,7 +261,7 @@ class IsaacValidator:
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
             hand_props["stiffness"][joint_idx] = 100.0
-            hand_props["damping"][joint_idx] = 1.0
+            hand_props["damping"][joint_idx] = 10.0
 
         gym.set_actor_dof_properties(env, hand_actor_handle, hand_props)
 
@@ -324,12 +325,12 @@ class IsaacValidator:
         default_desc = "Simulating"
         pbar = tqdm(total=self.sim_step, desc=default_desc, dynamic_ncols=True)
         while sim_step_idx < self.sim_step:
-            # Set virtual joint target
-            virtual_joint_dof_pos_target = self._compute_virtual_joint_dof_pos_target(
+            # Set virtual joint targets
+            virtual_joint_dof_pos_targets = self._compute_virtual_joint_dof_pos_targets(
                 sim_step_idx
             )
-            if virtual_joint_dof_pos_target is not None:
-                self._set_virtual_joint_dof_pos_target(virtual_joint_dof_pos_target)
+            if virtual_joint_dof_pos_targets is not None:
+                self._set_virtual_joint_dof_pos_targets(virtual_joint_dof_pos_targets)
 
             # Step physics if not paused
             if not self.is_paused:
@@ -357,10 +358,10 @@ class IsaacValidator:
                 # Visualize origin lines
                 self._visualize_origin_lines()
 
-                # Visualize virtual joint target
-                if virtual_joint_dof_pos_target is not None:
-                    self._visualize_virtual_joint_dof_pos_target(
-                        virtual_joint_dof_pos_target
+                # Visualize virtual joint targets
+                if virtual_joint_dof_pos_targets is not None:
+                    self._visualize_virtual_joint_dof_pos_targets(
+                        virtual_joint_dof_pos_targets
                     )
 
                 gym.step_graphics(self.sim)
@@ -473,9 +474,9 @@ class IsaacValidator:
 
         return successes
 
-    def _compute_virtual_joint_dof_pos_target(
+    def _compute_virtual_joint_dof_pos_targets(
         self, sim_step_idx: int
-    ) -> Optional[List[float]]:
+    ) -> Optional[List[torch.Tensor]]:
         # Only when virtual joints exist
         if len(self.virtual_joint_names) == 0:
             return None
@@ -488,9 +489,9 @@ class IsaacValidator:
         if sim_step_idx < total_steps_not_moving:
             return None
 
-        # Set dof pos target +x, -x, 0, +y, -y, 0, +z, -z
+        # Set dof pos targets +x, -x, 0, +y, -y, 0, +z, -z
         dist_to_move = 0.1
-        possible_dof_pos_targets = [
+        possible_directions = [
             [dist_to_move, 0.0, 0.0],
             [-dist_to_move, 0.0, 0.0],
             [0.0, 0.0, 0.0],
@@ -503,21 +504,30 @@ class IsaacValidator:
 
         num_steps_moving_so_far = sim_step_idx - total_steps_not_moving
         total_steps_moving = self.sim_step - total_steps_not_moving
-        dof_pos_target_idx = int(
+        direction_idx = int(
             (num_steps_moving_so_far / total_steps_moving)
-            * len(possible_dof_pos_targets)
+            * len(possible_directions)
         )
-        print(f"dof_pos_target_idx = {dof_pos_target_idx}")
-        dof_pos_target = possible_dof_pos_targets[dof_pos_target_idx]
+        print(f"direction_idx = {direction_idx}")
+        direction = possible_directions[direction_idx]
 
         # Add target angles
-        target_angles = [0.0, 0.0, 0.0]
-        dof_pos_target = dof_pos_target + target_angles
+        target_angles = torch.tensor([0.0, 0.0, 0.0])
+        dof_pos_targets = [
+            # init_hand_pose.transform_point(gymapi.Vec3(*direction)) for init_hand_pose in self.init_hand_poses
+            gymapi.Vec3(*direction) for init_hand_pose in self.init_hand_poses
+        ]
+        dof_pos_targets = [
+            torch.tensor([dof_pos_target.x, dof_pos_target.y, dof_pos_target.z]) for dof_pos_target in dof_pos_targets
+        ]
+        dof_pos_targets = [
+            torch.cat([dof_pos_target, target_angles]) for dof_pos_target in dof_pos_targets
+        ]
 
-        return dof_pos_target
+        return dof_pos_targets
 
-    def _set_virtual_joint_dof_pos_target(self, dof_pos_target: List[float]) -> None:
-        for env, hand_handle in zip(self.envs, self.hand_handles):
+    def _set_virtual_joint_dof_pos_targets(self, dof_pos_targets: List[torch.Tensor]) -> None:
+        for env, hand_handle, dof_pos_target in zip(self.envs, self.hand_handles, dof_pos_targets):
             actor_dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_handle)
 
             for i, joint in enumerate(self.virtual_joint_names):
@@ -527,20 +537,24 @@ class IsaacValidator:
                 actor_dof_pos_targets[joint_idx] = dof_pos_target[i]
             gym.set_actor_dof_position_targets(env, hand_handle, actor_dof_pos_targets)
 
-    def _visualize_virtual_joint_dof_pos_target(
-        self, dof_pos_target: List[float]
+    def _visualize_virtual_joint_dof_pos_targets(
+        self, dof_pos_targets: List[torch.Tensor]
     ) -> None:
         if not self.has_viewer:
             return
         visualization_sphere_green = gymutil.WireframeSphereGeometry(
             radius=0.01, num_lats=10, num_lons=10, color=(0, 1, 0)
         )
-        for env, init_hand_pose in zip(self.envs, self.init_hand_poses):
+        for env, init_hand_pose, dof_pos_target in zip(self.envs, self.init_hand_poses, dof_pos_targets):
+            dof_pos_target = gymapi.Vec3(dof_pos_target[0], dof_pos_target[1], dof_pos_target[2])
+            print(f"Before transform: {dof_pos_target.x, dof_pos_target.y, dof_pos_target.z}")
+            # dof_pos_target = init_hand_pose.inverse().transform_point(dof_pos_target)
+            print(f"After transform: {dof_pos_target.x, dof_pos_target.y, dof_pos_target.z}")
             sphere_pose = gymapi.Transform(
                 gymapi.Vec3(
-                    init_hand_pose.p.x + dof_pos_target[0],
-                    init_hand_pose.p.y + dof_pos_target[1],
-                    init_hand_pose.p.z + dof_pos_target[2],
+                    init_hand_pose.p.x + dof_pos_target.x,
+                    init_hand_pose.p.y + dof_pos_target.y,
+                    init_hand_pose.p.z + dof_pos_target.z,
                 ),
                 r=None,
             )
