@@ -278,9 +278,9 @@ if __name__ == "__main__":
     parser.add_argument("--w_fc", default=1.0, type=float)
     parser.add_argument("--w_dis", default=100.0, type=float)
     parser.add_argument("--w_pen", default=100.0, type=float)
-    parser.add_argument("--w_spen", default=10.0, type=float)
+    parser.add_argument("--w_spen", default=100.0, type=float)
     parser.add_argument("--w_joints", default=1.0, type=float)
-    parser.add_argument("--w_ff", default=0.0, type=float)
+    parser.add_argument("--w_ff", default=3.0, type=float)
     parser.add_argument("--w_fp", default=0.0, type=float)
     # initialization settings
     parser.add_argument("--jitter_strength", default=0.1, type=float)
