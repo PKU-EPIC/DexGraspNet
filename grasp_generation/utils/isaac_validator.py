@@ -51,7 +51,7 @@ class IsaacValidator:
         obj_friction=3.0,
         threshold_dis=0.1,
         env_batch=1,
-        sim_step=500,
+        sim_step=300,
         gpu=0,
         debug_interval=0.05,
         start_with_step_mode=False,
@@ -488,50 +488,56 @@ class IsaacValidator:
         if sim_step_idx < total_steps_not_moving:
             return None
 
-        # Set dof pos targets +x, -x, 0, +y, -y, 0, +z, -z
-        dist_to_move = 0.1
-        possible_directions = [
-            [dist_to_move, 0.0, 0.0],
-            [-dist_to_move, 0.0, 0.0],
+        # Set dof pos targets [+x, -x]*N, 0, [+y, -y]*N, 0, [+z, -z]*N
+        dist_to_move = 0.05
+        N = 3
+        directions_sequence = [
+            *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
             [0.0, 0.0, 0.0],
-            [0.0, dist_to_move, 0.0],
-            [0.0, -dist_to_move, 0.0],
+            *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
             [0.0, 0.0, 0.0],
-            [0.0, 0.0, dist_to_move],
-            [0.0, 0.0, -dist_to_move],
+            *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
         ]
 
         num_steps_moving_so_far = sim_step_idx - total_steps_not_moving
         total_steps_moving = self.sim_step - total_steps_not_moving
         direction_idx = int(
-            (num_steps_moving_so_far / total_steps_moving)
-            * len(possible_directions)
+            (num_steps_moving_so_far / total_steps_moving) * len(directions_sequence)
         )
         print(f"direction_idx = {direction_idx}")
-        direction = possible_directions[direction_idx]
+        direction = directions_sequence[direction_idx]
+
+        # direction in global frame
+        # dof_pos_targets in hand frame
+        # so need to perform inverse hand frame rotation
+        rotation_transforms = [
+            gymapi.Transform(gymapi.Vec3(0, 0, 0), init_hand_pose.r)
+            for init_hand_pose in self.init_hand_poses
+        ]
+        dof_pos_targets = [
+            rotation_transform.inverse().transform_point(gymapi.Vec3(*direction))
+            for rotation_transform in rotation_transforms
+        ]
+        dof_pos_targets = [
+            torch.tensor([dof_pos_target.x, dof_pos_target.y, dof_pos_target.z])
+            for dof_pos_target in dof_pos_targets
+        ]
 
         # Add target angles
         target_angles = torch.tensor([0.0, 0.0, 0.0])
-        rotation_transforms = [
-            gymapi.Transform(
-                gymapi.Vec3(0, 0, 0),
-                init_hand_pose.r
-            ) for init_hand_pose in self.init_hand_poses
-        ]
         dof_pos_targets = [
-            rotation_transform.inverse().transform_point(gymapi.Vec3(*direction)) for rotation_transform in rotation_transforms
-        ]
-        dof_pos_targets = [
-            torch.tensor([dof_pos_target.x, dof_pos_target.y, dof_pos_target.z]) for dof_pos_target in dof_pos_targets
-        ]
-        dof_pos_targets = [
-            torch.cat([dof_pos_target, target_angles]) for dof_pos_target in dof_pos_targets
+            torch.cat([dof_pos_target, target_angles])
+            for dof_pos_target in dof_pos_targets
         ]
 
         return dof_pos_targets
 
-    def _set_virtual_joint_dof_pos_targets(self, dof_pos_targets: List[torch.Tensor]) -> None:
-        for env, hand_handle, dof_pos_target in zip(self.envs, self.hand_handles, dof_pos_targets):
+    def _set_virtual_joint_dof_pos_targets(
+        self, dof_pos_targets: List[torch.Tensor]
+    ) -> None:
+        for env, hand_handle, dof_pos_target in zip(
+            self.envs, self.hand_handles, dof_pos_targets
+        ):
             actor_dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_handle)
 
             for i, joint in enumerate(self.virtual_joint_names):
@@ -549,18 +555,25 @@ class IsaacValidator:
         visualization_sphere_green = gymutil.WireframeSphereGeometry(
             radius=0.01, num_lats=10, num_lons=10, color=(0, 1, 0)
         )
-        for env, init_hand_pose, dof_pos_target in zip(self.envs, self.init_hand_poses, dof_pos_targets):
-            dof_pos_target = gymapi.Vec3(dof_pos_target[0], dof_pos_target[1], dof_pos_target[2])
-            rotation_transform = gymapi.Transform(
-                    gymapi.Vec3(0, 0, 0), init_hand_pose.r
+        for env, init_hand_pose, dof_pos_target in zip(
+            self.envs, self.init_hand_poses, dof_pos_targets
+        ):
+            # dof_pos_targets in hand frame
+            # direction in global frame
+            # so need to perform hand frame rotation
+            dof_pos_target = gymapi.Vec3(
+                dof_pos_target[0], dof_pos_target[1], dof_pos_target[2]
             )
-            dof_pos_target = rotation_transform.transform_point(dof_pos_target)
+            rotation_transform = gymapi.Transform(
+                gymapi.Vec3(0, 0, 0), init_hand_pose.r
+            )
+            direction = rotation_transform.transform_point(dof_pos_target)
 
             sphere_pose = gymapi.Transform(
                 gymapi.Vec3(
-                    init_hand_pose.p.x + dof_pos_target.x,
-                    init_hand_pose.p.y + dof_pos_target.y,
-                    init_hand_pose.p.z + dof_pos_target.z,
+                    init_hand_pose.p.x + direction.x,
+                    init_hand_pose.p.y + direction.y,
+                    init_hand_pose.p.z + direction.z,
                 ),
                 r=None,
             )
