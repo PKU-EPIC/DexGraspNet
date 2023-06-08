@@ -51,7 +51,7 @@ class IsaacValidator:
         obj_friction=3.0,
         threshold_dis=0.1,
         env_batch=1,
-        sim_step=300,
+        sim_step=100,
         gpu=0,
         debug_interval=0.05,
         start_with_step_mode=False,
@@ -259,7 +259,7 @@ class IsaacValidator:
             joint_idx = gym.find_actor_dof_index(
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
-            hand_props["stiffness"][joint_idx] = 100.0
+            hand_props["stiffness"][joint_idx] = 200.0
             hand_props["damping"][joint_idx] = 10.0
 
         gym.set_actor_dof_properties(env, hand_actor_handle, hand_props)
@@ -483,20 +483,22 @@ class IsaacValidator:
         assert len(self.virtual_joint_names) == 6
 
         # First do nothing
-        fraction_do_nothing = 0.2
+        fraction_do_nothing = 0.1
         total_steps_not_moving = int(self.sim_step * fraction_do_nothing)
         if sim_step_idx < total_steps_not_moving:
             return None
 
         # Set dof pos targets [+x, -x]*N, 0, [+y, -y]*N, 0, [+z, -z]*N
         dist_to_move = 0.05
-        N = 3
+        N = 2
         directions_sequence = [
             *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
             [0.0, 0.0, 0.0],
             *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
             [0.0, 0.0, 0.0],
             *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
         ]
 
         num_steps_moving_so_far = sim_step_idx - total_steps_not_moving
