@@ -18,6 +18,7 @@ from utils.hand_model_type import (
 from collections import defaultdict
 import torch
 from enum import Enum, auto
+from typing import List, Optional
 
 gym = gymapi.acquire_gym()
 
@@ -70,6 +71,7 @@ class IsaacValidator:
         self.obj_handles = []
         self.hand_link_idx_to_name_dicts = []
         self.obj_link_idx_to_name_dicts = []
+        self.init_hand_poses = []
         self.init_obj_poses = []
         self.joint_names = handmodeltype_to_joint_names[hand_model_type]
         self.allowed_contact_link_names = handmodeltype_to_allowedcontactlinknames[
@@ -78,10 +80,17 @@ class IsaacValidator:
 
         # Need virtual joints to control hand position
         if self.validation_type == ValidationType.GRAVITY_IN_6_DIRS:
-            self.hand_root, self.hand_file = handmodeltype_to_hand_root_hand_file[hand_model_type]
+            self.hand_root, self.hand_file = handmodeltype_to_hand_root_hand_file[
+                hand_model_type
+            ]
             self.virtual_joint_names = []
         elif self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
-            self.hand_root, self.hand_file = handmodeltype_to_hand_root_hand_file_with_virtual_joints[hand_model_type]
+            (
+                self.hand_root,
+                self.hand_file,
+            ) = handmodeltype_to_hand_root_hand_file_with_virtual_joints[
+                hand_model_type
+            ]
             # HACK: Hardcoded virtual joint names
             self.virtual_joint_names = [
                 "virtual_joint_translation_x",
@@ -225,6 +234,7 @@ class IsaacValidator:
         hand_pose.r = gymapi.Quat(*hand_rotation[1:], hand_rotation[0])
         hand_pose.p = gymapi.Vec3(*hand_translation)
         hand_pose = test_rot * hand_pose
+        self.init_hand_poses.append(hand_pose)
 
         # Create hand
         hand_actor_handle = gym.create_actor(
@@ -249,7 +259,7 @@ class IsaacValidator:
             joint_idx = gym.find_actor_dof_index(
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
-            hand_props["stiffness"][joint_idx] = 10.0
+            hand_props["stiffness"][joint_idx] = 100.0
             hand_props["damping"][joint_idx] = 0.0
 
         gym.set_actor_dof_properties(env, hand_actor_handle, hand_props)
@@ -315,7 +325,11 @@ class IsaacValidator:
         pbar = tqdm(total=self.sim_step, desc=default_desc, dynamic_ncols=True)
         while sim_step_idx < self.sim_step:
             # Set virtual joint targets
-            self._set_hand_position_target_if_needed(sim_step_idx)
+            virtual_joint_dof_pos_targets = self._compute_virtual_joint_dof_pos_targets(
+                sim_step_idx
+            )
+            if virtual_joint_dof_pos_targets is not None:
+                self._set_virtual_joint_dof_pos_targets(virtual_joint_dof_pos_targets)
 
             # Step physics if not paused
             if not self.is_paused:
@@ -337,6 +351,17 @@ class IsaacValidator:
                 for event in gym.query_viewer_action_events(self.viewer):
                     if event.value > 0 and event.action in self.event_to_function:
                         self.event_to_function[event.action]()
+
+                gym.clear_lines(self.viewer)
+
+                # Visualize origin lines
+                self._visualize_origin_lines()
+
+                # Visualize virtual joint targets
+                if virtual_joint_dof_pos_targets is not None:
+                    self._visualize_virtual_joint_dof_pos_targets(
+                        virtual_joint_dof_pos_targets
+                    )
 
                 gym.step_graphics(self.sim)
                 gym.draw_viewer(self.viewer, self.sim, False)
@@ -448,10 +473,12 @@ class IsaacValidator:
 
         return successes
 
-    def _set_hand_position_target_if_needed(self, sim_step_idx):
+    def _compute_virtual_joint_dof_pos_targets(
+        self, sim_step_idx: int
+    ) -> Optional[List[torch.Tensor]]:
         # Only when virtual joints exist
         if len(self.virtual_joint_names) == 0:
-            return
+            return None
 
         assert len(self.virtual_joint_names) == 6
 
@@ -459,29 +486,44 @@ class IsaacValidator:
         fraction_do_nothing = 0.5
         total_steps_not_moving = int(self.sim_step * fraction_do_nothing)
         if sim_step_idx < total_steps_not_moving:
-            return
+            return None
 
-        # Set target +x, -x, 0, +y, -y, 0, +z, -z
+        # Set direction +x, -x, 0, +y, -y, 0, +z, -z
         dist_to_move = 0.1
-        target_angles = [0.0, 0.0, 0.0]
-        dof_pos_targets = [
-            [dist_to_move, 0.0, 0.0] + target_angles,
-            [-dist_to_move, 0.0, 0.0] + target_angles,
-            [0.0, 0.0, 0.0] + target_angles,
-            [0.0, dist_to_move, 0.0] + target_angles,
-            [0.0, -dist_to_move, 0.0] + target_angles,
-            [0.0, 0.0, 0.0] + target_angles,
-            [dist_to_move, 0.0, 0.0] + target_angles,
-            [-dist_to_move, 0.0, 0.0] + target_angles,
+        possible_direction = [
+            torch.tensor([dist_to_move, 0.0, 0.0]),
+            torch.tensor([-dist_to_move, 0.0, 0.0]),
+            torch.tensor([0.0, 0.0, 0.0]),
+            torch.tensor([0.0, dist_to_move, 0.0]),
+            torch.tensor([0.0, -dist_to_move, 0.0]),
+            torch.tensor([0.0, 0.0, 0.0]),
+            torch.tensor([dist_to_move, 0.0, 0.0]),
+            torch.tensor([-dist_to_move, 0.0, 0.0]),
         ]
 
         num_steps_moving_so_far = sim_step_idx - total_steps_not_moving
         total_steps_moving = self.sim_step - total_steps_not_moving
-        dof_pos_target_idx = int((num_steps_moving_so_far / total_steps_moving) * len(dof_pos_targets))
-        dof_pos_target = dof_pos_targets[dof_pos_target_idx]
+        direction_idx = int(
+            (num_steps_moving_so_far / total_steps_moving) * len(possible_direction)
+        )
+        direction = possible_direction[direction_idx]
 
-        # Set dof target
-        for env, hand_handle in zip(self.envs, self.hand_handles):
+        # Set target relative to initial hand pose
+        dof_pos_targets = [
+            torch.tensor([init_pose.p.x, init_pose.p.y, init_pose.p.z]) + direction
+            for init_pose in self.init_hand_poses
+        ]
+
+        # Add target angles
+        target_angles = torch.tensor([0.0, 0.0, 0.0])
+        dof_pos_targets = [
+            torch.cat([dof_pos_target, target_angles]) for dof_pos_target in dof_pos_targets
+        ]
+
+        return dof_pos_targets
+
+    def _set_virtual_joint_dof_pos_targets(self, dof_pos_targets: List[torch.Tensor]) -> None:
+        for env, hand_handle, dof_pos_target in zip(self.envs, self.hand_handles, dof_pos_targets):
             dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_handle)
 
             for i, joint in enumerate(self.virtual_joint_names):
@@ -491,16 +533,37 @@ class IsaacValidator:
                 dof_pos_targets[joint_idx] = dof_pos_target[i]
             gym.set_actor_dof_position_targets(env, hand_handle, dof_pos_targets)
 
-        # Visualize dof target
-        if self.has_viewer:
-            # Hacky: assumes only drawing done here
-            gym.clear_lines(self.viewer)
-            visualization_sphere_green = gymutil.WireframeSphereGeometry(radius=0.01, num_lats=10, num_lons=10, color=(0, 1, 0))
+    def _visualize_virtual_joint_dof_pos_targets(
+        self, dof_pos_targets: List[torch.Tensor]
+    ) -> None:
+        if not self.has_viewer:
+            return
+        visualization_sphere_green = gymutil.WireframeSphereGeometry(
+            radius=0.01, num_lats=10, num_lons=10, color=(0, 1, 0)
+        )
+        for env, dof_pos_target in zip(self.envs, dof_pos_targets):
             sphere_pose = gymapi.Transform(
-                gymapi.Vec3(dof_pos_target[0], dof_pos_target[1], dof_pos_target[2]), r=None
+                gymapi.Vec3(dof_pos_target[0], dof_pos_target[1], dof_pos_target[2]),
+                r=None,
             )
+            gymutil.draw_lines(
+                visualization_sphere_green, gym, self.viewer, env, sphere_pose
+            )
+
+    def _visualize_origin_lines(self):
+        if not self.has_viewer:
+            return
+
+        origin_pos = gymapi.Vec3(0, 0, 0)
+        x_pos = gymapi.Vec3(0.1, 0, 0)
+        y_pos = gymapi.Vec3(0, 0.1, 0)
+        z_pos = gymapi.Vec3(0, 0, 0.1)
+        red = gymapi.Vec3(1, 0, 0)
+        green = gymapi.Vec3(0, 1, 0)
+        blue = gymapi.Vec3(0, 0, 1)
+        for pos, color in zip([x_pos, y_pos, z_pos], [red, green, blue]):
             for env in self.envs:
-                gymutil.draw_lines(visualization_sphere_green, gym, self.viewer, env, sphere_pose)
+                gymutil.draw_line(origin_pos, pos, color, gym, self.viewer, env)
 
     def reset_simulator(self):
         gym.destroy_sim(self.sim)
