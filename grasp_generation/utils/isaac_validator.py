@@ -231,8 +231,7 @@ class IsaacValidator:
 
         # Set hand pose
         hand_pose = gymapi.Transform()
-        # hand_pose.r = gymapi.Quat(*hand_rotation[1:], hand_rotation[0])
-        hand_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+        hand_pose.r = gymapi.Quat(*hand_rotation[1:], hand_rotation[0])
         hand_pose.p = gymapi.Vec3(*hand_translation)
         hand_pose = test_rot * hand_pose
         self.init_hand_poses.append(hand_pose)
@@ -484,7 +483,7 @@ class IsaacValidator:
         assert len(self.virtual_joint_names) == 6
 
         # First do nothing
-        fraction_do_nothing = 0.5
+        fraction_do_nothing = 0.2
         total_steps_not_moving = int(self.sim_step * fraction_do_nothing)
         if sim_step_idx < total_steps_not_moving:
             return None
@@ -513,9 +512,14 @@ class IsaacValidator:
 
         # Add target angles
         target_angles = torch.tensor([0.0, 0.0, 0.0])
+        rotation_transforms = [
+            gymapi.Transform(
+                gymapi.Vec3(0, 0, 0),
+                init_hand_pose.r
+            ) for init_hand_pose in self.init_hand_poses
+        ]
         dof_pos_targets = [
-            # init_hand_pose.transform_point(gymapi.Vec3(*direction)) for init_hand_pose in self.init_hand_poses
-            gymapi.Vec3(*direction) for init_hand_pose in self.init_hand_poses
+            rotation_transform.inverse().transform_point(gymapi.Vec3(*direction)) for rotation_transform in rotation_transforms
         ]
         dof_pos_targets = [
             torch.tensor([dof_pos_target.x, dof_pos_target.y, dof_pos_target.z]) for dof_pos_target in dof_pos_targets
@@ -547,9 +551,11 @@ class IsaacValidator:
         )
         for env, init_hand_pose, dof_pos_target in zip(self.envs, self.init_hand_poses, dof_pos_targets):
             dof_pos_target = gymapi.Vec3(dof_pos_target[0], dof_pos_target[1], dof_pos_target[2])
-            print(f"Before transform: {dof_pos_target.x, dof_pos_target.y, dof_pos_target.z}")
-            # dof_pos_target = init_hand_pose.inverse().transform_point(dof_pos_target)
-            print(f"After transform: {dof_pos_target.x, dof_pos_target.y, dof_pos_target.z}")
+            rotation_transform = gymapi.Transform(
+                    gymapi.Vec3(0, 0, 0), init_hand_pose.r
+            )
+            dof_pos_target = rotation_transform.transform_point(dof_pos_target)
+
             sphere_pose = gymapi.Transform(
                 gymapi.Vec3(
                     init_hand_pose.p.x + dof_pos_target.x,
