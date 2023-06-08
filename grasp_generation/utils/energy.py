@@ -130,10 +130,10 @@ def cal_energy(
                 dim=-1,
             )
         elif energy_name == "Finger Finger Distance":
-            unweighted_energy_matrix[:, i] = torch.cdist(hand_model.contact_points, hand_model.contact_points, p=2).reshape(batch_size, -1).sum(dim=-1)
+            unweighted_energy_matrix[:, i] = -torch.cdist(hand_model.contact_points, hand_model.contact_points, p=2).reshape(batch_size, -1).sum(dim=-1)
         elif energy_name == "Finger Palm Distance":
             palm_position = hand_model.global_translation[:, None, :]
-            unweighted_energy_matrix[:, i] = (palm_position - hand_model.contact_points).norm(dim=-1).sum(dim=-1)
+            unweighted_energy_matrix[:, i] = -(palm_position - hand_model.contact_points).norm(dim=-1).sum(dim=-1)
         else:
             raise ValueError(f"Unknown energy name: {energy_name}")
 
