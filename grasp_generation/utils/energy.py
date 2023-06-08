@@ -137,7 +137,7 @@ def cal_energy(
         else:
             raise ValueError(f"Unknown energy name: {energy_name}")
 
-    energy_weights = torch.tensor([energy_name_to_weight_dict[energy_name] for energy_name in ENERGY_NAMES],, device=device)
+    energy_weights = torch.tensor([energy_name_to_weight_dict[energy_name] for energy_name in ENERGY_NAMES], device=device)
     weighted_energy_matrix = unweighted_energy_matrix * energy_weights[None, ...]
     energy = weighted_energy_matrix.sum(dim=-1)
     return energy, unweighted_energy_matrix, weighted_energy_matrix

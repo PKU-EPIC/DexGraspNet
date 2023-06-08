@@ -78,7 +78,6 @@ def generate(args_list):
 
     # prepare models
 
-    n_objects = len(object_code_list)
     worker = multiprocessing.current_process()._identity[0]
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_list[worker - 1]
     device = torch.device("cuda")
