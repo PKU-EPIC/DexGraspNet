@@ -4,7 +4,7 @@ Author: Ruicheng Wang
 Description: Class IsaacValidator
 """
 
-from isaacgym import gymapi, torch_utils
+from isaacgym import gymapi, torch_utils, gymutil
 import math
 from time import sleep
 from tqdm import tqdm
@@ -50,7 +50,7 @@ class IsaacValidator:
         obj_friction=3.0,
         threshold_dis=0.1,
         env_batch=1,
-        sim_step=100,
+        sim_step=500,
         gpu=0,
         debug_interval=0.05,
         start_with_step_mode=False,
@@ -250,7 +250,7 @@ class IsaacValidator:
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
             hand_props["stiffness"][joint_idx] = 10.0
-            hand_props["damping"][joint_idx] = 1.0
+            hand_props["damping"][joint_idx] = 0.0
 
         gym.set_actor_dof_properties(env, hand_actor_handle, hand_props)
 
@@ -314,24 +314,8 @@ class IsaacValidator:
         default_desc = "Simulating"
         pbar = tqdm(total=self.sim_step, desc=default_desc, dynamic_ncols=True)
         while sim_step_idx < self.sim_step:
-            if self.validation_type == ValidationType.GRAVITY_IN_6_DIRS:
-                pass
-            elif self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
-                for env, hand_handle in zip(self.envs, self.hand_handles):
-                    dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_handle)
-
-                    for i, joint in enumerate(self.virtual_joint_names):
-                        joint_idx = gym.find_actor_dof_index(
-                            env, hand_handle, joint, gymapi.DOMAIN_ACTOR
-                        )
-                        if i < 3:
-                            dof_pos_targets[joint_idx] = 0.0
-                        else:
-                            dof_pos_targets[joint_idx] = 0.0
-                    gym.set_actor_dof_position_targets(env, hand_handle, dof_pos_targets)
-
-            else:
-                raise ValueError(f"Unknown validation type: {self.validation_type}")
+            # Set virtual joint targets
+            self._set_hand_position_target_if_needed(sim_step_idx)
 
             # Step physics if not paused
             if not self.is_paused:
@@ -463,6 +447,60 @@ class IsaacValidator:
                 print("-------------")
 
         return successes
+
+    def _set_hand_position_target_if_needed(self, sim_step_idx):
+        # Only when virtual joints exist
+        if len(self.virtual_joint_names) == 0:
+            return
+
+        assert len(self.virtual_joint_names) == 6
+
+        # First do nothing
+        fraction_do_nothing = 0.5
+        total_steps_not_moving = int(self.sim_step * fraction_do_nothing)
+        if sim_step_idx < total_steps_not_moving:
+            return
+
+        # Set target +x, -x, 0, +y, -y, 0, +z, -z
+        dist_to_move = 0.1
+        target_angles = [0.0, 0.0, 0.0]
+        dof_pos_targets = [
+            [dist_to_move, 0.0, 0.0] + target_angles,
+            [-dist_to_move, 0.0, 0.0] + target_angles,
+            [0.0, 0.0, 0.0] + target_angles,
+            [0.0, dist_to_move, 0.0] + target_angles,
+            [0.0, -dist_to_move, 0.0] + target_angles,
+            [0.0, 0.0, 0.0] + target_angles,
+            [dist_to_move, 0.0, 0.0] + target_angles,
+            [-dist_to_move, 0.0, 0.0] + target_angles,
+        ]
+
+        num_steps_moving_so_far = sim_step_idx - total_steps_not_moving
+        total_steps_moving = self.sim_step - total_steps_not_moving
+        dof_pos_target_idx = int((num_steps_moving_so_far / total_steps_moving) * len(dof_pos_targets))
+        dof_pos_target = dof_pos_targets[dof_pos_target_idx]
+
+        # Set dof target
+        for env, hand_handle in zip(self.envs, self.hand_handles):
+            dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_handle)
+
+            for i, joint in enumerate(self.virtual_joint_names):
+                joint_idx = gym.find_actor_dof_index(
+                    env, hand_handle, joint, gymapi.DOMAIN_ACTOR
+                )
+                dof_pos_targets[joint_idx] = dof_pos_target[i]
+            gym.set_actor_dof_position_targets(env, hand_handle, dof_pos_targets)
+
+        # Visualize dof target
+        if self.has_viewer:
+            # Hacky: assumes only drawing done here
+            gym.clear_lines(self.viewer)
+            visualization_sphere_green = gymutil.WireframeSphereGeometry(radius=0.01, num_lats=10, num_lons=10, color=(0, 1, 0))
+            sphere_pose = gymapi.Transform(
+                gymapi.Vec3(dof_pos_target[0], dof_pos_target[1], dof_pos_target[2]), r=None
+            )
+            for env in self.envs:
+                gymutil.draw_lines(visualization_sphere_green, gym, self.viewer, env, sphere_pose)
 
     def reset_simulator(self):
         gym.destroy_sim(self.sim)
