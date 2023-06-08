@@ -506,7 +506,6 @@ class IsaacValidator:
         direction_idx = int(
             (num_steps_moving_so_far / total_steps_moving) * len(directions_sequence)
         )
-        print(f"direction_idx = {direction_idx}")
         direction = directions_sequence[direction_idx]
 
         # direction in global frame
