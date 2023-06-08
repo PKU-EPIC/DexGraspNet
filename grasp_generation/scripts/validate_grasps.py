@@ -140,13 +140,9 @@ def main(args):
     else:
         joint_angle_targets_array = None
 
-    hand_root, hand_file = handmodeltype_to_hand_root_hand_file[args.hand_model_type]
-
     # Debug with single grasp
     if args.index is not None:
-        sim.set_asset(
-            hand_root=hand_root,
-            hand_file=hand_file,
+        sim.set_obj_asset(
             obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
             obj_file="coacd.urdf",
         )
@@ -183,9 +179,7 @@ def main(args):
             start_offset = val_batch_idx * args.val_batch
             end_offset = min(start_offset + args.val_batch, batch_size)
 
-            sim.set_asset(
-                hand_root=hand_root,
-                hand_file=hand_file,
+            sim.set_obj_asset(
                 obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
                 obj_file="coacd.urdf",
             )

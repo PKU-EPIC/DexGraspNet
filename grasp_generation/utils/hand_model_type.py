@@ -127,6 +127,9 @@ _shadow_joint_angles_mu = torch.tensor(
 _allegro_hand_root_hand_file = ("allegro_hand_description", "allegro_hand_description_right.urdf")
 _shadow_hand_root_hand_file = ("open_ai_assets", "hand/shadow_hand.xml")
 
+_allegro_hand_root_hand_file_with_virtual_joints = ("allegro_hand_description", "allegro_hand_description_right_with_virtual_joints.urdf")
+_shadow_hand_root_hand_file_with_virtual_joints = ("open_ai_assets", "NOT IMPLEMENTED")
+
 _allegro_hand_allowed_contact_link_names = [
     "link_3.0",
     "link_7.0",
@@ -171,6 +174,10 @@ handmodeltype_to_joint_angles_mu = {
 handmodeltype_to_hand_root_hand_file = {
     HandModelType.ALLEGRO_HAND: _allegro_hand_root_hand_file,
     HandModelType.SHADOW_HAND: _shadow_hand_root_hand_file,
+}
+handmodeltype_to_hand_root_hand_file_with_virtual_joints = {
+    HandModelType.ALLEGRO_HAND: _allegro_hand_root_hand_file_with_virtual_joints,
+    HandModelType.SHADOW_HAND: _shadow_hand_root_hand_file_with_virtual_joints,
 }
 
 # HACK: This is a list of allowed contact link names for each hand model type for precision grasps
