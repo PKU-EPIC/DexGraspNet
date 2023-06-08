@@ -9,7 +9,7 @@ import sys
 
 sys.path.append(os.path.realpath("."))
 
-from utils.isaac_validator import IsaacValidator
+from utils.isaac_validator import IsaacValidator, ValidationType
 import argparse
 import torch
 import numpy as np
@@ -32,7 +32,6 @@ def compute_joint_angle_targets(
     args: argparse.Namespace,
     joint_names: List[str],
     data_dict: np.ndarray,
-    optimization_method: OptimizationMethod,
 ):
     # Read in hand state and scale tensor
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
@@ -68,7 +67,7 @@ def compute_joint_angle_targets(
 
     # Optimization
     joint_angle_targets_to_optimize, losses, debug_infos = compute_optimized_joint_angle_targets(
-        optimization_method=optimization_method,
+        optimization_method=args.optimization_method,
         hand_model=hand_model,
         object_model=object_model,
         device=device,
@@ -86,11 +85,12 @@ def main(args):
         sim = IsaacValidator(
             hand_model_type=args.hand_model_type,
             gpu=args.gpu,
+            validation_type=args.validation_type,
             mode="gui",
             start_with_step_mode=args.start_with_step_mode,
         )
     else:
-        sim = IsaacValidator(hand_model_type=args.hand_model_type, gpu=args.gpu)
+        sim = IsaacValidator(hand_model_type=args.hand_model_type, gpu=args.gpu, validation_type=args.validation_type)
 
     # Read in data
     data_dict = np.load(
@@ -131,7 +131,6 @@ def main(args):
                 args=args,
                 joint_names=joint_names,
                 data_dict=data_dict,
-                optimization_method=OptimizationMethod.DESIRED_DIST_MOVE_ONE_STEP,
             )
             .detach()
             .cpu()
@@ -236,6 +235,18 @@ if __name__ == "__main__":
         default=HandModelType.SHADOW_HAND,
         type=HandModelType.from_string,
         choices=list(HandModelType),
+    )
+    parser.add_argument(
+        "--optimization_method",
+        default=OptimizationMethod.DESIRED_DIST_MOVE_MULTIPLE_STEPS,
+        type=OptimizationMethod.from_string,
+        choices=list(OptimizationMethod),
+    )
+    parser.add_argument(
+        "--validation_type",
+        default=ValidationType.NO_GRAVITY_SHAKING,
+        type=ValidationType.from_string,
+        choices=list(ValidationType),
     )
     parser.add_argument("--gpu", default=3, type=int)
     parser.add_argument("--val_batch", default=500, type=int)

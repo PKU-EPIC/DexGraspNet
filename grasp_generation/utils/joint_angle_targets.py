@@ -13,6 +13,16 @@ class OptimizationMethod(Enum):
     DESIRED_DIST_MOVE_TOWARDS_CENTER_ONE_STEP = auto()
     DESIRED_DIST_MOVE_TOWARDS_CENTER_MULTIPLE_STEP = auto()
 
+    def __str__(self):
+        return self.name
+
+    @staticmethod
+    def from_string(s):
+        try:
+            return OptimizationMethod[s]
+        except KeyError:
+            raise ValueError()
+
 
 def compute_fingertip_positions(
     hand_model: HandModel,

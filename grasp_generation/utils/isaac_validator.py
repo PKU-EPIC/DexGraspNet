@@ -41,6 +41,15 @@ class ValidationType(Enum):
     GRAVITY_IN_6_DIRS = auto()
     NO_GRAVITY_SHAKING = auto()
 
+    def __str__(self):
+        return self.name
+
+    @staticmethod
+    def from_string(s):
+        try:
+            return ValidationType[s]
+        except KeyError:
+            raise ValueError()
 
 class IsaacValidator:
     def __init__(
