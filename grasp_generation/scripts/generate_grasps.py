@@ -232,9 +232,9 @@ def generate(args_list):
                 energy=energy[idx].item(),
             )
 
-            for i, energy_name in enumerate(ENERGY_NAMES):
+            for k, energy_name in enumerate(ENERGY_NAMES):
                 shorthand = ENERGY_NAME_TO_SHORTHAND_DICT[energy_name]
-                data[f"{shorthand}"] = weighted_energy_matrix[idx, i].item()
+                data[f"{shorthand}"] = weighted_energy_matrix[idx, k].item()
 
             data_list.append(data)
 
@@ -276,11 +276,11 @@ if __name__ == "__main__":
     parser.add_argument("--annealing_period", default=30, type=int)
     parser.add_argument("--temperature_decay", default=0.95, type=float)
     parser.add_argument("--w_fc", default=1.0, type=float)
-    parser.add_argument("--w_dis", default=100.0, type=float)
+    parser.add_argument("--w_dis", default=300.0, type=float)
     parser.add_argument("--w_pen", default=100.0, type=float)
     parser.add_argument("--w_spen", default=100.0, type=float)
     parser.add_argument("--w_joints", default=1.0, type=float)
-    parser.add_argument("--w_ff", default=3.0, type=float)
+    parser.add_argument("--w_ff", default=1.0, type=float)
     parser.add_argument("--w_fp", default=0.0, type=float)
     # initialization settings
     parser.add_argument("--jitter_strength", default=0.1, type=float)
@@ -316,14 +316,7 @@ if __name__ == "__main__":
             lines = f.readlines()
             object_code_list_all = [line[:-1] for line in lines]
     else:
-        # object_code_list_all = os.listdir(args.data_root_path)
-        # TODO: REMOVE HACK TO USE SAME AS BEFORE
-        print("HACK: using graspdata_2023-05-22_distalonly")
-        object_code_list_all = [
-            f.split(".")[0]
-            for f in os.listdir("../data/graspdata_2023-05-22_distalonly")
-        ]
-        print(f"len(object_code_list_all): {len(object_code_list_all)}")
+        object_code_list_all = os.listdir(args.data_root_path)
         print(f"First 10: {object_code_list_all[:10]}")
 
     if args.object_code_list is not None:
