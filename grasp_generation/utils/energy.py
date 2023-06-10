@@ -79,7 +79,7 @@ def cal_energy(
     assert set(energy_name_to_weight_dict.keys()) == set(ENERGY_NAMES)
 
     # Prepare useful variables
-    batch_size, n_contact, _ = hand_model.contact_points.shape
+    batch_size, _, _ = hand_model.contact_points.shape
     device = object_model.device
     (
         object_to_hand_contact_point_distances,

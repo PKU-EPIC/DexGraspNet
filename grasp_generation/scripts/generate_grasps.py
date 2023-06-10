@@ -268,7 +268,6 @@ if __name__ == "__main__":
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--todo", action="store_true")
     parser.add_argument("--seed", default=1, type=int)
-    parser.add_argument("--n_contact", default=4, type=int)
     parser.add_argument("--batch_size_each", default=500, type=int)
     parser.add_argument("--max_total_batch_size", default=1000, type=int)
     parser.add_argument("--n_iter", default=6000, type=int)
