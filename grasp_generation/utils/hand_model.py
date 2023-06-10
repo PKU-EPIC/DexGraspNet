@@ -468,6 +468,8 @@ class HandModel:
 
         # HACK: Only for allegro, each keyword represents 1 finger
         finger_keywords = ["3.0", "7.0", "11.0", "15.0"]
+
+        # Get link indices that contain the finger keyword
         finger_possible_link_idxs_list = [
             [
                 link_idx
@@ -476,40 +478,39 @@ class HandModel:
             ]
             for finger_keyword in finger_keywords
         ]
-        # finger_possible_link_names_list = [
-        #     torch.tensor(
-        #         [
-        #             link_name
-        #             for link_name, _ in self.link_name_to_link_index.items()
-        #             if finger_keyword in link_name
-        #         ],
-        #         device=self.device,
-        #         dtype=torch.long,
-        #     )
-        #     for finger_keyword in finger_keywords
-        # ]
-        # finger_possible_contact_point_idxs_list = [
-        #     torch.cat([
-        #         self.link_name_to_contact_candidates[link_name]
-        #         for link_name in link_names
-        #     ], dim=0)
-        #     for link_names in finger_possible_link_names_list
-        # ]
+
+        # Get the possible contact point indices from these link indices
         finger_possible_contact_point_idxs_list = [
             sum(
-            [self.link_index_to_global_indices[link_idx]
-                for link_idx in link_idxs],
-                []
+                [self.link_index_to_global_indices[link_idx] for link_idx in link_idxs],
+                [],
             )
             for link_idxs in finger_possible_link_idxs_list
         ]
 
+        # Sample from these contact point indices
         sampled_contact_point_idxs_list = []
-        for finger_possible_contact_point_idxs in finger_possible_contact_point_idxs_list:
-            sampled_idxs = torch.randint(len(finger_possible_contact_point_idxs), size=[total_batch_size, 1], device=self.device)
-            sampled_contact_point_idxs = torch.tensor(finger_possible_contact_point_idxs, device=self.device, dtype=torch.long)[sampled_idxs]
+        n_contacts_per_finger = 1  # TODO make this work with more (technically can leave as is but will sample with replacement)
+        for (
+            finger_possible_contact_point_idxs
+        ) in finger_possible_contact_point_idxs_list:
+            sampled_idxs = torch.randint(
+                len(finger_possible_contact_point_idxs),
+                size=[total_batch_size, n_contacts_per_finger],
+                device=self.device,
+            )
+            sampled_contact_point_idxs = torch.tensor(
+                finger_possible_contact_point_idxs, device=self.device, dtype=torch.long
+            )[sampled_idxs]
             sampled_contact_point_idxs_list.append(sampled_contact_point_idxs)
-        sampled_contact_point_idxs_list = torch.cat(sampled_contact_point_idxs_list, dim=1)
+        sampled_contact_point_idxs_list = torch.cat(
+            sampled_contact_point_idxs_list, dim=1
+        )
+
+        assert sampled_contact_point_idxs_list.shape == (
+            total_batch_size,
+            len(finger_keywords) * n_contacts_per_finger,
+        )
 
         return sampled_contact_point_idxs_list
 
