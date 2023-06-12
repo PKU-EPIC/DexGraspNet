@@ -287,6 +287,8 @@ if __name__ == "__main__":
     parser.add_argument("--w_ff", default=1.0, type=float)
     parser.add_argument("--w_fp", default=0.0, type=float)
     # initialization settings
+    parser.add_subparsers(dest="initialization")
+    parser.add_argument
     parser.add_argument("--jitter_strength", default=0.1, type=float)
     parser.add_argument("--distance_lower", default=0.2, type=float)
     parser.add_argument("--distance_upper", default=0.3, type=float)
@@ -298,6 +300,8 @@ if __name__ == "__main__":
     parser.add_argument("--thres_pen", default=0.001, type=float)
 
     args = parser.parse_args()
+
+    MyArgs = argparse.Namespace
 
     gpu_list = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
     print(f"gpu_list: {gpu_list}")

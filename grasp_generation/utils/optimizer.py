@@ -76,7 +76,7 @@ class Annealing:
         batch_size, n_contact = self.hand_model.contact_point_indices.shape
         switch_mask = torch.rand(batch_size, n_contact, dtype=torch.float, device=self.device) < self.switch_possibility
         contact_point_indices = self.hand_model.contact_point_indices.clone()
-        new_contact_point_indices = self.hand_model.sample_contact_points(batch_size)
+        new_contact_point_indices = self.hand_model.sample_contact_points(batch_size, n_contact)
         contact_point_indices = torch.where(switch_mask, new_contact_point_indices, contact_point_indices)
 
         self.old_hand_pose = self.hand_model.hand_pose

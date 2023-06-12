@@ -13,9 +13,11 @@ import trimesh as tm
 import numpy as np
 import torch.nn.functional
 from utils.hand_model_type import HandModelType, handmodeltype_to_joint_angles_mu, handmodeltype_to_rotation_hand
+from utils.hand_model import HandModel
+from utils.object_model import ObjectModel
 
 
-def initialize_convex_hull(hand_model, object_model, args):
+def initialize_convex_hull(hand_model: HandModel, object_model: ObjectModel, args):
     """
     Initialize grasp translation, rotation, joint angles, and contact point indices
     
@@ -99,6 +101,6 @@ def initialize_convex_hull(hand_model, object_model, args):
     hand_pose.requires_grad_()
 
     # initialize contact point indices
-    contact_point_indices = hand_model.sample_contact_points(total_batch_size)
+    contact_point_indices = hand_model.sample_contact_points(total_batch_size, args.n_contact_points)
 
     hand_model.set_parameters(hand_pose, contact_point_indices)

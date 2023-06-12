@@ -405,7 +405,6 @@ class HandModel:
         build_mesh_recurse(self.chain._root)
 
         # set joint limits
-
         self.joints_names = []
         self.joints_lower = []
         self.joints_upper = []
@@ -456,7 +455,7 @@ class HandModel:
             surface_points.to(dtype=float, device=device)
             self.mesh[link_name]["surface_points"] = surface_points
 
-    def sample_contact_points(self, total_batch_size: int):
+    def sample_contact_points(self, total_batch_size: int, n_contacts_per_finger: int = 2):
         # Ensure that each finger gets sampled at least once
         # Goal: Output (B, n_fingers * n_contacts_per_finger) torch.LongTensor of sampled contact point indices
         # Each contact point is represented by a global index
@@ -490,7 +489,6 @@ class HandModel:
 
         # Sample from these contact point indices
         sampled_contact_point_idxs_list = []
-        n_contacts_per_finger = 1  # TODO make this work with more (technically can leave as is but will sample with replacement)
         for (
             finger_possible_contact_point_idxs
         ) in finger_possible_contact_point_idxs_list:

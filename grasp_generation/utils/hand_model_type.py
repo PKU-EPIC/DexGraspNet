@@ -7,19 +7,14 @@ translation_names = ["WRJTx", "WRJTy", "WRJTz"]
 rot_names = ["WRJRx", "WRJRy", "WRJRz"]
 
 
-class HandModelType(Enum):
+class AutoName(Enum):
+    def _generate_next_value_(name, start, count, last_values):
+        return name
+
+
+class HandModelType(AutoName):
     ALLEGRO_HAND = auto()
     SHADOW_HAND = auto()
-
-    def __str__(self):
-        return self.name
-
-    @staticmethod
-    def from_string(s):
-        try:
-            return HandModelType[s]
-        except KeyError:
-            raise ValueError()
 
 
 _allegro_joint_names = [
@@ -124,10 +119,16 @@ _shadow_joint_angles_mu = torch.tensor(
     dtype=torch.float,
 )
 
-_allegro_hand_root_hand_file = ("allegro_hand_description", "allegro_hand_description_right.urdf")
+_allegro_hand_root_hand_file = (
+    "allegro_hand_description",
+    "allegro_hand_description_right.urdf",
+)
 _shadow_hand_root_hand_file = ("open_ai_assets", "hand/shadow_hand.xml")
 
-_allegro_hand_root_hand_file_with_virtual_joints = ("allegro_hand_description", "allegro_hand_description_right_with_virtual_joints.urdf")
+_allegro_hand_root_hand_file_with_virtual_joints = (
+    "allegro_hand_description",
+    "allegro_hand_description_right_with_virtual_joints.urdf",
+)
 _shadow_hand_root_hand_file_with_virtual_joints = ("open_ai_assets", "NOT IMPLEMENTED")
 
 _allegro_hand_allowed_contact_link_names = [

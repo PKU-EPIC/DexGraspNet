@@ -1,27 +1,22 @@
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 import torch
-from typing import Union, Dict, Any, Tuple, Optional
+from typing import Union, Dict, Any, Tuple, Optional, List
 
 from enum import Enum, auto
 
 
-class OptimizationMethod(Enum):
+class AutoName(Enum):
+    def _generate_next_value_(name, start, count, last_values):
+        return name
+
+
+class OptimizationMethod(AutoName):
     DESIRED_PENETRATION_DIST = auto()
     DESIRED_DIST_MOVE_ONE_STEP = auto()
     DESIRED_DIST_MOVE_MULTIPLE_STEPS = auto()
     DESIRED_DIST_MOVE_TOWARDS_CENTER_ONE_STEP = auto()
     DESIRED_DIST_MOVE_TOWARDS_CENTER_MULTIPLE_STEP = auto()
-
-    def __str__(self):
-        return self.name
-
-    @staticmethod
-    def from_string(s):
-        try:
-            return OptimizationMethod[s]
-        except KeyError:
-            raise ValueError()
 
 
 def compute_fingertip_positions(
@@ -241,7 +236,8 @@ def compute_optimized_joint_angle_targets(
     hand_model: HandModel,
     object_model: ObjectModel,
     device: torch.device,
-):
+) -> Tuple[torch.Tensor, List[float], List[Dict[str, Any]]]:
+    # TODO: Many of the parameters here are hardcoded
     original_hand_pose = hand_model.hand_pose.detach().clone()
     joint_angle_targets_to_optimize = (
         original_hand_pose.detach().clone()[:, 9:].requires_grad_(True)
@@ -420,3 +416,46 @@ def compute_optimized_joint_angle_targets(
     hand_model.set_parameters(new_hand_pose)
 
     return joint_angle_targets_to_optimize, losses, debug_infos
+
+
+def compute_optimized_canonicalized_hand_pose(
+    hand_model: HandModel,
+    object_model: ObjectModel,
+    device: torch.device,
+) -> Tuple[torch.Tensor, List[float], List[Dict[str, Any]]]:
+    # TODO: Many of the parameters here are hardcoded
+    original_hand_pose = hand_model.hand_pose.detach().clone()
+    joint_angle_targets_to_optimize = (
+        original_hand_pose.detach().clone()[:, 9:].requires_grad_(True)
+    )
+
+    losses = []
+    debug_infos = []
+    N_ITERS = 100
+    for i in range(N_ITERS):
+        loss, debug_info = compute_loss_desired_penetration_dist(
+            joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
+            hand_model=hand_model,
+            object_model=object_model,
+            device=device,
+            dist_thresh_to_move_finger=0.01,
+            desired_penetration_dist=-0.005,
+            return_debug_info=True,
+        )
+        grad_step_size = 50
+        loss.backward(retain_graph=True)
+
+        with torch.no_grad():
+            joint_angle_targets_to_optimize -= (
+                joint_angle_targets_to_optimize.grad * grad_step_size
+            )
+            joint_angle_targets_to_optimize.grad.zero_()
+        losses.append(loss.item())
+        debug_infos.append(debug_info)
+
+    # Update hand pose parameters
+    new_hand_pose = original_hand_pose.detach().clone()
+    new_hand_pose[:, 9:] = joint_angle_targets_to_optimize
+    hand_model.set_parameters(new_hand_pose)
+
+    return new_hand_pose, losses, debug_infos
