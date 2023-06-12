@@ -277,7 +277,7 @@ if __name__ == "__main__":
             object_code_list_all = [line[:-1] for line in lines]
     else:
         object_code_list_all = os.listdir(args.data_root_path)
-        print(f"First 10: {object_code_list_all[:10]}")
+        print(f"First 10 in object_code_list_all: {object_code_list_all[:10]}")
 
     if args.object_code_list is not None:
         object_code_list = args.object_code_list

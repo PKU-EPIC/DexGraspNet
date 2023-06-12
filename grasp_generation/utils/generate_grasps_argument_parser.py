@@ -1,7 +1,7 @@
 from utils.hand_model_type import HandModelType
 import math
 from tap import Tap
-from typing import List
+from typing import List, Optional
 
 
 class GenerateGraspsArgumentParser(Tap):
@@ -11,7 +11,7 @@ class GenerateGraspsArgumentParser(Tap):
     visualization_freq: int = 2000
     result_path: str = "../data/graspdata"
     data_root_path: str = "../data/meshdata"
-    object_code_list: List[str] = []
+    object_code_list: Optional[List[str]] = None
     all: bool = False
     overwrite: bool = False
     todo: bool = False
