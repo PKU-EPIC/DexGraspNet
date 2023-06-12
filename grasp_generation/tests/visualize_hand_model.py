@@ -22,23 +22,21 @@ from utils.hand_model_type import (
     handmodeltype_to_rotation_hand,
 )
 from utils.seed import set_seed
-import argparse
+from tap import Tap
 
 
 set_seed(1)
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 
+
+class VisualizeHandModelArgumentParser(Tap):
+    hand_model_type: HandModelType = HandModelType.SHADOW_HAND
+
+
 if __name__ == "__main__":
     device = torch.device("cpu")
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--hand_model_type",
-        default=HandModelType.SHADOW_HAND,
-        type=HandModelType.from_string,
-        choices=list(HandModelType),
-    )
-    args = parser.parse_args()
+    args = VisualizeHandModelArgumentParser().parse_args()
 
     # hand model
     hand_model_type = args.hand_model_type

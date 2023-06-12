@@ -455,7 +455,7 @@ class HandModel:
             surface_points.to(dtype=float, device=device)
             self.mesh[link_name]["surface_points"] = surface_points
 
-    def sample_contact_points(self, total_batch_size: int, n_contacts_per_finger: int = 2):
+    def sample_contact_points(self, total_batch_size: int, n_contacts_per_finger: int):
         # Ensure that each finger gets sampled at least once
         # Goal: Output (B, n_fingers * n_contacts_per_finger) torch.LongTensor of sampled contact point indices
         # Each contact point is represented by a global index
