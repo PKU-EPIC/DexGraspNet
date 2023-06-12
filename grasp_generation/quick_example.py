@@ -23,7 +23,14 @@ import torch
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import qpos_to_pose
 from utils.seed import set_seed
-from utils.joint_angle_targets import OptimizationMethod, compute_optimized_joint_angle_targets
+from plotly.subplots import make_subplots
+import plotly.express as px
+import plotly.graph_objects as go
+from utils.joint_angle_targets import (
+    OptimizationMethod,
+    compute_optimized_joint_angle_targets,
+    compute_optimized_canonicalized_hand_pose,
+)
 
 
 # %% [markdown]
@@ -33,8 +40,11 @@ from utils.joint_angle_targets import OptimizationMethod, compute_optimized_join
 mesh_path = "../data/meshdata"
 data_path = "../data/graspdata_2023-05-24_allegro_distalonly/"
 hand_model_type = HandModelType.ALLEGRO_HAND
-seed = 42
-joint_angle_targets_optimization_method = OptimizationMethod.DESIRED_DIST_MOVE_TOWARDS_CENTER_ONE_STEP
+seed = 3
+joint_angle_targets_optimization_method = (
+    OptimizationMethod.DESIRED_DIST_MOVE_MULTIPLE_STEPS
+)
+should_canonicalize_hand_pose = True
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # %% [markdown]
@@ -106,10 +116,6 @@ object_mesh = object_model.object_mesh_list[batch_idx].copy().apply_scale(scale)
 # ## Visualize hand and object plotly
 
 # %%
-from plotly.subplots import make_subplots
-import plotly.graph_objects as go
-
-# %%
 fig_title = f"Grasp Code: {grasp_code}, Index: {index}"
 idx_to_visualize = batch_idx
 
@@ -139,129 +145,219 @@ for plot in plots:
 fig.show()
 
 # %% [markdown]
-# ## Compute optimized joint angle targets
+# ## Compute optimized canonicalized grasp
 
 # %%
-# Try to optimize grasp so that all fingers are at a fixed distance from the object
-from utils.joint_angle_targets import compute_loss_desired_penetration_dist
-
-original_hand_pose = hand_model.hand_pose.detach().clone()
-joint_angle_targets_to_optimize = (
-    original_hand_pose.detach().clone()[:, 9:].requires_grad_(True)
-)
-
-losses = []
-debug_infos = []
-N_ITERS = 100
-for i in range(N_ITERS):
-    loss, debug_info = compute_loss_desired_penetration_dist(
-        joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
+if should_canonicalize_hand_pose:
+    (
+        canonicalized_hand_pose,
+        canonicalized_losses,
+        canonicalized_debug_infos,
+    ) = compute_optimized_canonicalized_hand_pose(
         hand_model=hand_model,
         object_model=object_model,
         device=device,
-        dist_thresh_to_move_finger=0.03,
-        desired_penetration_dist=-0.02,
-        return_debug_info=True,
     )
-    grad_step_size = 50
-    loss.backward(retain_graph=True)
+    hand_model.set_parameters(canonicalized_hand_pose)
 
-    with torch.no_grad():
-        joint_angle_targets_to_optimize -= (
-            joint_angle_targets_to_optimize.grad * grad_step_size
+    fig_title = f"Canonicalized Grasp Code: {grasp_code}, Index: {index}"
+    idx_to_visualize = batch_idx
+
+    fig = go.Figure(
+        layout=go.Layout(
+            scene=dict(
+                xaxis=dict(title="X"),
+                yaxis=dict(title="Y"),
+                zaxis=dict(title="Z"),
+                aspectmode="data",
+            ),
+            showlegend=True,
+            title=fig_title,
+            autosize=False,
+            width=800,
+            height=800,
         )
-        joint_angle_targets_to_optimize.grad.zero_()
-    losses.append(loss.item())
-    debug_infos.append(debug_info)
+    )
 
-# Update hand pose parameters
-new_hand_pose = original_hand_pose.detach().clone()
-new_hand_pose[:, 9:] = joint_angle_targets_to_optimize
-hand_model.set_parameters(new_hand_pose)
+    canonicalized_target_points = canonicalized_debug_infos[-1]["target_points"]
+    canonicalized_contact_points_hand = canonicalized_debug_infos[-1]["contact_points_hand"]
+    canonicalized_closest_points_object = (
+        canonicalized_debug_infos[-1]['contact_points_hand']
+        - canonicalized_debug_infos[-1]['contact_normals'] * canonicalized_debug_infos[-1]['contact_distances'][..., None]
+    )
+
+    plots = [
+        *hand_model.get_plotly_data(
+            i=idx_to_visualize, opacity=1.0, with_contact_candidates=True
+        ),
+        *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
+        go.Scatter3d(
+            x=canonicalized_target_points[batch_idx, :, 0].detach().cpu().numpy(),
+            y=canonicalized_target_points[batch_idx, :, 1].detach().cpu().numpy(),
+            z=canonicalized_target_points[batch_idx, :, 2].detach().cpu().numpy(),
+            mode="markers",
+            marker=dict(size=10, color="red"),
+            name="target_points",
+        ),
+        go.Scatter3d(
+            x=canonicalized_contact_points_hand[batch_idx, :, 0].detach().cpu().numpy(),
+            y=canonicalized_contact_points_hand[batch_idx, :, 1].detach().cpu().numpy(),
+            z=canonicalized_contact_points_hand[batch_idx, :, 2].detach().cpu().numpy(),
+            mode="markers",
+            marker=dict(size=10, color="green"),
+            name="contact_points_hand",
+        ),
+        # Draw blue line between closest points and contact points
+        *[
+            go.Scatter3d(
+                x=[
+                    canonicalized_closest_points_object[batch_idx, i, 0].detach().cpu().numpy(),
+                    canonicalized_contact_points_hand[batch_idx, i, 0].detach().cpu().numpy(),
+                ],
+                y=[
+                    canonicalized_closest_points_object[batch_idx, i, 1].detach().cpu().numpy(),
+                    canonicalized_contact_points_hand[batch_idx, i, 1].detach().cpu().numpy(),
+                ],
+                z=[
+                    canonicalized_closest_points_object[batch_idx, i, 2].detach().cpu().numpy(),
+                    canonicalized_contact_points_hand[batch_idx, i, 2].detach().cpu().numpy(),
+                ],
+                mode="lines",
+                line=dict(color="blue", width=5),
+                name="contact_point_to_closest_point",
+            )
+            for i in range(canonicalized_closest_points_object.shape[1])
+        ],
+    ]
+    for plot in plots:
+        fig.add_trace(plot)
+    fig.show()
+
+# %%
+if should_canonicalize_hand_pose:
+    fig = px.line(y=canonicalized_losses)
+    fig.update_layout(
+        title="Canonicalized Loss vs. Iterations", xaxis_title="Iterations", yaxis_title="Loss"
+    )
+    fig.show()
+
+
+
+# %% [markdown]
+# ## Compute optimized joint angle targets
+
+# %%
+original_hand_pose = hand_model.hand_pose.detach().clone()
+print(f"original_hand_pose[:, 9:] = {original_hand_pose[:, 9:]}")
+
+# %%
+(
+    joint_angle_targets_to_optimize,
+    losses,
+    debug_infos,
+) = compute_optimized_joint_angle_targets(
+    optimization_method=joint_angle_targets_optimization_method,
+    hand_model=hand_model,
+    object_model=object_model,
+    device=device,
+)
+old_debug_info = debug_infos[0]
+debug_info = debug_infos[-1]
+
+# %%
+fig = px.line(y=losses)
+fig.update_layout(
+    title=f"{joint_angle_targets_optimization_method} Loss vs. Iterations", xaxis_title="Iterations", yaxis_title="Loss"
+)
+fig.show()
+
+# %%
+print(f"joint_angle_targets_to_optimize = {joint_angle_targets_to_optimize}")
+
+
+# %% [markdown]
+# ## Visualize hand pose before and after optimization
 
 # %%
 # Plotly fig
-hand_model.set_parameters(new_hand_pose)
-TYLER_hand_model_plotly = hand_model.get_plotly_data(
+hand_model.set_parameters(original_hand_pose)
+old_hand_model_plotly = hand_model.get_plotly_data(
     i=idx_to_visualize, opacity=1.0, with_contact_candidates=True
 )
 
-TYLER_target_points = debug_infos[-1]["target_points"]
-TYLER_contact_points_hand = debug_infos[-1]["contact_points_hand"]
-TYLER_closest_points = debug_infos[-1]['contact_points_hand'] - debug_infos[-1]['contact_normals'] * (
-    debug_infos[-1]['contact_distances'][..., None]
+fig = make_subplots(
+    rows=1,
+    cols=2,
+    specs=[[{"type": "scene"}, {"type": "scene"}]],
+    subplot_titles=("Original", "Optimized"),
 )
+old_target_points = old_debug_info["target_points"]
+old_contact_points_hand = old_debug_info["contact_points_hand"]
 
 plots = [
-    *TYLER_hand_model_plotly,
+    *old_hand_model_plotly,
     *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
     go.Scatter3d(
-        x=TYLER_target_points[batch_idx, :, 0].detach().cpu().numpy(),
-        y=TYLER_target_points[batch_idx, :, 1].detach().cpu().numpy(),
-        z=TYLER_target_points[batch_idx, :, 2].detach().cpu().numpy(),
+        x=old_target_points[batch_idx, :, 0].detach().cpu().numpy(),
+        y=old_target_points[batch_idx, :, 1].detach().cpu().numpy(),
+        z=old_target_points[batch_idx, :, 2].detach().cpu().numpy(),
         mode="markers",
         marker=dict(size=10, color="red"),
         name="target_points",
     ),
     go.Scatter3d(
-        x=TYLER_contact_points_hand[batch_idx, :, 0].detach().cpu().numpy(),
-        y=TYLER_contact_points_hand[batch_idx, :, 1].detach().cpu().numpy(),
-        z=TYLER_contact_points_hand[batch_idx, :, 2].detach().cpu().numpy(),
+        x=old_contact_points_hand[batch_idx, :, 0].detach().cpu().numpy(),
+        y=old_contact_points_hand[batch_idx, :, 1].detach().cpu().numpy(),
+        z=old_contact_points_hand[batch_idx, :, 2].detach().cpu().numpy(),
         mode="markers",
         marker=dict(size=10, color="green"),
         name="contact_points_hand",
     ),
-    # Draw blue line between closest points and contact points
-    *[
-        go.Scatter3d(
-            x=[
-                TYLER_closest_points[batch_idx, i, 0].detach().cpu().numpy(),
-                TYLER_contact_points_hand[batch_idx, i, 0].detach().cpu().numpy(),
-            ],
-            y=[
-                TYLER_closest_points[batch_idx, i, 1].detach().cpu().numpy(),
-                TYLER_contact_points_hand[batch_idx, i, 1].detach().cpu().numpy(),
-            ],
-            z=[
-                TYLER_closest_points[batch_idx, i, 2].detach().cpu().numpy(),
-                TYLER_contact_points_hand[batch_idx, i, 2].detach().cpu().numpy(),
-            ],
-            mode="lines",
-            line=dict(color="blue", width=5),
-            name="contact_point_to_closest_point",
-        )
-        for i in range(TYLER_closest_points.shape[1])
-    ],
 ]
 
-fig = go.Figure(
-    layout=go.Layout(
-        scene=dict(
-            xaxis=dict(title="X"),
-            yaxis=dict(title="Y"),
-            zaxis=dict(title="Z"),
-            aspectmode="data",
-        ),
-        showlegend=True,
-        title=fig_title,
-        autosize=False,
-        width=800,
-        height=800,
-    )
-)
 for plot in plots:
-    fig.add_trace(plot)
-fig.show()
-
+    fig.append_trace(plot, row=1, col=1)
 
 # %%
 
-import plotly.express as px
+new_hand_pose = original_hand_pose.detach().clone()
+new_hand_pose[:, 9:] = joint_angle_targets_to_optimize
+hand_model.set_parameters(new_hand_pose)
+new_hand_model_plotly = hand_model.get_plotly_data(
+    i=idx_to_visualize, opacity=1.0, with_contact_candidates=True
+)
 
-fig = px.line(y=losses)
+new_target_points = debug_info["target_points"]
+new_contact_points_hand = debug_info["contact_points_hand"]
+
+plots = [
+    *new_hand_model_plotly,
+    *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
+    go.Scatter3d(
+        x=new_target_points[batch_idx, :, 0].detach().cpu().numpy(),
+        y=new_target_points[batch_idx, :, 1].detach().cpu().numpy(),
+        z=new_target_points[batch_idx, :, 2].detach().cpu().numpy(),
+        mode="markers",
+        marker=dict(size=10, color="red"),
+        name="new_target_points",
+    ),
+    go.Scatter3d(
+        x=new_contact_points_hand[batch_idx, :, 0].detach().cpu().numpy(),
+        y=new_contact_points_hand[batch_idx, :, 1].detach().cpu().numpy(),
+        z=new_contact_points_hand[batch_idx, :, 2].detach().cpu().numpy(),
+        mode="markers",
+        marker=dict(size=10, color="green"),
+        name="contact_points_hand",
+    ),
+]
+
+for plot in plots:
+    fig.append_trace(plot, row=1, col=2)
+
 fig.update_layout(
-    title="Loss vs. Iterations",
-    xaxis_title="Iterations",
-    yaxis_title="Loss"
+    autosize=False,
+    width=1600,
+    height=800,
+    title_text=f"Optimization Method: {joint_angle_targets_optimization_method.name}",
 )
 fig.show()

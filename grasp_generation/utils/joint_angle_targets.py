@@ -83,6 +83,8 @@ def compute_loss_desired_penetration_dist(
     hand_model: HandModel,
     object_model: ObjectModel,
     device: torch.device,
+    cached_target_points: Optional[torch.Tensor] = None,
+    cached_contact_nearest_point_indexes: Optional[torch.Tensor] = None,
     dist_thresh_to_move_finger: float = 0.01,
     desired_penetration_dist: float = 0.003,
     return_debug_info: bool = False,
@@ -93,6 +95,9 @@ def compute_loss_desired_penetration_dist(
     contact_points_hand = torch.zeros((batch_size, num_links, 3)).to(device)
     contact_normals = torch.zeros((batch_size, num_links, 3)).to(device)
     contact_distances = torch.zeros((batch_size, num_links)).to(device)
+    contact_nearest_point_indexes = (
+        torch.zeros((batch_size, num_links)).long().to(device)
+    )
 
     current_status = hand_model.chain.forward_kinematics(
         joint_angle_targets_to_optimize
@@ -114,7 +119,10 @@ def compute_loss_desired_penetration_dist(
         # Interiors are positive dist, exteriors are negative dist
         # Normals point from object to hand
         distances, normals = object_model.cal_distance(contact_candidates)
-        nearest_point_index = distances.argmax(dim=1)
+        if cached_contact_nearest_point_indexes is None:
+            nearest_point_index = distances.argmax(dim=1)
+        else:
+            nearest_point_index = cached_contact_nearest_point_indexes[:, i]
         nearest_distances = torch.gather(distances, 1, nearest_point_index.unsqueeze(1))
         nearest_points_hand = torch.gather(
             contact_candidates,
@@ -135,11 +143,14 @@ def compute_loss_desired_penetration_dist(
         contact_normals[:, i : i + 1, :] = torch.where(
             admitted, nearest_normals, contact_normals[:, i : i + 1, :]
         )
+        contact_nearest_point_indexes[:, i] = nearest_point_index
 
-    target_points = contact_points_hand - contact_normals * (
-        contact_distances[..., None] + desired_penetration_dist
-    )
-
+    if cached_target_points is None:
+        target_points = contact_points_hand - contact_normals * (
+            contact_distances[..., None] + desired_penetration_dist
+        )
+    else:
+        target_points = cached_target_points
     loss = (target_points.detach().clone() - contact_points_hand).square().sum()
 
     if not return_debug_info:
@@ -150,6 +161,7 @@ def compute_loss_desired_penetration_dist(
         "contact_points_hand": contact_points_hand,
         "contact_normals": contact_normals,
         "contact_distances": contact_distances,
+        "contact_nearest_point_indexes": contact_nearest_point_indexes,
     }
 
 
@@ -434,16 +446,26 @@ def compute_optimized_canonicalized_hand_pose(
     losses = []
     debug_infos = []
     N_ITERS = 100
+    cached_target_points = None
+    cached_contact_nearest_point_indexes = None
     for i in range(N_ITERS):
         loss, debug_info = compute_loss_desired_penetration_dist(
             joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
             hand_model=hand_model,
             object_model=object_model,
             device=device,
+            cached_target_points=cached_target_points,
+            cached_contact_nearest_point_indexes=cached_contact_nearest_point_indexes,
             dist_thresh_to_move_finger=0.01,
-            desired_penetration_dist=-0.005,
+            desired_penetration_dist=-0.01,
             return_debug_info=True,
         )
+        if cached_target_points is None:
+            cached_target_points = debug_info["target_points"]
+        if cached_contact_nearest_point_indexes is None:
+            cached_contact_nearest_point_indexes = debug_info[
+                "contact_nearest_point_indexes"
+            ]
         grad_step_size = 50
         loss.backward(retain_graph=True)
 
