@@ -27,7 +27,7 @@ from utils.seed import set_seed
 from utils.generate_grasps_argument_parser import GenerateGraspsArgumentParser
 
 from torch.multiprocessing import set_start_method
-from typing import Tuple, List
+from typing import Tuple
 import trimesh
 import plotly.graph_objects as go
 import wandb

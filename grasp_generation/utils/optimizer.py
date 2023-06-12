@@ -75,10 +75,10 @@ class Annealing:
         hand_pose = self.hand_model.hand_pose - \
             step_size * self.hand_model.hand_pose.grad / (torch.sqrt(self.ema_grad_hand_pose) + 1e-6)
         batch_size, n_contact = self.hand_model.contact_point_indices.shape
-        switch_mask = torch.rand(batch_size, n_contact, dtype=torch.float, device=self.device) < self.switch_possibility
+        switch_mask = torch.rand(batch_size, dtype=torch.float, device=self.device) < self.switch_possibility
         contact_point_indices = self.hand_model.contact_point_indices.clone()
         new_contact_point_indices = self.hand_model.sample_contact_points(total_batch_size=batch_size, n_contacts_per_finger=self.n_contacts_per_finger)
-        contact_point_indices = torch.where(switch_mask, new_contact_point_indices, contact_point_indices)
+        contact_point_indices = torch.where(switch_mask[..., None], new_contact_point_indices, contact_point_indices)
 
         self.old_hand_pose = self.hand_model.hand_pose
         self.old_contact_point_indices = self.hand_model.contact_point_indices

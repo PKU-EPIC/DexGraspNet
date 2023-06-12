@@ -19,7 +19,7 @@ from torchsdf import index_vertices_by_faces, compute_sdf
 
 import transforms3d
 from urdf_parser_py.urdf import Robot, Box, Sphere
-from utils.hand_model_type import HandModelType
+from utils.hand_model_type import HandModelType, handmodeltype_to_fingerkeywords
 from collections import defaultdict
 
 
@@ -465,8 +465,7 @@ class HandModel:
         #    Get the possible contact point indices from these link indices
         #    Sample from these contact point indices
 
-        # HACK: Only for allegro, each keyword represents 1 finger
-        finger_keywords = ["3.0", "7.0", "11.0", "15.0"]
+        finger_keywords = handmodeltype_to_fingerkeywords[self.hand_model_type]
 
         # Get link indices that contain the finger keyword
         finger_possible_link_idxs_list = [

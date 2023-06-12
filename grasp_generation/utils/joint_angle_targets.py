@@ -7,6 +7,7 @@ from enum import Enum, auto
 
 
 class AutoName(Enum):
+    # https://docs.python.org/3.9/library/enum.html#using-automatic-values
     def _generate_next_value_(name, start, count, last_values):
         return name
 
@@ -424,6 +425,7 @@ def compute_optimized_canonicalized_hand_pose(
     device: torch.device,
 ) -> Tuple[torch.Tensor, List[float], List[Dict[str, Any]]]:
     # TODO: Many of the parameters here are hardcoded
+    # TODO: Consider optimization T and R as well (not just joint angles)
     original_hand_pose = hand_model.hand_pose.detach().clone()
     joint_angle_targets_to_optimize = (
         original_hand_pose.detach().clone()[:, 9:].requires_grad_(True)

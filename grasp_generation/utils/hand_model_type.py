@@ -8,6 +8,7 @@ rot_names = ["WRJRx", "WRJRy", "WRJRz"]
 
 
 class AutoName(Enum):
+    # https://docs.python.org/3.9/library/enum.html#using-automatic-values
     def _generate_next_value_(name, start, count, last_values):
         return name
 
@@ -160,6 +161,14 @@ _shadow_hand_allowed_contact_link_names = [
     "robot0:thdistal_child",
 ]
 
+_allegro_hand_finger_keywords = [
+    "3.0", "7.0", "11.0", "15.0"
+]
+
+_shadow_hand_finger_keywords = [
+    "ff", "mf", "rf", "lf", "th"
+]
+
 handmodeltype_to_joint_names = {
     HandModelType.ALLEGRO_HAND: _allegro_joint_names,
     HandModelType.SHADOW_HAND: _shadow_joint_names,
@@ -179,6 +188,11 @@ handmodeltype_to_hand_root_hand_file = {
 handmodeltype_to_hand_root_hand_file_with_virtual_joints = {
     HandModelType.ALLEGRO_HAND: _allegro_hand_root_hand_file_with_virtual_joints,
     HandModelType.SHADOW_HAND: _shadow_hand_root_hand_file_with_virtual_joints,
+}
+
+handmodeltype_to_fingerkeywords = {
+    HandModelType.ALLEGRO_HAND: _allegro_hand_finger_keywords,
+    HandModelType.SHADOW_HAND: _shadow_hand_finger_keywords,
 }
 
 # HACK: This is a list of allowed contact link names for each hand model type for precision grasps

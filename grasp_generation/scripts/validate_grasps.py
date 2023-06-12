@@ -35,9 +35,12 @@ from utils.joint_angle_targets import (
     compute_optimized_canonicalized_hand_pose,
 )
 
+
 class ValidateGraspArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.SHADOW_HAND
-    optimization_method: OptimizationMethod = OptimizationMethod.DESIRED_DIST_MOVE_MULTIPLE_STEPS
+    optimization_method: OptimizationMethod = (
+        OptimizationMethod.DESIRED_DIST_MOVE_MULTIPLE_STEPS
+    )
     validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
     gpu: int = 0
     val_batch: int = 500
@@ -51,6 +54,7 @@ class ValidateGraspArgumentParser(Tap):
     no_force: bool = False
     penetration_threshold: float = 0.001
     canonicalize_grasp: bool = False
+
 
 def compute_canonicalized_hand_pose(
     args: ValidateGraspArgumentParser,
@@ -176,7 +180,9 @@ def main(args: ValidateGraspArgumentParser):
         translation_array.append(translation)
         quaternion_array.append(quaternion)
         joint_angles_array.append(joint_angles)
-        hand_pose_array.append(qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False))
+        hand_pose_array.append(
+            qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
+        )
 
         scale = data_dict[i]["scale"]
         scale_array.append(scale)
@@ -198,7 +204,10 @@ def main(args: ValidateGraspArgumentParser):
             hand_pose_array=hand_pose_array,
             scale_array=scale_array,
         )
-        translation_array, quaternion_array, joint_angles_array = [], [], []
+        translation_array = []
+        quaternion_array = []
+        joint_angles_array = []
+        hand_pose_array = []
         for i in range(batch_size):
             qpos = pose_to_qpos(
                 hand_pose=canonicalized_hand_poses[i], joint_names=joint_names
@@ -213,6 +222,11 @@ def main(args: ValidateGraspArgumentParser):
             translation_array.append(translation)
             quaternion_array.append(quaternion)
             joint_angles_array.append(joint_angles)
+            hand_pose_array.append(
+                qpos_to_pose(
+                    qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False
+                )
+            )
 
     # Compute joint angle targets
     if not args.no_force:

@@ -38,6 +38,7 @@ def get_link_idx_to_name_dict(env, actor_handle):
 
 
 class AutoName(Enum):
+    # https://docs.python.org/3.9/library/enum.html#using-automatic-values
     def _generate_next_value_(name, start, count, last_values):
         return name
 
