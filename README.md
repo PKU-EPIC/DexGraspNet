@@ -4,6 +4,75 @@ This is the official repository of [DexGraspNet: A Large-Scale Robotic Dexterous
 
 [[project page]](https://pku-epic.github.io/DexGraspNet/)
 
+## How to Run Roughly Pipeline (Updated by Tyler 2023-06-13)
+
+### 1. Grasp Generation
+
+From `grasp_generation`:
+
+```
+CUDA_VISIBLE_DEVICES=0 python scripts/generate_grasps.py --all --wandb_name <wandb_name> --wandb_entity <wandb_entity> --wandb_project <wandb_project> --result_path ../data/my_generated_graspdata
+```
+
+### 2. Grasp Validation
+
+From `grasp_generation`:
+
+```
+CUDA_VISIBLE_DEVICES=0 python scripts/validate_all_grasps.py --grasp_path ../data/my_generated_graspdata --result_path ../data/my_validated_graspdata
+```
+
+### 3. NeRF Dataset Creation
+
+From `grasp_generation`:
+
+```
+CUDA_VISIBLE_DEVICES=0 python scripts/generate_nerf_data.py
+```
+
+### 4. NeRF Training
+
+TODO (in nerf_grasping)
+
+### 5. Learned Metric Dataset Generation
+
+TODO (in nerf_grasping)
+
+### 6. Learned Metric Training
+
+TODO (in nerf_grasping)
+
+### 7. Grasp Planning w/ Learned Metric
+
+TODO (in nerf_grasping)
+
+## Useful Info (Added By Tyler)
+
+Anatomy: https://en.wikipedia.org/wiki/Phalanx_bone
+
+![image](https://github.com/tylerlum/DexGraspNet/assets/26510814/9800eefe-ffbf-40f9-8b1c-1dee04d689f6)
+
+* distal is tip of finger
+* middle is behind distal
+* proximal is behind middle
+
+Acronyms for shadow hand:
+
+* th = thumb
+* ff = fore finger
+* mf = middle finger
+* rf = ring finger
+* lf = little finger
+
+For allegro hand:
+
+* link 0 - 3 is fore finger (link 3 tip is fore fingertip)
+* link 4 - 7 is middle finger (link 7 tip is middle fingertip)
+* link 8 - 11 is ring finger (link 11 tip is ring fingertip)
+* link 12 - 15 is thumb (link 15 tip is thumbtip)
+
+# BELOW: Previous README
+
 ## Introduction
 
 ![Teaser](./images/teaser.png)
@@ -91,72 +160,3 @@ If you find our work useful in your research, please consider citing:
 If you have any questions, please open a github issue or contact us:
 
 Ruicheng Wang: <wrc0326@stu.pku.edu.cn>, Jialiang Zhang: <jackzhang0906@126.com>, He Wang: <hewang@pku.edu.cn>
-
-## How to Run Roughly Pipeline (Updated by Tyler 2023-06-13)
-
-### 1. Grasp Generation
-
-From `grasp_generation`:
-
-```
-CUDA_VISIBLE_DEVICES=0 python scripts/generate_grasps.py --all --wandb_name <wandb_name> --wandb_entity <wandb_entity> --wandb_project <wandb_project> --result_path ../data/my_generated_graspdata
-```
-
-### 2. Grasp Validation
-
-From `grasp_generation`:
-
-```
-CUDA_VISIBLE_DEVICES=0 python scripts/validate_all_grasps.py --grasp_path ../data/my_generated_graspdata --result_path ../data/my_validated_graspdata
-```
-
-### 3. NeRF Dataset Creation
-
-From `grasp_generation`:
-
-```
-CUDA_VISIBLE_DEVICES=0 python scripts/generate_nerf_data.py
-```
-
-### 4. NeRF Training
-
-TODO (in nerf_grasping)
-
-### 5. Learned Metric Dataset Generation
-
-TODO (in nerf_grasping)
-
-### 6. Learned Metric Training
-
-TODO (in nerf_grasping)
-
-### 7. Grasp Planning w/ Learned Metric
-
-TODO (in nerf_grasping)
-
-## Useful Info (Added By Tyler)
-
-Anatomy: https://en.wikipedia.org/wiki/Phalanx_bone
-
-![image](https://github.com/tylerlum/DexGraspNet/assets/26510814/9800eefe-ffbf-40f9-8b1c-1dee04d689f6)
-
-* distal is tip of finger
-* middle is behind distal
-* proximal is behind middle
-
-Acronyms for shadow hand:
-
-* th = thumb
-* ff = fore finger
-* mf = middle finger
-* rf = ring finger
-* lf = little finger
-
-For allegro hand:
-
-* link 0 - 3 is fore finger (link 3 tip is fore fingertip)
-* link 4 - 7 is middle finger (link 7 tip is middle fingertip)
-* link 8 - 11 is ring finger (link 11 tip is ring fingertip)
-* link 12 - 15 is thumb (link 15 tip is thumbtip)
-
-
