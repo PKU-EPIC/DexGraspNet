@@ -92,6 +92,48 @@ If you have any questions, please open a github issue or contact us:
 
 Ruicheng Wang: <wrc0326@stu.pku.edu.cn>, Jialiang Zhang: <jackzhang0906@126.com>, He Wang: <hewang@pku.edu.cn>
 
+## How to Run Roughly Pipeline (Updated by Tyler 2023-06-13)
+
+### 1. Grasp Generation
+
+From `grasp_generation`:
+
+```
+CUDA_VISIBLE_DEVICES=0 python scripts/generate_grasps.py --all --wandb_name <wandb_name> --wandb_entity <wandb_entity> --wandb_project <wandb_project> --result_path ../data/my_generated_graspdata
+```
+
+### 2. Grasp Validation
+
+From `grasp_generation`:
+
+```
+CUDA_VISIBLE_DEVICES=0 python scripts/validate_all_grasps.py --grasp_path ../data/my_generated_graspdata --result_path ../data/my_validated_graspdata
+```
+
+### 3. NeRF Dataset Creation
+
+From `grasp_generation`:
+
+```
+CUDA_VISIBLE_DEVICES=0 python scripts/generate_nerf_data.py
+```
+
+### 4. NeRF Training
+
+TODO (in nerf_grasping)
+
+### 5. Learned Metric Dataset Generation
+
+TODO (in nerf_grasping)
+
+### 6. Learned Metric Training
+
+TODO (in nerf_grasping)
+
+### 7. Grasp Planning w/ Learned Metric
+
+TODO (in nerf_grasping)
+
 ## Useful Info (Added By Tyler)
 
 Anatomy: https://en.wikipedia.org/wiki/Phalanx_bone
