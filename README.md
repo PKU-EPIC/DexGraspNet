@@ -19,6 +19,10 @@ pip install typed-argument-parser
 pip install pandas ipdb wandb jupyterlab jupytext
 ```
 
+Random info:
+
+* We are using ALLEGRO_HAND entirely for now (SHADOW_HAND mostly compatible, but not focusing/developing much)
+
 ### 1. Grasp Generation
 
 From `grasp_generation`:
@@ -26,6 +30,15 @@ From `grasp_generation`:
 ```
 CUDA_VISIBLE_DEVICES=0 python scripts/generate_grasps.py --all --wandb_name <wandb_name> --wandb_entity <wandb_entity> --wandb_project <wandb_project> --result_path ../data/my_generated_graspdata
 ```
+
+This initializes the hand T, R, theta at a reasonable init state (with some randomness), then optimizes an energy composed of a weighted sum of energy terms. Then it stores the data in the result_path. This is very close to the DexGraspNet original implementation, with wandb logging, additional energy terms, etc.
+
+Things that may be adjusted:
+
+* energy weights
+* contact points (reads in a json file with contact candidates)
+* contact points per finger
+* other optimization parameters
 
 ### 2. Grasp Validation
 
@@ -35,6 +48,15 @@ From `grasp_generation`:
 CUDA_VISIBLE_DEVICES=0 python scripts/validate_all_grasps.py --grasp_path ../data/my_generated_graspdata --result_path ../data/my_validated_graspdata
 ```
 
+This reads in the generated grasps from the previous step and validates them in isaac. They start in the T, R, theta from before ("pregrasp"), then we use pytorch to compute finger target positions, then set joint PD targets ("close the hand"). We can either validate with NO_GRAVITY_SHAKING or GRAVITY_IN_6_DIRS. We are also doing a canonicalization step where we adjust the hand slightly from the original T, R, theta so that the close fingers are a fixed distance away from the object (5mm), and then the fingers each move in by a fixed distance (10mm). This consistency would help us when training the learned metric so that the "grasp trajectory lengths" are all equal (rather than having each finger move in a different distance). This is still in development, may need to be thought through so more if this needs to be adjusted.
+
+Things that may be adjusted:
+* Do a better validation check of self penetration or object penetration
+* Tune the controller and canonicalization step distance and the target position placement
+* Potentially add some noise to T, R, theta to give more training data that is not PERFECTLY in place (not exactly 5mm away for each finger, etc.)
+* Reject grasps that only use 3 fingers? (instead of 4), etc.
+* Use grasps from earlier in step 1 optimization that we can label as fail to increase data distribution?
+
 ### 3. NeRF Dataset Creation
 
 From `grasp_generation`:
@@ -42,6 +64,14 @@ From `grasp_generation`:
 ```
 CUDA_VISIBLE_DEVICES=0 python scripts/generate_nerf_data.py
 ```
+
+This saves nerf training data into a folder. Needs to repeat objects a few times for each size/scale. Currently, the urdf are all set up so that we can place the object at 0,0,0, and the mesh.bound will be centered at (0,0,0) already. 
+
+Things that may be adjusted:
+
+* Camera positions and angles and number needed
+* Adding asset color information so that the pictures have colored meshes
+* Consider some nerfs that only see some views of the object, so they will be uncertain about other parts
 
 ### 4. NeRF Training
 
