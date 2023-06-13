@@ -37,19 +37,16 @@ def get_link_idx_to_name_dict(env, actor_handle):
     return link_idx_to_name_dict
 
 
-class ValidationType(Enum):
+class AutoName(Enum):
+    # https://docs.python.org/3.9/library/enum.html#using-automatic-values
+    def _generate_next_value_(name, start, count, last_values):
+        return name
+
+
+class ValidationType(AutoName):
     GRAVITY_IN_6_DIRS = auto()
     NO_GRAVITY_SHAKING = auto()
 
-    def __str__(self):
-        return self.name
-
-    @staticmethod
-    def from_string(s):
-        try:
-            return ValidationType[s]
-        except KeyError:
-            raise ValueError()
 
 class IsaacValidator:
     def __init__(
@@ -205,11 +202,11 @@ class IsaacValidator:
         )
 
     def add_env_all_test_rotations(
-        self, hand_rotation, hand_translation, hand_qpos, obj_scale, target_qpos=None
+        self, hand_quaternion, hand_translation, hand_qpos, obj_scale, target_qpos=None
     ):
         for test_rotation_idx in range(len(self.test_rotations)):
             self.add_env_single_test_rotation(
-                hand_rotation,
+                hand_quaternion,
                 hand_translation,
                 hand_qpos,
                 obj_scale,
@@ -219,7 +216,7 @@ class IsaacValidator:
 
     def add_env_single_test_rotation(
         self,
-        hand_rotation,
+        hand_quaternion,
         hand_translation,
         hand_qpos,
         obj_scale,
@@ -240,7 +237,7 @@ class IsaacValidator:
 
         # Set hand pose
         hand_pose = gymapi.Transform()
-        hand_pose.r = gymapi.Quat(*hand_rotation[1:], hand_rotation[0])
+        hand_pose.r = gymapi.Quat(*hand_quaternion[1:], hand_quaternion[0])
         hand_pose.p = gymapi.Vec3(*hand_translation)
         hand_pose = test_rot * hand_pose
         self.init_hand_poses.append(hand_pose)
@@ -253,6 +250,8 @@ class IsaacValidator:
 
         # Set hand dof props
         hand_props = gym.get_actor_dof_properties(env, hand_actor_handle)
+
+        # TODO: Consider making finger joints pos controlled and virtual joints vel controlled
         hand_props["driveMode"].fill(gymapi.DOF_MODE_POS)
 
         # Finger joints
@@ -260,7 +259,7 @@ class IsaacValidator:
             joint_idx = gym.find_actor_dof_index(
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
-            hand_props["stiffness"][joint_idx] = 1000.0
+            hand_props["stiffness"][joint_idx] = 50.0
             hand_props["damping"][joint_idx] = 0.0
 
         # Virtual joints

@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Tuple
 def pose_to_qpos(
     hand_pose: torch.Tensor,
     joint_names: List[str],
-):
+) -> Dict[str, Any]:
     assert len(hand_pose.shape) == 1
 
     qpos = dict(zip(joint_names, hand_pose[9:].tolist()))
@@ -22,7 +22,7 @@ def pose_to_qpos(
 
 def qpos_to_pose(
     qpos: Dict[str, Any], joint_names: List[str], unsqueeze_batch_dim: bool = True
-):
+) -> torch.Tensor:
     rot = np.array(transforms3d.euler.euler2mat(*[qpos[name] for name in rot_names]))
     rot = rot[:, :2].T.ravel().tolist()
     hand_pose = torch.tensor(
@@ -40,10 +40,10 @@ def qpos_to_pose(
     return hand_pose
 
 
-def qpos_to_translation_rot_jointangles(
+def qpos_to_translation_quaternion_jointangles(
     qpos: Dict[str, Any], joint_names: List[str]
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     translation = np.array([qpos[name] for name in translation_names])
-    rot = np.array([qpos[name] for name in rot_names])
+    quaternion = transforms3d.euler.euler2quat(*[qpos[name] for name in rot_names])
     joint_angles = np.array([qpos[name] for name in joint_names])
-    return translation, rot, joint_angles
+    return translation, quaternion, joint_angles

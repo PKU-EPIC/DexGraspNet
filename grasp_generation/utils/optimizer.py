@@ -5,10 +5,11 @@ Description: Class Annealing optimizer
 """
 
 import torch
+from utils.hand_model import HandModel
 
 
 class Annealing:
-    def __init__(self, hand_model, switch_possibility=0.5, starting_temperature=18, temperature_decay=0.95, annealing_period=30,
+    def __init__(self, hand_model: HandModel, switch_possibility=0.5, starting_temperature=18, temperature_decay=0.95, n_contacts_per_finger=1, annealing_period=30,
                  step_size=0.005, stepsize_period=50, mu=0.98, device='cpu'):
         """
         Create a optimizer
@@ -43,6 +44,7 @@ class Annealing:
         self.step_size = torch.tensor(step_size, dtype=torch.float, device=device)
         self.step_size_period = torch.tensor(stepsize_period, dtype=torch.long, device=device)
         self.mu = torch.tensor(mu, dtype=torch.float, device=device)
+        self.n_contacts_per_finger = n_contacts_per_finger
         self.step = 0
 
         self.old_hand_pose = None
@@ -73,9 +75,10 @@ class Annealing:
         hand_pose = self.hand_model.hand_pose - \
             step_size * self.hand_model.hand_pose.grad / (torch.sqrt(self.ema_grad_hand_pose) + 1e-6)
         batch_size, n_contact = self.hand_model.contact_point_indices.shape
-        switch_mask = torch.rand(batch_size, n_contact, dtype=torch.float, device=self.device) < self.switch_possibility
+        switch_mask = torch.rand(batch_size, dtype=torch.float, device=self.device) < self.switch_possibility
         contact_point_indices = self.hand_model.contact_point_indices.clone()
-        contact_point_indices[switch_mask] = torch.randint(self.hand_model.n_contact_candidates, size=[switch_mask.sum()], device=self.device)
+        new_contact_point_indices = self.hand_model.sample_contact_points(total_batch_size=batch_size, n_contacts_per_finger=self.n_contacts_per_finger)
+        contact_point_indices = torch.where(switch_mask[..., None], new_contact_point_indices, contact_point_indices)
 
         self.old_hand_pose = self.hand_model.hand_pose
         self.old_contact_point_indices = self.hand_model.contact_point_indices

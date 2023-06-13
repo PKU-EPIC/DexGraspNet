@@ -9,7 +9,6 @@ import sys
 
 sys.path.append(os.path.realpath("."))
 
-import argparse
 import multiprocessing
 import numpy as np
 import torch
@@ -22,9 +21,10 @@ from utils.object_model import ObjectModel
 from utils.initializations import initialize_convex_hull
 from utils.energy import cal_energy, ENERGY_NAMES, ENERGY_NAME_TO_SHORTHAND_DICT
 from utils.optimizer import Annealing
-from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
+from utils.hand_model_type import handmodeltype_to_joint_names
 from utils.qpos_pose_conversion import pose_to_qpos
 from utils.seed import set_seed
+from utils.generate_grasps_argument_parser import GenerateGraspsArgumentParser
 
 from torch.multiprocessing import set_start_method
 from typing import Tuple
@@ -63,6 +63,7 @@ def get_meshes(
 
 def generate(args_list):
     args, object_code_list, id, gpu_list = args_list
+    args: GenerateGraspsArgumentParser = args
 
     # Log to wandb
     time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -106,6 +107,7 @@ def generate(args_list):
         "annealing_period": args.annealing_period,
         "step_size": args.step_size,
         "stepsize_period": args.stepsize_period,
+        "n_contacts_per_finger": args.n_contacts_per_finger,
         "mu": args.mu,
         "device": device,
     }
@@ -251,54 +253,7 @@ def generate(args_list):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    # experiment settings
-    parser.add_argument(
-        "--hand_model_type",
-        default=HandModelType.SHADOW_HAND,
-        type=HandModelType.from_string,
-        choices=list(HandModelType),
-    )
-    parser.add_argument("--wandb_name", default="", type=str)
-    parser.add_argument("--visualization_freq", default=2000, type=int)
-    parser.add_argument("--result_path", default="../data/graspdata", type=str)
-    parser.add_argument("--data_root_path", default="../data/meshdata", type=str)
-    parser.add_argument("--object_code_list", nargs="*", type=str)
-    parser.add_argument("--all", action="store_true")
-    parser.add_argument("--overwrite", action="store_true")
-    parser.add_argument("--todo", action="store_true")
-    parser.add_argument("--seed", default=1, type=int)
-    parser.add_argument("--n_contact", default=4, type=int)
-    parser.add_argument("--batch_size_each", default=500, type=int)
-    parser.add_argument("--max_total_batch_size", default=1000, type=int)
-    parser.add_argument("--n_iter", default=6000, type=int)
-    # hyper parameters
-    parser.add_argument("--switch_possibility", default=0.5, type=float)
-    parser.add_argument("--mu", default=0.98, type=float)
-    parser.add_argument("--step_size", default=0.005, type=float)
-    parser.add_argument("--stepsize_period", default=50, type=int)
-    parser.add_argument("--starting_temperature", default=18, type=float)
-    parser.add_argument("--annealing_period", default=30, type=int)
-    parser.add_argument("--temperature_decay", default=0.95, type=float)
-    parser.add_argument("--w_fc", default=1.0, type=float)
-    parser.add_argument("--w_dis", default=300.0, type=float)
-    parser.add_argument("--w_pen", default=100.0, type=float)
-    parser.add_argument("--w_spen", default=100.0, type=float)
-    parser.add_argument("--w_joints", default=1.0, type=float)
-    parser.add_argument("--w_ff", default=1.0, type=float)
-    parser.add_argument("--w_fp", default=0.0, type=float)
-    # initialization settings
-    parser.add_argument("--jitter_strength", default=0.1, type=float)
-    parser.add_argument("--distance_lower", default=0.2, type=float)
-    parser.add_argument("--distance_upper", default=0.3, type=float)
-    parser.add_argument("--theta_lower", default=-math.pi / 6, type=float)
-    parser.add_argument("--theta_upper", default=math.pi / 6, type=float)
-    # energy thresholds
-    parser.add_argument("--thres_fc", default=0.3, type=float)
-    parser.add_argument("--thres_dis", default=0.005, type=float)
-    parser.add_argument("--thres_pen", default=0.001, type=float)
-
-    args = parser.parse_args()
+    args = GenerateGraspsArgumentParser().parse_args()
 
     gpu_list = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
     print(f"gpu_list: {gpu_list}")
@@ -322,7 +277,7 @@ if __name__ == "__main__":
             object_code_list_all = [line[:-1] for line in lines]
     else:
         object_code_list_all = os.listdir(args.data_root_path)
-        print(f"First 10: {object_code_list_all[:10]}")
+        print(f"First 10 in object_code_list_all: {object_code_list_all[:10]}")
 
     if args.object_code_list is not None:
         object_code_list = args.object_code_list

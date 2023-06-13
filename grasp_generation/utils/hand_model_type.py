@@ -7,19 +7,15 @@ translation_names = ["WRJTx", "WRJTy", "WRJTz"]
 rot_names = ["WRJRx", "WRJRy", "WRJRz"]
 
 
-class HandModelType(Enum):
+class AutoName(Enum):
+    # https://docs.python.org/3.9/library/enum.html#using-automatic-values
+    def _generate_next_value_(name, start, count, last_values):
+        return name
+
+
+class HandModelType(AutoName):
     ALLEGRO_HAND = auto()
     SHADOW_HAND = auto()
-
-    def __str__(self):
-        return self.name
-
-    @staticmethod
-    def from_string(s):
-        try:
-            return HandModelType[s]
-        except KeyError:
-            raise ValueError()
 
 
 _allegro_joint_names = [
@@ -124,10 +120,16 @@ _shadow_joint_angles_mu = torch.tensor(
     dtype=torch.float,
 )
 
-_allegro_hand_root_hand_file = ("allegro_hand_description", "allegro_hand_description_right.urdf")
+_allegro_hand_root_hand_file = (
+    "allegro_hand_description",
+    "allegro_hand_description_right.urdf",
+)
 _shadow_hand_root_hand_file = ("open_ai_assets", "hand/shadow_hand.xml")
 
-_allegro_hand_root_hand_file_with_virtual_joints = ("allegro_hand_description", "allegro_hand_description_right_with_virtual_joints.urdf")
+_allegro_hand_root_hand_file_with_virtual_joints = (
+    "allegro_hand_description",
+    "allegro_hand_description_right_with_virtual_joints.urdf",
+)
 _shadow_hand_root_hand_file_with_virtual_joints = ("open_ai_assets", "NOT IMPLEMENTED")
 
 _allegro_hand_allowed_contact_link_names = [
@@ -159,6 +161,14 @@ _shadow_hand_allowed_contact_link_names = [
     "robot0:thdistal_child",
 ]
 
+_allegro_hand_finger_keywords = [
+    "3.0", "7.0", "11.0", "15.0"
+]
+
+_shadow_hand_finger_keywords = [
+    "ff", "mf", "rf", "lf", "th"
+]
+
 handmodeltype_to_joint_names = {
     HandModelType.ALLEGRO_HAND: _allegro_joint_names,
     HandModelType.SHADOW_HAND: _shadow_joint_names,
@@ -178,6 +188,11 @@ handmodeltype_to_hand_root_hand_file = {
 handmodeltype_to_hand_root_hand_file_with_virtual_joints = {
     HandModelType.ALLEGRO_HAND: _allegro_hand_root_hand_file_with_virtual_joints,
     HandModelType.SHADOW_HAND: _shadow_hand_root_hand_file_with_virtual_joints,
+}
+
+handmodeltype_to_fingerkeywords = {
+    HandModelType.ALLEGRO_HAND: _allegro_hand_finger_keywords,
+    HandModelType.SHADOW_HAND: _shadow_hand_finger_keywords,
 }
 
 # HACK: This is a list of allowed contact link names for each hand model type for precision grasps

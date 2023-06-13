@@ -10,7 +10,7 @@ import sys
 sys.path.append(os.path.realpath("."))
 
 from utils.isaac_validator import IsaacValidator, ValidationType
-import argparse
+from tap import Tap
 import torch
 import numpy as np
 import transforms3d
@@ -19,41 +19,56 @@ from utils.object_model import ObjectModel
 from utils.hand_model_type import (
     HandModelType,
     handmodeltype_to_joint_names,
-    handmodeltype_to_hand_root_hand_file,
 )
-from utils.qpos_pose_conversion import qpos_to_pose, qpos_to_translation_rot_jointangles
-from typing import List
+from utils.qpos_pose_conversion import (
+    qpos_to_pose,
+    qpos_to_translation_quaternion_jointangles,
+    pose_to_qpos,
+)
+from typing import List, Optional
 import math
 from utils.seed import set_seed
-from utils.joint_angle_targets import compute_optimized_joint_angle_targets, OptimizationMethod
+from utils.joint_angle_targets import (
+    compute_optimized_joint_angle_targets,
+    OptimizationMethod,
+    compute_optimized_canonicalized_hand_pose,
+)
+from utils.energy import _cal_hand_object_penetration
 
 
-def compute_joint_angle_targets(
-    args: argparse.Namespace,
-    joint_names: List[str],
-    data_dict: np.ndarray,
-):
-    # Read in hand state and scale tensor
+class ValidateGraspArgumentParser(Tap):
+    hand_model_type: HandModelType = HandModelType.SHADOW_HAND
+    optimization_method: OptimizationMethod = (
+        OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
+    )
+    validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
+    gpu: int = 0
+    val_batch: int = 500
+    mesh_path: str = "../data/meshdata"
+    grasp_path: str = "../data/graspdata"
+    result_path: str = "../data/dataset"
+    object_code: str = "sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2"
+    # if index is received, then the debug mode is on
+    index: Optional[int] = None
+    start_with_step_mode: bool = False
+    no_force: bool = False
+    penetration_threshold: Optional[float] = None
+    canonicalize_grasp: bool = False
+
+
+def compute_canonicalized_hand_pose(
+    args: ValidateGraspArgumentParser,
+    hand_pose_array: List[torch.Tensor],
+    scale_array: List[float],
+) -> torch.Tensor:
+    assert len(hand_pose_array) == len(scale_array)
+
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
-    batch_size = data_dict.shape[0]
-    hand_poses = []
-    scale_tensor = []
-    for i in range(batch_size):
-        qpos = data_dict[i]["qpos"]
-        scale = data_dict[i]["scale"]
-        hand_pose = qpos_to_pose(
-            qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False
-        ).to(device)
-        hand_poses.append(hand_pose)
-        scale_tensor.append(scale)
-    hand_poses = torch.stack(hand_poses).to(device).requires_grad_()
-    scale_tensor = torch.tensor(scale_tensor).reshape(1, -1).to(device)
+    batch_size = len(hand_pose_array)
 
     # hand model
-    hand_model = HandModel(
-        hand_model_type=args.hand_model_type, device=device
-    )
-    hand_model.set_parameters(hand_poses)
+    hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
+    hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
 
     # object model
     object_model = ObjectModel(
@@ -63,20 +78,96 @@ def compute_joint_angle_targets(
         device=device,
     )
     object_model.initialize(args.object_code)
-    object_model.object_scale_tensor = scale_tensor
+    object_model.object_scale_tensor = (
+        torch.tensor(scale_array).reshape(1, -1).to(device)
+    )  # 1 because 1 object code
 
     # Optimization
-    joint_angle_targets_to_optimize, losses, debug_infos = compute_optimized_joint_angle_targets(
+    (
+        canonicalized_hand_pose,
+        losses,
+        debug_infos,
+    ) = compute_optimized_canonicalized_hand_pose(
+        hand_model=hand_model,
+        object_model=object_model,
+        device=device,
+    )
+
+    return canonicalized_hand_pose
+
+
+def compute_joint_angle_targets(
+    args: ValidateGraspArgumentParser,
+    hand_pose_array: List[torch.Tensor],
+    scale_array: List[float],
+) -> torch.Tensor:
+    assert len(hand_pose_array) == len(scale_array)
+
+    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+    batch_size = len(hand_pose_array)
+
+    # hand model
+    hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
+    hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
+
+    # object model
+    object_model = ObjectModel(
+        data_root_path=args.mesh_path,
+        batch_size_each=batch_size,
+        num_samples=0,
+        device=device,
+    )
+    object_model.initialize(args.object_code)
+    object_model.object_scale_tensor = (
+        torch.tensor(scale_array).reshape(1, -1).to(device)
+    )  # 1 because 1 object code
+
+    # Optimization
+    (
+        optimized_joint_angle_targets,
+        losses,
+        debug_infos,
+    ) = compute_optimized_joint_angle_targets(
         optimization_method=args.optimization_method,
         hand_model=hand_model,
         object_model=object_model,
         device=device,
     )
 
-    return joint_angle_targets_to_optimize
+    return optimized_joint_angle_targets
 
 
-def main(args):
+def compute_E_pen(
+    args: ValidateGraspArgumentParser,
+    hand_pose_array: List[torch.Tensor],
+    scale_array: List[float],
+) -> torch.Tensor:
+    assert len(hand_pose_array) == len(scale_array)
+
+    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+    batch_size = len(hand_pose_array)
+
+    # hand model
+    hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
+    hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
+
+    # object model
+    object_model = ObjectModel(
+        data_root_path=args.mesh_path,
+        batch_size_each=batch_size,
+        num_samples=2000,
+        device=device,
+    )
+    object_model.initialize(args.object_code)
+    object_model.object_scale_tensor = (
+        torch.tensor(scale_array).reshape(1, -1).to(device)
+    )  # 1 because 1 object code
+
+    E_pen = _cal_hand_object_penetration(hand_model, object_model)
+    return E_pen
+
+
+def main(args: ValidateGraspArgumentParser):
     set_seed(42)
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
     os.environ.pop("CUDA_VISIBLE_DEVICES")
@@ -90,26 +181,38 @@ def main(args):
             start_with_step_mode=args.start_with_step_mode,
         )
     else:
-        sim = IsaacValidator(hand_model_type=args.hand_model_type, gpu=args.gpu, validation_type=args.validation_type)
+        sim = IsaacValidator(
+            hand_model_type=args.hand_model_type,
+            gpu=args.gpu,
+            validation_type=args.validation_type,
+        )
 
     # Read in data
     data_dict = np.load(
         os.path.join(args.grasp_path, args.object_code + ".npy"), allow_pickle=True
     )
     batch_size = data_dict.shape[0]
-    translations = []
-    rotations = []
+    translation_array = []
+    quaternion_array = []
     joint_angles_array = []
     scale_array = []
     E_pen_array = []
+    hand_pose_array = []
     for i in range(batch_size):
         qpos = data_dict[i]["qpos"]
-        translation, rot, joint_angles = qpos_to_translation_rot_jointangles(
+        (
+            translation,
+            quaternion,
+            joint_angles,
+        ) = qpos_to_translation_quaternion_jointangles(
             qpos=qpos, joint_names=joint_names
         )
-        translations.append(translation)
-        rotations.append(transforms3d.euler.euler2quat(*rot))
+        translation_array.append(translation)
+        quaternion_array.append(quaternion)
         joint_angles_array.append(joint_angles)
+        hand_pose_array.append(
+            qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
+        )
 
         scale = data_dict[i]["scale"]
         scale_array.append(scale)
@@ -125,12 +228,54 @@ def main(args):
             E_pen_array.append(0)
     E_pen_array = np.array(E_pen_array)
 
+    if args.canonicalize_grasp:
+        canonicalized_hand_poses = compute_canonicalized_hand_pose(
+            args=args,
+            hand_pose_array=hand_pose_array,
+            scale_array=scale_array,
+        )
+        translation_array = []
+        quaternion_array = []
+        joint_angles_array = []
+        hand_pose_array = []
+        for i in range(batch_size):
+            qpos = pose_to_qpos(
+                hand_pose=canonicalized_hand_poses[i].cpu(), joint_names=joint_names
+            )
+            (
+                translation,
+                quaternion,
+                joint_angles,
+            ) = qpos_to_translation_quaternion_jointangles(
+                qpos=qpos, joint_names=joint_names
+            )
+            translation_array.append(translation)
+            quaternion_array.append(quaternion)
+            joint_angles_array.append(joint_angles)
+            hand_pose_array.append(
+                qpos_to_pose(
+                    qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False
+                )
+            )
+
+        # Update E_pen_array
+        E_pen_array = (
+            compute_E_pen(
+                args=args,
+                hand_pose_array=hand_pose_array,
+                scale_array=scale_array,
+            )
+            .cpu()
+            .numpy()
+        )
+
+    # Compute joint angle targets
     if not args.no_force:
         joint_angle_targets_array = (
             compute_joint_angle_targets(
                 args=args,
-                joint_names=joint_names,
-                data_dict=data_dict,
+                hand_pose_array=hand_pose_array,
+                scale_array=scale_array,
             )
             .detach()
             .cpu()
@@ -147,8 +292,8 @@ def main(args):
         )
         index = args.index
         sim.add_env_single_test_rotation(
-            hand_rotation=rotations[index],
-            hand_translation=translations[index],
+            hand_quaternion=quaternion_array[index],
+            hand_translation=translation_array[index],
             hand_qpos=joint_angles_array[index],
             obj_scale=scale_array[index],
             target_qpos=(
@@ -159,15 +304,12 @@ def main(args):
         )
         successes = sim.run_sim()
         print(f"successes = {successes}")
-        print(
-            " = ".join(
-                [
-                    "E_pen < args.penetration_threshold",
-                    f"{E_pen_array[index]:.7f} < {args.penetration_threshold:.7f}",
-                    f"{E_pen_array[index] < args.penetration_threshold}",
-                ]
+        print(f"E_pen = {E_pen_array[index]:.7f}")
+        if args.penetration_threshold is not None:
+            print(f"args.penetration_threshold = {args.penetration_threshold:.7f}")
+            print(
+                f"E_pen < args.penetration_threshold = {E_pen_array[index] < args.penetration_threshold}"
             )
-        )
 
     # Run validation on all grasps
     else:
@@ -184,8 +326,8 @@ def main(args):
             )
             for index in range(start_offset, end_offset):
                 sim.add_env_all_test_rotations(
-                    hand_rotation=rotations[index],
-                    hand_translation=translations[index],
+                    hand_quaternion=quaternion_array[index],
+                    hand_translation=translation_array[index],
                     hand_qpos=joint_angles_array[index],
                     obj_scale=scale_array[index],
                     target_qpos=(
@@ -204,7 +346,11 @@ def main(args):
                 == num_envs_per_grasp
             )
 
-        passed_penetration_threshold = E_pen_array < args.penetration_threshold
+        passed_penetration_threshold = (
+            E_pen_array < args.penetration_threshold
+            if args.penetration_threshold is not None
+            else np.ones(batch_size, dtype=np.bool8)
+        )
         valid = passed_simulation * passed_penetration_threshold
         print(
             f"passed_penetration_threshold: {passed_penetration_threshold.sum().item()}/{batch_size}, "
@@ -214,10 +360,14 @@ def main(args):
         success_data_dicts = []
         for i in range(batch_size):
             if valid[i]:
-                new_data_dict = {}
-                new_data_dict["qpos"] = data_dict[i]["qpos"]
-                new_data_dict["scale"] = data_dict[i]["scale"]
-                success_data_dicts.append(new_data_dict)
+                success_data_dicts.append(
+                    {
+                        "qpos": pose_to_qpos(
+                            hand_pose=hand_pose_array[i], joint_names=joint_names
+                        ),
+                        "scale": scale_array[i],
+                    }
+                )
 
         os.makedirs(args.result_path, exist_ok=True)
         np.save(
@@ -229,38 +379,5 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--hand_model_type",
-        default=HandModelType.SHADOW_HAND,
-        type=HandModelType.from_string,
-        choices=list(HandModelType),
-    )
-    parser.add_argument(
-        "--optimization_method",
-        default=OptimizationMethod.DESIRED_DIST_MOVE_MULTIPLE_STEPS,
-        type=OptimizationMethod.from_string,
-        choices=list(OptimizationMethod),
-    )
-    parser.add_argument(
-        "--validation_type",
-        default=ValidationType.NO_GRAVITY_SHAKING,
-        type=ValidationType.from_string,
-        choices=list(ValidationType),
-    )
-    parser.add_argument("--gpu", default=3, type=int)
-    parser.add_argument("--val_batch", default=500, type=int)
-    parser.add_argument("--mesh_path", default="../data/meshdata", type=str)
-    parser.add_argument("--grasp_path", default="../data/graspdata", type=str)
-    parser.add_argument("--result_path", default="../data/dataset", type=str)
-    parser.add_argument(
-        "--object_code", default="sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2", type=str
-    )
-    # if index is received, then the debug mode is on
-    parser.add_argument("--index", type=int)
-    parser.add_argument("--start_with_step_mode", action="store_true")
-    parser.add_argument("--no_force", action="store_true")
-    parser.add_argument("--penetration_threshold", default=0.001, type=float)
-
-    args = parser.parse_args()
+    args = ValidateGraspArgumentParser().parse_args()
     main(args)

@@ -10,7 +10,7 @@ import sys
 # os.chdir(os.path.dirname(os.path.dirname(__file__)))
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-import argparse
+from tap import Tap
 import torch
 import numpy as np
 import plotly.graph_objects as go
@@ -21,20 +21,15 @@ from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import qpos_to_pose
 
 
+class VisualizeResultArgumentParser(Tap):
+    hand_model_type: HandModelType = HandModelType.SHADOW_HAND
+    object_code: str = "sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2"
+    num: int = 0
+    result_path: str = "../data/dataset"
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--hand_model_type",
-        default=HandModelType.SHADOW_HAND,
-        type=HandModelType.from_string,
-        choices=list(HandModelType),
-    )
-    parser.add_argument(
-        "--object_code", type=str, default="sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2"
-    )
-    parser.add_argument("--num", type=int, default=0)
-    parser.add_argument("--result_path", type=str, default="../data/dataset")
-    args = parser.parse_args()
+    args = VisualizeResultArgumentParser().parse_args()
 
     device = "cpu"
 

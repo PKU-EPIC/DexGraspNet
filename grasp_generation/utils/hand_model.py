@@ -19,7 +19,8 @@ from torchsdf import index_vertices_by_faces, compute_sdf
 
 import transforms3d
 from urdf_parser_py.urdf import Robot, Box, Sphere
-from utils.hand_model_type import HandModelType
+from utils.hand_model_type import HandModelType, handmodeltype_to_fingerkeywords
+from collections import defaultdict
 
 
 class HandModel:
@@ -68,17 +69,25 @@ class HandModel:
             zip([link_name for link_name in self.mesh], range(len(self.mesh)))
         )
 
-        self.contact_candidates = [
-            self.mesh[link_name]["contact_candidates"] for link_name in self.mesh
+        self.link_name_to_contact_candidates = {
+            link_name: self.mesh[link_name]["contact_candidates"]
+            for link_name in self.mesh
+        }
+        contact_candidates = [
+            self.link_name_to_contact_candidates[link_name] for link_name in self.mesh
         ]
         self.global_index_to_link_index = sum(
             [
                 [i] * len(contact_candidates)
-                for i, contact_candidates in enumerate(self.contact_candidates)
+                for i, contact_candidates in enumerate(contact_candidates)
             ],
             [],
         )
-        self.contact_candidates = torch.cat(self.contact_candidates, dim=0)
+        self.link_index_to_global_indices = defaultdict(list)
+        for global_idx, link_idx in enumerate(self.global_index_to_link_index):
+            self.link_index_to_global_indices[link_idx].append(global_idx)
+
+        self.contact_candidates = torch.cat(contact_candidates, dim=0)
         self.global_index_to_link_index = torch.tensor(
             self.global_index_to_link_index, dtype=torch.long, device=device
         )
@@ -396,7 +405,6 @@ class HandModel:
         build_mesh_recurse(self.chain._root)
 
         # set joint limits
-
         self.joints_names = []
         self.joints_lower = []
         self.joints_upper = []
@@ -446,6 +454,62 @@ class HandModel:
             )[0][0]
             surface_points.to(dtype=float, device=device)
             self.mesh[link_name]["surface_points"] = surface_points
+
+    def sample_contact_points(self, total_batch_size: int, n_contacts_per_finger: int):
+        # Ensure that each finger gets sampled at least once
+        # Goal: Output (B, n_fingers * n_contacts_per_finger) torch.LongTensor of sampled contact point indices
+        # Each contact point is represented by a global index
+        # Each contact point is sampled from a link
+        # For each finger:
+        #    Get the link indices that contain the finger keyword
+        #    Get the possible contact point indices from these link indices
+        #    Sample from these contact point indices
+
+        finger_keywords = handmodeltype_to_fingerkeywords[self.hand_model_type]
+
+        # Get link indices that contain the finger keyword
+        finger_possible_link_idxs_list = [
+            [
+                link_idx
+                for link_name, link_idx in self.link_name_to_link_index.items()
+                if finger_keyword in link_name
+            ]
+            for finger_keyword in finger_keywords
+        ]
+
+        # Get the possible contact point indices from these link indices
+        finger_possible_contact_point_idxs_list = [
+            sum(
+                [self.link_index_to_global_indices[link_idx] for link_idx in link_idxs],
+                [],
+            )
+            for link_idxs in finger_possible_link_idxs_list
+        ]
+
+        # Sample from these contact point indices
+        sampled_contact_point_idxs_list = []
+        for (
+            finger_possible_contact_point_idxs
+        ) in finger_possible_contact_point_idxs_list:
+            sampled_idxs = torch.randint(
+                len(finger_possible_contact_point_idxs),
+                size=[total_batch_size, n_contacts_per_finger],
+                device=self.device,
+            )
+            sampled_contact_point_idxs = torch.tensor(
+                finger_possible_contact_point_idxs, device=self.device, dtype=torch.long
+            )[sampled_idxs]
+            sampled_contact_point_idxs_list.append(sampled_contact_point_idxs)
+        sampled_contact_point_idxs_list = torch.cat(
+            sampled_contact_point_idxs_list, dim=1
+        )
+
+        assert sampled_contact_point_idxs_list.shape == (
+            total_batch_size,
+            len(finger_keywords) * n_contacts_per_finger,
+        )
+
+        return sampled_contact_point_idxs_list
 
     def set_parameters(self, hand_pose, contact_point_indices=None):
         """
@@ -588,7 +652,7 @@ class HandModel:
         dis = torch.max(torch.stack(dis, dim=0), dim=0)[0]
         return dis
 
-    def self_penetration(self):
+    def cal_self_penetration_energy(self):
         """
         Calculate self penetration energy
 
@@ -636,6 +700,28 @@ class HandModel:
         dis = 0.02 - dis
         E_spen = torch.where(dis > 0, dis, torch.zeros_like(dis))
         return E_spen.sum((1, 2))
+
+    def cal_joint_limit_energy(self):
+        joint_limit_energy = torch.sum(
+            (self.hand_pose[:, 9:] > self.joints_upper)
+            * (self.hand_pose[:, 9:] - self.joints_upper),
+            dim=-1,
+        ) + torch.sum(
+            (self.hand_pose[:, 9:] < self.joints_lower)
+            * (self.joints_lower - self.hand_pose[:, 9:]),
+            dim=-1,
+        )
+        return joint_limit_energy
+
+    def cal_finger_finger_distance_energy(self):
+        batch_size = self.contact_points.shape[0]
+        finger_finger_distance_energy = -torch.cdist(self.contact_points, self.contact_points, p=2).reshape(batch_size, -1).sum(dim=-1)
+        return finger_finger_distance_energy
+
+    def cal_palm_finger_distance_energy(self):
+        palm_position = self.global_translation[:, None, :]
+        palm_finger_distance_energy = -(palm_position - self.contact_points).norm(dim=-1).sum(dim=-1)
+        return palm_finger_distance_energy
 
     def get_surface_points(self):
         """
