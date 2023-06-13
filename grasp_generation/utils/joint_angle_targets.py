@@ -457,7 +457,7 @@ def compute_optimized_canonicalized_hand_pose(
             cached_target_points=cached_target_points,
             cached_contact_nearest_point_indexes=cached_contact_nearest_point_indexes,
             dist_thresh_to_move_finger=0.01,
-            desired_penetration_dist=-0.01,
+            desired_penetration_dist=-0.005,
             return_debug_info=True,
         )
         if cached_target_points is None:
