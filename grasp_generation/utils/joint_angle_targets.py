@@ -446,7 +446,7 @@ def compute_optimized_canonicalized_hand_pose(
     object_model: ObjectModel,
     device: torch.device,
     dist_thresh_to_move_finger: float = 0.01,
-    desired_dist_from_object: float = 0.005,
+    desired_dist_from_object: float = 0.001,
 ) -> Tuple[torch.Tensor, List[float], List[Dict[str, Any]]]:
     # Canonicalized hand pose = hand pose modified so that the fingers are desired_dist_from_object away from the object
     # TODO: Consider optimization T and R as well (not just joint angles)
@@ -493,7 +493,7 @@ def compute_optimized_canonicalized_hand_pose(
 
     # Update hand pose parameters
     new_hand_pose = original_hand_pose.detach().clone()
-    new_hand_pose[:, 9:] = joint_angle_targets_to_optimize
+    new_hand_pose[:, 9:] = joint_angle_targets_to_optimize.detach().clone()
     hand_model.set_parameters(new_hand_pose)
 
     return new_hand_pose, losses, debug_infos

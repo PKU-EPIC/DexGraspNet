@@ -257,7 +257,7 @@ class IsaacValidator:
             joint_idx = gym.find_actor_dof_index(
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
-            hand_props["stiffness"][joint_idx] = 1000.0
+            hand_props["stiffness"][joint_idx] = 50.0
             hand_props["damping"][joint_idx] = 0.0
 
         # Virtual joints

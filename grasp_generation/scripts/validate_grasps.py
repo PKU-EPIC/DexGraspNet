@@ -39,7 +39,7 @@ from utils.joint_angle_targets import (
 class ValidateGraspArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.SHADOW_HAND
     optimization_method: OptimizationMethod = (
-        OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
+        OptimizationMethod.DESIRED_PENETRATION_DEPTH
     )
     validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
     gpu: int = 0
@@ -210,7 +210,7 @@ def main(args: ValidateGraspArgumentParser):
         hand_pose_array = []
         for i in range(batch_size):
             qpos = pose_to_qpos(
-                hand_pose=canonicalized_hand_poses[i], joint_names=joint_names
+                hand_pose=canonicalized_hand_poses[i].cpu(), joint_names=joint_names
             )
             (
                 translation,
