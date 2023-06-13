@@ -56,6 +56,7 @@ Things that may be adjusted:
 * Potentially add some noise to T, R, theta to give more training data that is not PERFECTLY in place (not exactly 5mm away for each finger, etc.)
 * Reject grasps that only use 3 fingers? (instead of 4), etc.
 * Use grasps from earlier in step 1 optimization that we can label as fail to increase data distribution?
+* Many hardcoded params in the joint angle target setting (threshold for dist of finger to object to include it in the grasp, how deep the target position should be, etc.)
 
 ### 3. NeRF Dataset Creation
 
