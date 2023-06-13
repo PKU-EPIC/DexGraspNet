@@ -21,17 +21,17 @@ from utils.object_model import ObjectModel
 from utils.initializations import initialize_convex_hull
 from utils.energy import cal_energy, ENERGY_NAMES, ENERGY_NAME_TO_SHORTHAND_DICT
 from utils.optimizer import Annealing
-from utils.hand_model_type import handmodeltype_to_joint_names
+from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import pose_to_qpos
 from utils.seed import set_seed
-from utils.generate_grasps_argument_parser import GenerateGraspsArgumentParser
 
 from torch.multiprocessing import set_start_method
-from typing import Tuple
+from typing import Tuple, List, Optional
 import trimesh
 import plotly.graph_objects as go
 import wandb
 from datetime import datetime
+from tap import Tap
 
 try:
     set_start_method("spawn")
@@ -41,6 +41,54 @@ except RuntimeError:
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 np.seterr(all="raise")
+
+
+class GenerateGraspsArgumentParser(Tap):
+    # experiment settings
+    hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
+    wandb_name: str = ""
+    wandb_entity: str = "tylerlum"
+    wandb_project: str = "DexGraspNet_v1"
+    visualization_freq: int = 2000
+    result_path: str = "../data/graspdata"
+    data_root_path: str = "../data/meshdata"
+    object_code_list: Optional[List[str]] = None
+    all: bool = False
+    overwrite: bool = False
+    todo: bool = False
+    seed: int = 1
+    batch_size_each: int = 500
+    max_total_batch_size: int = 1000
+    n_iter: int = 6000
+
+    # hyper parameters
+    switch_possibility: float = 0.5
+    mu: float = 0.98
+    step_size: float = 0.005
+    stepsize_period: int = 50
+    starting_temperature: float = 18
+    annealing_period: int = 30
+    temperature_decay: float = 0.95
+    n_contacts_per_finger: int = 1
+    w_fc: float = 1.0
+    w_dis: float = 300.0
+    w_pen: float = 100.0
+    w_spen: float = 100.0
+    w_joints: float = 1.0
+    w_ff: float = 1.0
+    w_fp: float = 0.0
+
+    # initialization settings
+    jitter_strength: float = 0.1
+    distance_lower: float = 0.2
+    distance_upper: float = 0.3
+    theta_lower: float = -math.pi / 6
+    theta_upper: float = math.pi / 6
+
+    # energy thresholds
+    thres_fc: float = 0.3
+    thres_dis: float = 0.005
+    thres_pen: float = 0.001
 
 
 def get_meshes(
@@ -69,8 +117,8 @@ def generate(args_list):
     time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     name = f"{args.wandb_name}_{time_str}" if len(args.wandb_name) > 0 else time_str
     wandb.init(
-        entity="tylerlum",
-        project="DexGraspNet_v1",
+        entity=args.wandb_project,
+        project=args.wandb_project,
         name=name,
         config=args,
     )
@@ -96,7 +144,17 @@ def generate(args_list):
     )
     object_model.initialize(object_code_list)
 
-    initialize_convex_hull(hand_model, object_model, args)
+    initialize_convex_hull(
+        hand_model=hand_model,
+        object_model=object_model,
+        distance_lower=args.distance_lower,
+        distance_upper=args.distance_upper,
+        theta_lower=args.theta_lower,
+        theta_upper=args.theta_upper,
+        hand_model_type=args.hand_model_type,
+        jitter_strength=args.jitter_strength,
+        n_contacts_per_finger=args.n_contacts_per_finger,
+    )
 
     hand_pose_st = hand_model.hand_pose.detach()
 
