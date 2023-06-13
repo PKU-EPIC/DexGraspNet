@@ -13,11 +13,11 @@ class AutoName(Enum):
 
 
 class OptimizationMethod(AutoName):
-    DESIRED_PENETRATION_DIST = auto()
-    DESIRED_DIST_MOVE_ONE_STEP = auto()
-    DESIRED_DIST_MOVE_MULTIPLE_STEPS = auto()
-    DESIRED_DIST_MOVE_TOWARDS_CENTER_ONE_STEP = auto()
-    DESIRED_DIST_MOVE_TOWARDS_CENTER_MULTIPLE_STEP = auto()
+    DESIRED_PENETRATION_DEPTH = auto()
+    DESIRED_DIST_TOWARDS_OBJECT_SURFACE_ONE_STEP = auto()
+    DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS = auto()
+    DESIRED_DIST_TOWARDS_FINGERS_CENTER_ONE_STEP = auto()
+    DESIRED_DIST_TOWARDS_FINGERS_CENTER_MULTIPLE_STEP = auto()
 
 
 def compute_fingertip_positions(
@@ -78,7 +78,7 @@ def compute_fingers_center(
     return fingers_center
 
 
-def compute_loss_desired_penetration_dist(
+def compute_loss_desired_penetration_depth(
     joint_angle_targets_to_optimize: torch.Tensor,
     hand_model: HandModel,
     object_model: ObjectModel,
@@ -86,7 +86,7 @@ def compute_loss_desired_penetration_dist(
     cached_target_points: Optional[torch.Tensor] = None,
     cached_contact_nearest_point_indexes: Optional[torch.Tensor] = None,
     dist_thresh_to_move_finger: float = 0.01,
-    desired_penetration_dist: float = 0.003,
+    desired_penetration_depth: float = 0.003,
     return_debug_info: bool = False,
 ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
     num_links = len(hand_model.mesh)
@@ -147,7 +147,7 @@ def compute_loss_desired_penetration_dist(
 
     if cached_target_points is None:
         target_points = contact_points_hand - contact_normals * (
-            contact_distances[..., None] + desired_penetration_dist
+            contact_distances[..., None] + desired_penetration_depth
         )
     else:
         target_points = cached_target_points
@@ -258,16 +258,16 @@ def compute_optimized_joint_angle_targets(
 
     losses = []
     debug_infos = []
-    if optimization_method == OptimizationMethod.DESIRED_PENETRATION_DIST:
+    if optimization_method == OptimizationMethod.DESIRED_PENETRATION_DEPTH:
         N_ITERS = 100
         for i in range(N_ITERS):
-            loss, debug_info = compute_loss_desired_penetration_dist(
+            loss, debug_info = compute_loss_desired_penetration_depth(
                 joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
                 hand_model=hand_model,
                 object_model=object_model,
                 device=device,
                 dist_thresh_to_move_finger=0.01,
-                desired_penetration_dist=0.005,
+                desired_penetration_depth=0.005,
                 return_debug_info=True,
             )
             grad_step_size = 50
@@ -281,7 +281,7 @@ def compute_optimized_joint_angle_targets(
             losses.append(loss.item())
             debug_infos.append(debug_info)
 
-    elif optimization_method == OptimizationMethod.DESIRED_DIST_MOVE_ONE_STEP:
+    elif optimization_method == OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_ONE_STEP:
         N_ITERS = 1
         for i in range(N_ITERS):
             loss, debug_info = compute_loss_desired_dist_move(
@@ -305,7 +305,7 @@ def compute_optimized_joint_angle_targets(
             losses.append(loss.item())
             debug_infos.append(debug_info)
 
-    elif optimization_method == OptimizationMethod.DESIRED_DIST_MOVE_MULTIPLE_STEPS:
+    elif optimization_method == OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS:
         N_ITERS = 100
         # Use cached target and indices to continue moving the same points toward the same targets for each iter
         # Otherwise, would be moving different points to different targets each iter
@@ -343,7 +343,7 @@ def compute_optimized_joint_angle_targets(
 
     elif (
         optimization_method
-        == OptimizationMethod.DESIRED_DIST_MOVE_TOWARDS_CENTER_ONE_STEP
+        == OptimizationMethod.DESIRED_DIST_TOWARDS_FINGERS_CENTER_ONE_STEP
     ):
         N_ITERS = 1
         num_links = len(hand_model.mesh)
@@ -376,7 +376,7 @@ def compute_optimized_joint_angle_targets(
 
     elif (
         optimization_method
-        == OptimizationMethod.DESIRED_DIST_MOVE_TOWARDS_CENTER_MULTIPLE_STEP
+        == OptimizationMethod.DESIRED_DIST_TOWARDS_FINGERS_CENTER_MULTIPLE_STEP
     ):
         N_ITERS = 100
         # Use cached target and indices to continue moving the same points toward the same targets for each iter
@@ -435,9 +435,12 @@ def compute_optimized_canonicalized_hand_pose(
     hand_model: HandModel,
     object_model: ObjectModel,
     device: torch.device,
+    dist_thresh_to_move_finger: float = 0.01,
+    desired_dist_from_object: float = 0.005,
 ) -> Tuple[torch.Tensor, List[float], List[Dict[str, Any]]]:
-    # TODO: Many of the parameters here are hardcoded
+    # Canonicalized hand pose = hand pose modified so that the fingers are desired_dist_from_object away from the object
     # TODO: Consider optimization T and R as well (not just joint angles)
+    desired_penetration_depth = -desired_dist_from_object
     original_hand_pose = hand_model.hand_pose.detach().clone()
     joint_angle_targets_to_optimize = (
         original_hand_pose.detach().clone()[:, 9:].requires_grad_(True)
@@ -449,15 +452,16 @@ def compute_optimized_canonicalized_hand_pose(
     cached_target_points = None
     cached_contact_nearest_point_indexes = None
     for i in range(N_ITERS):
-        loss, debug_info = compute_loss_desired_penetration_dist(
+        desired_penetration_depth = -desired_dist_from_object
+        loss, debug_info = compute_loss_desired_penetration_depth(
             joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
             hand_model=hand_model,
             object_model=object_model,
             device=device,
             cached_target_points=cached_target_points,
             cached_contact_nearest_point_indexes=cached_contact_nearest_point_indexes,
-            dist_thresh_to_move_finger=0.01,
-            desired_penetration_dist=-0.005,
+            dist_thresh_to_move_finger=dist_thresh_to_move_finger,
+            desired_penetration_depth=desired_penetration_depth,
             return_debug_info=True,
         )
         if cached_target_points is None:
