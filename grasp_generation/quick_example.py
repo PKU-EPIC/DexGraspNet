@@ -40,11 +40,11 @@ from utils.joint_angle_targets import (
 mesh_path = "../data/meshdata"
 data_path = "../data/graspdata_2023-05-24_allegro_distalonly/"
 hand_model_type = HandModelType.ALLEGRO_HAND
-seed = 5
+seed = 11
 joint_angle_targets_optimization_method = (
-    OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
+    OptimizationMethod.DESIRED_PENETRATION_DEPTH
 )
-should_canonicalize_hand_pose = False
+should_canonicalize_hand_pose = True
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # %% [markdown]

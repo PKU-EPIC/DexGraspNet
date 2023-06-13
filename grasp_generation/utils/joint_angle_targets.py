@@ -260,17 +260,27 @@ def compute_optimized_joint_angle_targets(
     debug_infos = []
     if optimization_method == OptimizationMethod.DESIRED_PENETRATION_DEPTH:
         N_ITERS = 100
+        cached_target_points = None
+        cached_contact_nearest_point_indexes = None
         for i in range(N_ITERS):
             loss, debug_info = compute_loss_desired_penetration_depth(
                 joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
                 hand_model=hand_model,
                 object_model=object_model,
                 device=device,
+                cached_target_points=cached_target_points,
+                cached_contact_nearest_point_indexes=cached_contact_nearest_point_indexes,
                 dist_thresh_to_move_finger=0.01,
                 desired_penetration_depth=0.005,
                 return_debug_info=True,
             )
-            grad_step_size = 50
+            if cached_target_points is None:
+                cached_target_points = debug_info["target_points"]
+            if cached_contact_nearest_point_indexes is None:
+                cached_contact_nearest_point_indexes = debug_info[
+                    "contact_nearest_point_indexes"
+                ]
+            grad_step_size = 5
             loss.backward(retain_graph=True)
 
             with torch.no_grad():
@@ -362,7 +372,7 @@ def compute_optimized_joint_angle_targets(
                 dist_move_link=0.001,
                 return_debug_info=True,
             )
-            grad_step_size = 10
+            grad_step_size = 5
 
             loss.backward(retain_graph=True)
 
