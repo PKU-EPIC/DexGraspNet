@@ -250,6 +250,8 @@ class IsaacValidator:
 
         # Set hand dof props
         hand_props = gym.get_actor_dof_properties(env, hand_actor_handle)
+
+        # TODO: Consider making finger joints pos controlled and virtual joints vel controlled
         hand_props["driveMode"].fill(gymapi.DOF_MODE_POS)
 
         # Finger joints

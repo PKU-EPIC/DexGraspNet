@@ -39,7 +39,7 @@ from utils.energy import _cal_hand_object_penetration
 class ValidateGraspArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.SHADOW_HAND
     optimization_method: OptimizationMethod = (
-        OptimizationMethod.DESIRED_PENETRATION_DEPTH
+        OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
     )
     validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
     gpu: int = 0
