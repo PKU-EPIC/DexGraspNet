@@ -20,6 +20,53 @@ import torch
 from enum import Enum, auto
 from typing import List, Optional
 
+## NERF GRASPING START ##
+
+import numpy as np
+import os
+import json
+from pathlib import Path
+import shutil
+from PIL import Image
+
+from utils.quaternions import Quaternion
+
+CAMERA_IMG_HEIGHT, CAMERA_IMG_WIDTH = 400, 400
+CAMERA_HORIZONTAL_FOV_DEG = 35.0
+CAMERA_VERTICAL_FOV_DEG = (
+    CAMERA_IMG_HEIGHT / CAMERA_IMG_WIDTH
+) * CAMERA_HORIZONTAL_FOV_DEG
+OBJ_SEGMENTATION_ID = 1
+
+
+def get_fixed_camera_transform(gym, sim, env, camera):
+    # currently x+ is pointing down camera view axis - other degree of freedom is messed up
+    # output will have x+ be optical axis, y+ pointing left (looking down camera) and z+ pointing up
+    t = gym.get_camera_transform(sim, env, camera)
+    pos = torch.tensor([t.p.x, t.p.y, t.p.z])
+    quat = Quaternion.fromWLast([t.r.x, t.r.y, t.r.z, t.r.w])
+
+    x_axis = torch.tensor([1.0, 0, 0])
+    # y_axis = torch.tensor([0, 1.0, 0])
+    z_axis = torch.tensor([0, 0, 1.0])
+
+    optical_axis = quat.rotate(x_axis)
+    side_left_axis = z_axis.cross(optical_axis)
+    up_axis = optical_axis.cross(side_left_axis)
+
+    optical_axis /= torch.norm(optical_axis)
+    side_left_axis /= torch.norm(side_left_axis)
+    up_axis /= torch.norm(up_axis)
+
+    rot_matrix = torch.stack([optical_axis, side_left_axis, up_axis], dim=-1)
+    fixed_quat = Quaternion.fromMatrix(rot_matrix)
+
+    return pos, fixed_quat
+
+
+## NERF GRASPING END ##
+
+
 gym = gymapi.acquire_gym()
 
 
@@ -51,7 +98,7 @@ class ValidationType(AutoName):
 class IsaacValidator:
     def __init__(
         self,
-        hand_model_type=HandModelType.SHADOW_HAND,
+        hand_model_type=HandModelType.ALLEGRO_HAND,
         mode="direct",
         hand_friction=3.0,
         obj_friction=3.0,
@@ -192,11 +239,11 @@ class IsaacValidator:
         self.is_paused = False
         self.is_step_mode = self.has_viewer and start_with_step_mode
 
-    def set_obj_asset(self, obj_root, obj_file):
-        # TODO: Maybe don't need to make new hand_asset each time this is called
         self.hand_asset = gym.load_asset(
             self.sim, self.hand_root, self.hand_file, self.hand_asset_options
         )
+
+    def set_obj_asset(self, obj_root, obj_file):
         self.obj_asset = gym.load_asset(
             self.sim, obj_root, obj_file, self.obj_asset_options
         )
@@ -235,11 +282,26 @@ class IsaacValidator:
         )
         self.envs.append(env)
 
+        self._setup_hand(
+            env, hand_quaternion, hand_translation, hand_qpos, test_rot, target_qpos
+        )
+
+        self._setup_obj(env, obj_scale, test_rot)
+
+    def _setup_hand(
+        self,
+        env,
+        hand_rotation,
+        hand_translation,
+        hand_qpos,
+        transformation,
+        target_qpos=None,
+    ):
         # Set hand pose
         hand_pose = gymapi.Transform()
         hand_pose.r = gymapi.Quat(*hand_quaternion[1:], hand_quaternion[0])
         hand_pose.p = gymapi.Vec3(*hand_translation)
-        hand_pose = test_rot * hand_pose
+        hand_pose = transformation * hand_pose
         self.init_hand_poses.append(hand_pose)
 
         # Create hand
@@ -303,16 +365,19 @@ class IsaacValidator:
         for i in range(len(hand_shape_props)):
             hand_shape_props[i].friction = self.hand_friction
         gym.set_actor_rigid_shape_properties(env, hand_actor_handle, hand_shape_props)
+        return
 
-        # Set obj pose
+    def _setup_obj(self, env, obj_scale, transformation):
         obj_pose = gymapi.Transform()
         obj_pose.p = gymapi.Vec3(0, 0, 0)
         obj_pose.r = gymapi.Quat(0, 0, 0, 1)
-        obj_pose = test_rot * obj_pose
+        obj_pose = transformation * obj_pose
         self.init_obj_poses.append(obj_pose)
 
         # Create obj
-        obj_actor_handle = gym.create_actor(env, self.obj_asset, obj_pose, "obj", 0, 1)
+        obj_actor_handle = gym.create_actor(
+            env, self.obj_asset, obj_pose, "obj", 0, 1, OBJ_SEGMENTATION_ID
+        )
         self.obj_handles.append(obj_actor_handle)
         gym.set_actor_scale(env, obj_actor_handle, obj_scale)
 
@@ -326,6 +391,7 @@ class IsaacValidator:
         for i in range(len(obj_shape_props)):
             obj_shape_props[i].friction = self.obj_friction
         gym.set_actor_rigid_shape_properties(env, obj_actor_handle, obj_shape_props)
+        return
 
     def run_sim(self):
         sim_step_idx = 0
@@ -606,13 +672,13 @@ class IsaacValidator:
                 gymutil.draw_line(origin_pos, pos, color, gym, self.viewer, env)
 
     def reset_simulator(self):
+        for env in self.envs:
+            gym.destroy_env(env)
         gym.destroy_sim(self.sim)
         if self.has_viewer:
             gym.destroy_viewer(self.sim)
             self.viewer = gym.create_viewer(self.sim, self.camera_props)
         self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
-        for env in self.envs:
-            gym.destroy_env(env)
         self.envs = []
         self.hand_handles = []
         self.obj_handles = []
@@ -656,3 +722,214 @@ class IsaacValidator:
         print(f"Simulation is {'paused' if self.is_paused else 'unpaused'}")
 
     ## KEYBOARD EVENT SUBSCRIPTIONS END ##
+
+    ## NERF DATA COLLECTION START ##
+    def add_env_nerf_data_collection(
+        self,
+        obj_scale,
+    ):
+        # Set test rotation
+        identity_transform = gymapi.Transform(
+            gymapi.Vec3(0, 0, 0), gymapi.Quat(0, 0, 0, 1)
+        )
+
+        # Create env
+        spacing = 1.0
+        env = gym.create_env(
+            self.sim,
+            gymapi.Vec3(-spacing, -spacing, 0.0),
+            gymapi.Vec3(spacing, spacing, spacing),
+            0,  # TODO: Should it be 0?
+        )
+        self.envs.append(env)
+
+        self._setup_obj(env, obj_scale, identity_transform)
+
+    def save_images(self, folder, overwrite=False):
+        assert len(self.envs) == 1
+        self._setup_cameras(self.envs[0])
+
+        gym.step_graphics(self.sim)
+        gym.render_all_camera_sensors(self.sim)
+        path = self._setup_save_dir(folder, overwrite)
+
+        for ii, camera_handle in enumerate(self.camera_handles):
+            self._save_single_image(path, ii, camera_handle)
+        self._save_single_image(
+            path, "overhead", self.overhead_camera_handle, numpy_depth=True
+        )
+
+        # Avoid segfault if run multiple times by destroying camera sensors
+        self._destroy_cameras(self.envs[0])
+
+    def _setup_cameras(self, env):
+        camera_props = gymapi.CameraProperties()
+        camera_props.horizontal_fov = CAMERA_HORIZONTAL_FOV_DEG
+        camera_props.width = CAMERA_IMG_WIDTH
+        camera_props.height = CAMERA_IMG_HEIGHT
+
+        # generates cameara positions along rings around object
+        heights = [0.1, 0.3, 0.25, 0.35]
+        distances = [0.2, 0.2, 0.3, 0.3]
+        counts = [64, 64, 64, 64]
+        target_y = [0.0, 0.1, 0.0, 0.1]
+
+        camera_positions = []
+        for h, d, c, y in zip(heights, distances, counts, target_y):
+            for alpha in np.linspace(0, 2 * np.pi, c, endpoint=False):
+                pos = [d * np.sin(alpha), h, d * np.cos(alpha)]
+                camera_positions.append((pos, y))
+
+        self.camera_handles = []
+        for pos, y in camera_positions:
+            camera_handle = gym.create_camera_sensor(env, camera_props)
+            gym.set_camera_location(
+                camera_handle, env, gymapi.Vec3(*pos), gymapi.Vec3(0, y, 0)
+            )
+
+            self.camera_handles.append(camera_handle)
+
+        self.overhead_camera_handle = gym.create_camera_sensor(env, camera_props)
+        gym.set_camera_location(
+            self.overhead_camera_handle,
+            env,
+            gymapi.Vec3(0, 0.5, 0.001),
+            gymapi.Vec3(0, 0.01, 0),
+        )
+
+    def _destroy_cameras(self, env):
+        for camera_handle in self.camera_handles:
+            gym.destroy_camera_sensor(self.sim, env, camera_handle)
+        gym.destroy_camera_sensor(self.sim, env, self.overhead_camera_handle)
+
+    def _setup_save_dir(self, folder, overwrite=False):
+        path = Path(folder)
+
+        if path.exists():
+            print(path, "already exists!")
+            if overwrite:
+                shutil.rmtree(path)
+            elif input("Clear it before continuing? [y/N]:").lower() == "y":
+                shutil.rmtree(path)
+
+        path.mkdir()
+        return path
+
+    def _save_single_image(self, path, ii, camera_handle, numpy_depth=False, debug=False):
+        if debug:
+            print(f"saving camera {ii}")
+        env_idx = 0
+        env = self.envs[env_idx]
+
+        color_image = gym.get_camera_image(
+            self.sim, env, camera_handle, gymapi.IMAGE_COLOR
+        )
+        color_image = color_image.reshape(CAMERA_IMG_HEIGHT, CAMERA_IMG_WIDTH, -1)
+        Image.fromarray(color_image).save(path / f"col_{ii}.png")
+
+        segmentation_image = gym.get_camera_image(
+            self.sim, env, camera_handle, gymapi.IMAGE_SEGMENTATION
+        )
+        segmentation_image = segmentation_image == OBJ_SEGMENTATION_ID
+        segmentation_image = (
+            segmentation_image.reshape(CAMERA_IMG_HEIGHT, CAMERA_IMG_WIDTH) * 255
+        ).astype(np.uint8)
+        Image.fromarray(segmentation_image).convert("L").save(path / f"seg_{ii}.png")
+
+        depth_image = gym.get_camera_image(
+            self.sim, env, camera_handle, gymapi.IMAGE_DEPTH
+        )
+        # distance in units I think
+        depth_image = -depth_image.reshape(CAMERA_IMG_HEIGHT, CAMERA_IMG_WIDTH)
+        if numpy_depth:
+            np.save(path / f"dep_{ii}.npy", depth_image)
+        else:
+            depth_image = (np.clip(depth_image, 0.0, 1.0) * 255).astype(np.uint8)
+            Image.fromarray(depth_image).convert("L").save(path / f"dep_{ii}.png")
+
+        pos, quat = get_fixed_camera_transform(gym, self.sim, env, camera_handle)
+
+        with open(path / f"pos_xyz_quat_xyzw_{ii}.txt", "w+") as f:
+            data = [*pos.tolist(), *quat.q[1:].tolist(), quat.q[0].tolist()]
+            json.dump(data, f)
+
+    def create_train_val_test_split(self, folder, train_frac, val_frac):
+        num_imgs = len(self.camera_handles)
+        num_train = int(train_frac * num_imgs)
+        num_val = int(val_frac * num_imgs)
+        num_test = num_imgs - num_train - num_val
+        print(f"num_imgs = {num_imgs}")
+        print(f"num_train = {num_train}")
+        print(f"num_val = {num_val}")
+        print(f"num_test = {num_test}")
+        print()
+
+        img_range = np.arange(num_imgs)
+
+        np.random.shuffle(img_range)
+        train_range = img_range[:num_train]
+        test_range = img_range[num_train : (num_train + num_test)]
+        val_range = img_range[(num_train + num_test) :]
+
+        self._create_one_split(
+            split_name="train", split_range=train_range, folder=folder
+        )
+        self._create_one_split(split_name="val", split_range=val_range, folder=folder)
+        self._create_one_split(split_name="test", split_range=test_range, folder=folder)
+
+    def _create_one_split(self, split_name, split_range, folder):
+        import scipy
+
+        json_dict = {
+            "camera_angle_x": math.radians(CAMERA_HORIZONTAL_FOV_DEG),
+            "camera_angle_y": math.radians(CAMERA_VERTICAL_FOV_DEG),
+            "frames": [],
+        }
+        for ii in split_range:
+            pose_file = os.path.join(folder, f"pos_xyz_quat_xyzw_{ii}.txt")
+            with open(pose_file) as file:
+                raw_pose_str = file.readline()[1:-1]  # Remove brackets
+                pose = np.fromstring(raw_pose_str, sep=",")
+
+                transform_mat = np.eye(4)
+                pos, quat = pose[:3], pose[-4:]
+                R = scipy.spatial.transform.Rotation.from_quat(quat).as_matrix()
+                R = (
+                    R
+                    @ scipy.spatial.transform.Rotation.from_euler(
+                        "YZ", [-np.pi / 2, -np.pi / 2]
+                    ).as_matrix()
+                )
+                transform_mat[:3, :3] = R
+                transform_mat[:3, -1] = pos
+
+                source_img = "col_" + str(ii)
+
+                new_folder = os.path.join(folder, split_name)
+                os.makedirs(new_folder, exist_ok=True)
+
+                source_img = os.path.join(folder, f"col_{ii}.png")
+                target_img = os.path.join(new_folder, f"{ii}.png")
+                shutil.copyfile(source_img, target_img)
+
+                # Remove the first part of the path
+                target_img_split = target_img.split("/")
+                target_img = os.path.join(
+                    *target_img_split[target_img_split.index(split_name) :]
+                )
+
+                json_dict["frames"].append(
+                    {
+                        "transform_matrix": transform_mat.tolist(),
+                        "file_path": os.path.splitext(target_img)[
+                            0
+                        ],  # Exclude ext because adds it in load
+                    }
+                )
+
+        with open(
+            os.path.join(folder, f"transforms_{split_name}.json"), "w"
+        ) as outfile:
+            outfile.write(json.dumps(json_dict))
+
+    ## NERF DATA COLLECTION END ##

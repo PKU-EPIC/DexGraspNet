@@ -22,7 +22,7 @@ from utils.qpos_pose_conversion import qpos_to_pose
 
 
 class VisualizeResultArgumentParser(Tap):
-    hand_model_type: HandModelType = HandModelType.SHADOW_HAND
+    hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     object_code: str = "sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2"
     num: int = 0
     result_path: str = "../data/dataset"

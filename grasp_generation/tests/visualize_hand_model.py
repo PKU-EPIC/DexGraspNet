@@ -31,7 +31,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 
 
 class VisualizeHandModelArgumentParser(Tap):
-    hand_model_type: HandModelType = HandModelType.SHADOW_HAND
+    hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
 
 
 if __name__ == "__main__":
