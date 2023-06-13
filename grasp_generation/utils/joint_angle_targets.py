@@ -466,7 +466,7 @@ def compute_optimized_canonicalized_hand_pose(
             cached_contact_nearest_point_indexes = debug_info[
                 "contact_nearest_point_indexes"
             ]
-        grad_step_size = 50
+        grad_step_size = 5
         loss.backward(retain_graph=True)
 
         with torch.no_grad():
