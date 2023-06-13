@@ -11,11 +11,18 @@ sys.path.append(os.path.realpath("."))
 
 from utils.isaac_validator import IsaacValidator
 from utils.object_model import ObjectModel
-import argparse
 from utils.seed import set_seed
+from tap import Tap
 
 
-def main(args):
+class GenerateNerfDataArgumentParser(Tap):
+    gpu: int = 0
+    mesh_path: str = "../data/meshdata"
+    output_nerf_path: str = "../data/nerfdata"
+    object_code: str = "sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2"
+
+
+def main(args: GenerateNerfDataArgumentParser):
     set_seed(42)
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
@@ -35,20 +42,16 @@ def main(args):
     sim.add_env_nerf_data_collection(
         obj_scale=scale,
     )
-    output_nerf_path = os.path.join(args.output_nerf_path, args.object_code)
-    os.makedirs(output_nerf_path, exist_ok=True)
-    sim.save_images(folder=output_nerf_path)
-    sim.create_train_val_test_split(folder=output_nerf_path, train_frac=0.8, val_frac=0.1)
+    os.makedirs(args.output_nerf_path, exist_ok=True)
+
+    output_nerf_object_path = os.path.join(args.output_nerf_path, args.object_code)
+    sim.save_images(folder=output_nerf_object_path)
+    sim.create_train_val_test_split(
+        folder=output_nerf_object_path, train_frac=0.8, val_frac=0.1
+    )
     sim.destroy()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--gpu", default=3, type=int)
-    parser.add_argument("--mesh_path", default="../data/meshdata", type=str)
-    parser.add_argument("--output_nerf_path", default="../data/nerfdata", type=str)
-    parser.add_argument(
-        "--object_code", default="sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2", type=str
-    )
-    args = parser.parse_args()
+    args = GenerateNerfDataArgumentParser().parse_args()
     main(args)

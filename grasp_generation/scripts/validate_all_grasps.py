@@ -10,7 +10,7 @@ from tap import Tap
 
 
 class ValidateAllGraspsArgumentParser(Tap):
-    hand_model_type: HandModelType = HandModelType.SHADOW_HAND
+    hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     gpu: int = 0
     grasp_path: str = "../data/graspdata_2023-05-24_allegro_distalonly"
     result_path: str = "../data/dataset_2023-05-24_allegro_distalonly"

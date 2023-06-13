@@ -36,6 +36,8 @@ CAMERA_HORIZONTAL_FOV_DEG = 35.0
 CAMERA_VERTICAL_FOV_DEG = (
     CAMERA_IMG_HEIGHT / CAMERA_IMG_WIDTH
 ) * CAMERA_HORIZONTAL_FOV_DEG
+OBJ_SEGMENTATION_ID = 1
+
 
 def get_fixed_camera_transform(gym, sim, env, camera):
     # currently x+ is pointing down camera view axis - other degree of freedom is messed up
@@ -61,10 +63,10 @@ def get_fixed_camera_transform(gym, sim, env, camera):
 
     return pos, fixed_quat
 
+
 ## NERF GRASPING END ##
 
 
-OBJ_SEGMENTATION_ID = 1
 gym = gymapi.acquire_gym()
 
 
@@ -93,11 +95,10 @@ class ValidationType(AutoName):
     NO_GRAVITY_SHAKING = auto()
 
 
-
 class IsaacValidator:
     def __init__(
         self,
-        hand_model_type=HandModelType.SHADOW_HAND,
+        hand_model_type=HandModelType.ALLEGRO_HAND,
         mode="direct",
         hand_friction=3.0,
         obj_friction=3.0,
@@ -281,11 +282,21 @@ class IsaacValidator:
         )
         self.envs.append(env)
 
-        self._setup_hand(env, hand_rotation, hand_translation, hand_qpos, test_rot, target_qpos)
+        self._setup_hand(
+            env, hand_quaternion, hand_translation, hand_qpos, test_rot, target_qpos
+        )
 
         self._setup_obj(env, obj_scale, test_rot)
 
-    def _setup_hand(self, env, hand_rotation, hand_translation, hand_qpos, transformation, target_qpos=None):
+    def _setup_hand(
+        self,
+        env,
+        hand_rotation,
+        hand_translation,
+        hand_qpos,
+        transformation,
+        target_qpos=None,
+    ):
         # Set hand pose
         hand_pose = gymapi.Transform()
         hand_pose.r = gymapi.Quat(*hand_quaternion[1:], hand_quaternion[0])
@@ -356,15 +367,17 @@ class IsaacValidator:
         gym.set_actor_rigid_shape_properties(env, hand_actor_handle, hand_shape_props)
         return
 
-    def _setup_obj(self, env, obj_scale, test_rot):
+    def _setup_obj(self, env, obj_scale, transformation):
         obj_pose = gymapi.Transform()
         obj_pose.p = gymapi.Vec3(0, 0, 0)
         obj_pose.r = gymapi.Quat(0, 0, 0, 1)
-        obj_pose = test_rot * obj_pose
+        obj_pose = transformation * obj_pose
         self.init_obj_poses.append(obj_pose)
 
         # Create obj
-        obj_actor_handle = gym.create_actor(env, self.obj_asset, obj_pose, "obj", 0, 1, OBJ_SEGMENTATION_ID)
+        obj_actor_handle = gym.create_actor(
+            env, self.obj_asset, obj_pose, "obj", 0, 1, OBJ_SEGMENTATION_ID
+        )
         self.obj_handles.append(obj_actor_handle)
         gym.set_actor_scale(env, obj_actor_handle, obj_scale)
 
@@ -716,14 +729,17 @@ class IsaacValidator:
         obj_scale,
     ):
         # Set test rotation
-        identity_transform = gymapi.Transform(gymapi.Vec3(0, 0, 0), gymapi.Quat(0, 0, 0, 1))
+        identity_transform = gymapi.Transform(
+            gymapi.Vec3(0, 0, 0), gymapi.Quat(0, 0, 0, 1)
+        )
 
         # Create env
+        spacing = 1.0
         env = gym.create_env(
             self.sim,
-            gymapi.Vec3(-1, -1, -1),
-            gymapi.Vec3(1, 1, 1),
-            1,
+            gymapi.Vec3(-spacing, -spacing, 0.0),
+            gymapi.Vec3(spacing, spacing, spacing),
+            0,  # TODO: Should it be 0?
         )
         self.envs.append(env)
 
@@ -740,18 +756,19 @@ class IsaacValidator:
         heights = [0.1, 0.3, 0.25, 0.35]
         distances = [0.2, 0.2, 0.3, 0.3]
         counts = [64, 64, 64, 64]
-        target_z = [0.0, 0.1, 0.0, 0.1]
+        target_y = [0.0, 0.1, 0.0, 0.1]
 
         camera_positions = []
-        for h, d, c, z in zip(heights, distances, counts, target_z):
+        for h, d, c, y in zip(heights, distances, counts, target_y):
             for alpha in np.linspace(0, 2 * np.pi, c, endpoint=False):
-                camera_positions.append(([d * np.sin(alpha), d * np.cos(alpha), h], z))
+                pos = [d * np.sin(alpha), h, d * np.cos(alpha)]
+                camera_positions.append((pos, y))
 
         self.camera_handles = []
-        for pos, z in camera_positions:
+        for pos, y in camera_positions:
             camera_handle = gym.create_camera_sensor(env, camera_props)
             gym.set_camera_location(
-                camera_handle, env, gymapi.Vec3(*pos), gymapi.Vec3(0, 0, z)
+                camera_handle, env, gymapi.Vec3(*pos), gymapi.Vec3(0, y, 0)
             )
 
             self.camera_handles.append(camera_handle)
@@ -760,17 +777,20 @@ class IsaacValidator:
         gym.set_camera_location(
             self.overhead_camera_handle,
             env,
-            gymapi.Vec3(0, 0.001, 0.5),
-            gymapi.Vec3(0, 0, 0.01),
+            gymapi.Vec3(0, 0.5, 0.001),
+            gymapi.Vec3(0, 0.01, 0),
         )
 
     def save_images(self, folder, overwrite=False):
+        gym.step_graphics(self.sim)
         gym.render_all_camera_sensors(self.sim)
         path = self.setup_save_dir(folder, overwrite)
 
         for ii, camera_handle in enumerate(self.camera_handles):
             self.save_single_image(path, ii, camera_handle)
-        self.save_single_image(path, "overhead", self.overhead_camera_handle, numpy_depth=True)
+        self.save_single_image(
+            path, "overhead", self.overhead_camera_handle, numpy_depth=True
+        )
 
     def setup_save_dir(self, folder, overwrite=False):
         path = Path(folder)
@@ -816,9 +836,7 @@ class IsaacValidator:
             depth_image = (np.clip(depth_image, 0.0, 1.0) * 255).astype(np.uint8)
             Image.fromarray(depth_image).convert("L").save(path / f"dep_{ii}.png")
 
-        pos, quat = get_fixed_camera_transform(
-            gym, self.sim, env, camera_handle
-        )
+        pos, quat = get_fixed_camera_transform(gym, self.sim, env, camera_handle)
 
         with open(path / f"pos_xyz_quat_xyzw_{ii}.txt", "w+") as f:
             data = [*pos.tolist(), *quat.q[1:].tolist(), quat.q[0].tolist()]

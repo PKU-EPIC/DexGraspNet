@@ -13,7 +13,6 @@ from utils.isaac_validator import IsaacValidator, ValidationType
 from tap import Tap
 import torch
 import numpy as np
-import transforms3d
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 from utils.hand_model_type import (
@@ -37,7 +36,7 @@ from utils.energy import _cal_hand_object_penetration
 
 
 class ValidateGraspArgumentParser(Tap):
-    hand_model_type: HandModelType = HandModelType.SHADOW_HAND
+    hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     optimization_method: OptimizationMethod = (
         OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
     )

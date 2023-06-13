@@ -6,7 +6,7 @@ from typing import List, Optional
 
 class GenerateGraspsArgumentParser(Tap):
     # experiment settings
-    hand_model_type: HandModelType = HandModelType.SHADOW_HAND
+    hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     wandb_name: str = ""
     visualization_freq: int = 2000
     result_path: str = "../data/graspdata"
