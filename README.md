@@ -6,6 +6,19 @@ This is the official repository of [DexGraspNet: A Large-Scale Robotic Dexterous
 
 ## How to Run Roughly Pipeline (Updated by Tyler 2023-06-13)
 
+### 0. Setup Env
+
+Follow instructions in `grasp_generation` README to install (be careful about the versions to get all torch dependencies working!)
+
+Non-exhaustive hints/things to try/install related to above:
+
+```
+conda install pytorch=1.10 torchvision torchaudio cudatoolkit=11.3 -c pytorch
+pip install transforms3d trimesh plotly urdf_parser_py scipy networkx rtree
+pip install typed-argument-parser
+pip install pandas ipdb wandb jupyterlab jupytext
+```
+
 ### 1. Grasp Generation
 
 From `grasp_generation`:
