@@ -672,13 +672,13 @@ class IsaacValidator:
                 gymutil.draw_line(origin_pos, pos, color, gym, self.viewer, env)
 
     def reset_simulator(self):
+        for env in self.envs:
+            gym.destroy_env(env)
         gym.destroy_sim(self.sim)
         if self.has_viewer:
             gym.destroy_viewer(self.sim)
             self.viewer = gym.create_viewer(self.sim, self.camera_props)
         self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
-        for env in self.envs:
-            gym.destroy_env(env)
         self.envs = []
         self.hand_handles = []
         self.obj_handles = []
@@ -744,9 +744,25 @@ class IsaacValidator:
         self.envs.append(env)
 
         self._setup_obj(env, obj_scale, identity_transform)
-        self.setup_cameras(env)
 
-    def setup_cameras(self, env):
+    def save_images(self, folder, overwrite=False):
+        assert len(self.envs) == 1
+        self._setup_cameras(self.envs[0])
+
+        gym.step_graphics(self.sim)
+        gym.render_all_camera_sensors(self.sim)
+        path = self._setup_save_dir(folder, overwrite)
+
+        for ii, camera_handle in enumerate(self.camera_handles):
+            self._save_single_image(path, ii, camera_handle)
+        self._save_single_image(
+            path, "overhead", self.overhead_camera_handle, numpy_depth=True
+        )
+
+        # Avoid segfault if run multiple times by destroying camera sensors
+        self._destroy_cameras(self.envs[0])
+
+    def _setup_cameras(self, env):
         camera_props = gymapi.CameraProperties()
         camera_props.horizontal_fov = CAMERA_HORIZONTAL_FOV_DEG
         camera_props.width = CAMERA_IMG_WIDTH
@@ -781,18 +797,12 @@ class IsaacValidator:
             gymapi.Vec3(0, 0.01, 0),
         )
 
-    def save_images(self, folder, overwrite=False):
-        gym.step_graphics(self.sim)
-        gym.render_all_camera_sensors(self.sim)
-        path = self.setup_save_dir(folder, overwrite)
+    def _destroy_cameras(self, env):
+        for camera_handle in self.camera_handles:
+            gym.destroy_camera_sensor(self.sim, env, camera_handle)
+        gym.destroy_camera_sensor(self.sim, env, self.overhead_camera_handle)
 
-        for ii, camera_handle in enumerate(self.camera_handles):
-            self.save_single_image(path, ii, camera_handle)
-        self.save_single_image(
-            path, "overhead", self.overhead_camera_handle, numpy_depth=True
-        )
-
-    def setup_save_dir(self, folder, overwrite=False):
+    def _setup_save_dir(self, folder, overwrite=False):
         path = Path(folder)
 
         if path.exists():
@@ -805,8 +815,9 @@ class IsaacValidator:
         path.mkdir()
         return path
 
-    def save_single_image(self, path, ii, camera_handle, numpy_depth=False):
-        print(f"saving camera {ii}")
+    def _save_single_image(self, path, ii, camera_handle, numpy_depth=False, debug=False):
+        if debug:
+            print(f"saving camera {ii}")
         env_idx = 0
         env = self.envs[env_idx]
 
