@@ -23,6 +23,7 @@ class GenerateNerfDataArgumentParser(Tap):
 
 
 def main(args: GenerateNerfDataArgumentParser):
+    # TODO: Currently assumes origin of urdf is ~same as centroid of mesh
     set_seed(42)
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
