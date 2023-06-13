@@ -652,7 +652,7 @@ class HandModel:
         dis = torch.max(torch.stack(dis, dim=0), dim=0)[0]
         return dis
 
-    def self_penetration(self):
+    def cal_self_penetration_energy(self):
         """
         Calculate self penetration energy
 
@@ -700,6 +700,28 @@ class HandModel:
         dis = 0.02 - dis
         E_spen = torch.where(dis > 0, dis, torch.zeros_like(dis))
         return E_spen.sum((1, 2))
+
+    def cal_joint_limit_energy(self):
+        joint_limit_energy = torch.sum(
+            (self.hand_pose[:, 9:] > self.joints_upper)
+            * (self.hand_pose[:, 9:] - self.joints_upper),
+            dim=-1,
+        ) + torch.sum(
+            (self.hand_pose[:, 9:] < self.joints_lower)
+            * (self.joints_lower - self.hand_pose[:, 9:]),
+            dim=-1,
+        )
+        return joint_limit_energy
+
+    def cal_finger_finger_distance_energy(self):
+        batch_size = self.contact_points.shape[0]
+        finger_finger_distance_energy = -torch.cdist(self.contact_points, self.contact_points, p=2).reshape(batch_size, -1).sum(dim=-1)
+        return finger_finger_distance_energy
+
+    def cal_palm_finger_distance_energy(self):
+        palm_position = self.global_translation[:, None, :]
+        palm_finger_distance_energy = -(palm_position - self.contact_points).norm(dim=-1).sum(dim=-1)
+        return palm_finger_distance_energy
 
     def get_surface_points(self):
         """
