@@ -33,6 +33,7 @@ from utils.joint_angle_targets import (
     OptimizationMethod,
     compute_optimized_canonicalized_hand_pose,
 )
+from utils.energy import _cal_hand_object_penetration
 
 
 class ValidateGraspArgumentParser(Tap):
@@ -51,7 +52,7 @@ class ValidateGraspArgumentParser(Tap):
     index: Optional[int] = None
     start_with_step_mode: bool = False
     no_force: bool = False
-    penetration_threshold: float = 0.001
+    penetration_threshold: Optional[float] = None
     canonicalize_grasp: bool = False
 
 
@@ -134,6 +135,36 @@ def compute_joint_angle_targets(
     )
 
     return optimized_joint_angle_targets
+
+
+def compute_E_pen(
+    args: ValidateGraspArgumentParser,
+    hand_pose_array: List[torch.Tensor],
+    scale_array: List[float],
+) -> torch.Tensor:
+    assert len(hand_pose_array) == len(scale_array)
+
+    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+    batch_size = len(hand_pose_array)
+
+    # hand model
+    hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
+    hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
+
+    # object model
+    object_model = ObjectModel(
+        data_root_path=args.mesh_path,
+        batch_size_each=batch_size,
+        num_samples=2000,
+        device=device,
+    )
+    object_model.initialize(args.object_code)
+    object_model.object_scale_tensor = (
+        torch.tensor(scale_array).reshape(1, -1).to(device)
+    )  # 1 because 1 object code
+
+    E_pen = _cal_hand_object_penetration(hand_model, object_model)
+    return E_pen
 
 
 def main(args: ValidateGraspArgumentParser):
@@ -227,6 +258,17 @@ def main(args: ValidateGraspArgumentParser):
                 )
             )
 
+        # Update E_pen_array
+        E_pen_array = (
+            compute_E_pen(
+                args=args,
+                hand_pose_array=hand_pose_array,
+                scale_array=scale_array,
+            )
+            .cpu()
+            .numpy()
+        )
+
     # Compute joint angle targets
     if not args.no_force:
         joint_angle_targets_array = (
@@ -262,15 +304,12 @@ def main(args: ValidateGraspArgumentParser):
         )
         successes = sim.run_sim()
         print(f"successes = {successes}")
-        print(
-            " = ".join(
-                [
-                    "E_pen < args.penetration_threshold",
-                    f"{E_pen_array[index]:.7f} < {args.penetration_threshold:.7f}",
-                    f"{E_pen_array[index] < args.penetration_threshold}",
-                ]
+        print(f"E_pen = {E_pen_array[index]:.7f}")
+        if args.penetration_threshold is not None:
+            print(f"args.penetration_threshold = {args.penetration_threshold:.7f}")
+            print(
+                f"E_pen < args.penetration_threshold = {E_pen_array[index] < args.penetration_threshold}"
             )
-        )
 
     # Run validation on all grasps
     else:
@@ -307,7 +346,11 @@ def main(args: ValidateGraspArgumentParser):
                 == num_envs_per_grasp
             )
 
-        passed_penetration_threshold = E_pen_array < args.penetration_threshold
+        passed_penetration_threshold = (
+            E_pen_array < args.penetration_threshold
+            if args.penetration_threshold is not None
+            else np.ones(batch_size, dtype=np.bool8)
+        )
         valid = passed_simulation * passed_penetration_threshold
         print(
             f"passed_penetration_threshold: {passed_penetration_threshold.sum().item()}/{batch_size}, "
@@ -317,10 +360,14 @@ def main(args: ValidateGraspArgumentParser):
         success_data_dicts = []
         for i in range(batch_size):
             if valid[i]:
-                new_data_dict = {}
-                new_data_dict["qpos"] = data_dict[i]["qpos"]
-                new_data_dict["scale"] = data_dict[i]["scale"]
-                success_data_dicts.append(new_data_dict)
+                success_data_dicts.append(
+                    {
+                        "qpos": pose_to_qpos(
+                            hand_pose=hand_pose_array[i], joint_names=joint_names
+                        ),
+                        "scale": scale_array[i],
+                    }
+                )
 
         os.makedirs(args.result_path, exist_ok=True)
         np.save(
