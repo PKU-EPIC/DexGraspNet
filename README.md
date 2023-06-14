@@ -90,6 +90,13 @@ Takes about 5-10 min to train each NeRF. To get ~5k objects, takes about 17 days
 
 TODO (in nerf_grasping)
 
+Inputs:
+* grasp dataset with validation labels
+* nerf models to sample densities
+
+Outputs:
+* grasps with local features (nerf densities) and global features (ray origin and direction) with associated grasp labels 
+
 ### 6. Learned Metric Training
 
 TODO (in nerf_grasping)
