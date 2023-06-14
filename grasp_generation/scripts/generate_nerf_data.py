@@ -12,12 +12,14 @@ sys.path.append(os.path.realpath("."))
 from tap import Tap
 from tqdm import tqdm
 import subprocess
+from typing import Optional
 
 
 class GenerateNerfDataArgumentParser(Tap):
     gpu: int = 0
     mesh_path: str = "../data/meshdata"
     output_nerf_path: str = "../data/nerfdata"
+    randomize_order_seed: Optional[int] = None
 
 
 def main(args: GenerateNerfDataArgumentParser):
@@ -30,6 +32,13 @@ def main(args: GenerateNerfDataArgumentParser):
         for object_code in os.listdir(args.mesh_path)
         if os.path.isdir(os.path.join(args.mesh_path, object_code))
     ]
+
+    # Randomize order
+    if args.randomize_order_seed is not None:
+        import random
+        print(f"Randomizing order with seed {args.randomize_order_seed}")
+        random.Random(args.randomize_order_seed).shuffle(object_codes)
+
     for i, object_code in tqdm(
         enumerate(object_codes),
         desc="Generating NeRF data for all objects",
