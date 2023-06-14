@@ -30,6 +30,13 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
     set_seed(42)
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
+    output_nerf_object_path = os.path.join(
+        args.output_nerf_path, f"{args.object_code}_{args.object_scale:.2f}".replace(".", "_")
+    )
+    if os.path.exists(output_nerf_object_path):
+        print(f"Skipping {args.object_code} at scale {args.object_scale:.2f}")
+        return
+
     # Create sim
     sim = IsaacValidator(
         gpu=args.gpu,
@@ -44,9 +51,6 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
     sim.add_env_nerf_data_collection(
         obj_scale=args.object_scale,
 
-    )
-    output_nerf_object_path = os.path.join(
-        args.output_nerf_path, f"{args.object_code}_{args.object_scale:.2f}".replace(".", "_")
     )
     sim.save_images(folder=output_nerf_object_path)
     sim.create_train_val_test_split(
