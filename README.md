@@ -125,6 +125,11 @@ For allegro hand:
 * link 8 - 11 is ring finger (link 11 tip is ring fingertip)
 * link 12 - 15 is thumb (link 15 tip is thumbtip)
 
+allegro hand urdf:
+
+* Originally had urdf with no mass, so things exploded under contact. Now copied from simlabrobotics/allegro_hand_ros_v4: https://github.com/simlabrobotics/allegro_hand_ros_v4/blob/master/src/allegro_hand_description/allegro_hand_description_right.urdf
+* Modified urdf to have 6 virtual joints, which allow us to move the gripper in 6 DOF (used for shaking controller in validation) 
+
 # BELOW: Previous README
 
 ## Introduction
