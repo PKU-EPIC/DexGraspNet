@@ -33,6 +33,8 @@ CUDA_VISIBLE_DEVICES=0 python scripts/generate_grasps.py --all --wandb_name <wan
 
 This initializes the hand T, R, theta at a reasonable init state (with some randomness), then optimizes an energy composed of a weighted sum of energy terms. Then it stores the data in the result_path. This is very close to the DexGraspNet original implementation, with wandb logging, additional energy terms, etc.
 
+Takes ~30-45min to create 1000 grasps (500 grasps each for 2 objects). To get 1M grasps, would take about 27 days. Very slow, but we can scale horizontally and work with smaller datasets.
+
 Things that may be adjusted:
 
 * energy weights
@@ -49,6 +51,8 @@ CUDA_VISIBLE_DEVICES=0 python scripts/validate_all_grasps.py --grasp_path ../dat
 ```
 
 This reads in the generated grasps from the previous step and validates them in isaac. They start in the T, R, theta from before ("pregrasp"), then we use pytorch to compute finger target positions, then set joint PD targets ("close the hand"). We can either validate with NO_GRAVITY_SHAKING or GRAVITY_IN_6_DIRS. We are also doing a canonicalization step where we adjust the hand slightly from the original T, R, theta so that the close fingers are a fixed distance away from the object (5mm), and then the fingers each move in by a fixed distance (10mm). This consistency would help us when training the learned metric so that the "grasp trajectory lengths" are all equal (rather than having each finger move in a different distance). This is still in development, may need to be thought through so more if this needs to be adjusted.
+
+To validate 500 grasps (500 grasps per object), takes ~13 seconds on ws-13 (RTX A4000) but 3 min on ws-1 (TITAN Xp). If have faster one, can validate 1M grasps in about 7 hours. Very fast with better hardware.
 
 Things that may be adjusted:
 * Do a better validation check of self penetration or object penetration
@@ -68,6 +72,8 @@ CUDA_VISIBLE_DEVICES=0 python scripts/generate_nerf_data.py
 
 This saves nerf training data into a folder. Needs to repeat objects a few times for each size/scale. Currently, the urdf are all set up so that we can place the object at 0,0,0, and the mesh.bound will be centered at (0,0,0) already. 
 
+Takes ~60-80s to create data for 5 NeRFs (creating 5 scales for each object). To get ~5k objects (approx DexGraspNet object dataset), would take about 3.5 days. Not bad, especially since we can scale horizontally.
+
 Things that may be adjusted:
 
 * Camera positions and angles and number needed
@@ -78,6 +84,8 @@ Things that may be adjusted:
 
 TODO (in nerf_grasping)
 
+Takes about 5-10 min to train each NeRF. To get ~5k objects, takes about 17 days. A bit slow, but can work with less NeRFs and scale horizontally.
+
 ### 5. Learned Metric Dataset Generation
 
 TODO (in nerf_grasping)
@@ -85,6 +93,8 @@ TODO (in nerf_grasping)
 ### 6. Learned Metric Training
 
 TODO (in nerf_grasping)
+
+Depending on dataset size, can take 1 - 20 hours.
 
 ### 7. Grasp Planning w/ Learned Metric
 
