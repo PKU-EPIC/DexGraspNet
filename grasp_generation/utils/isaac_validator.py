@@ -768,14 +768,22 @@ class IsaacValidator:
         camera_props.width = CAMERA_IMG_WIDTH
         camera_props.height = CAMERA_IMG_HEIGHT
 
-        # generates cameara positions along rings around object
+        # generates camera positions along rings around object
         heights = [0.1, 0.3, 0.25, 0.35]
         distances = [0.2, 0.2, 0.3, 0.3]
-        counts = [64, 64, 64, 64]
+        counts = [16, 16, 16, 16]
         target_y = [0.0, 0.1, 0.0, 0.1]
 
+        # compute camera positions
         camera_positions = []
         for h, d, c, y in zip(heights, distances, counts, target_y):
+            for alpha in np.linspace(0, 2 * np.pi, c, endpoint=False):
+                pos = [d * np.sin(alpha), h, d * np.cos(alpha)]
+                camera_positions.append((pos, y))
+        # repeat all from under since there is no ground plane
+        for h, d, c, y in zip(heights, distances, counts, target_y):
+            h = -h
+            y = -y
             for alpha in np.linspace(0, 2 * np.pi, c, endpoint=False):
                 pos = [d * np.sin(alpha), h, d * np.cos(alpha)]
                 camera_positions.append((pos, y))
