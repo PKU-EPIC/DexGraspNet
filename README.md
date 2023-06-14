@@ -4,7 +4,7 @@ This is the official repository of [DexGraspNet: A Large-Scale Robotic Dexterous
 
 [[project page]](https://pku-epic.github.io/DexGraspNet/)
 
-## How to Run Roughly Pipeline (Updated by Tyler 2023-06-13)
+## Roughly How to Run Pipeline (Updated by Tyler 2023-06-13)
 
 ### 0. Setup Env
 
