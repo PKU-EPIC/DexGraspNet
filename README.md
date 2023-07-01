@@ -13,7 +13,24 @@ Follow instructions in `grasp_generation` README to install (be careful about th
 Non-exhaustive hints/things to try/install related to above:
 
 ```
+conda create -n dexgraspnet_env python=3.8
 conda install pytorch=1.10 torchvision torchaudio cudatoolkit=11.3 -c pytorch
+
+cd third_party
+git clone https://github.com/facebookresearch/pytorch3d.git
+cd pytorch3d && pip install -e .
+
+cd ../
+git clone https://github.com/wrc042/TorchSDF.git
+cd TorchSDF
+git checkout 0.1.0
+bash install.sh
+
+cd ../thirdparty/pytorch_kinematics
+pip install -e .
+
+# install isaacgym (https://developer.nvidia.com/isaac-gym)
+
 pip install transforms3d trimesh plotly urdf_parser_py scipy networkx rtree
 pip install typed-argument-parser
 pip install pandas ipdb wandb jupyterlab jupytext
