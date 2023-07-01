@@ -10,13 +10,13 @@ import sys
 # os.chdir(os.path.dirname(os.path.dirname(__file__)))
 sys.path.append(os.path.realpath("."))
 
-import numpy as np
-import trimesh as tm
 import plotly.graph_objects as go
 import plotly
 from utils.seed import set_seed
 import wandb
 from tqdm import tqdm
+from datetime import datetime
+from typing import List
 
 # Get path to this file
 path_to_this_file = os.path.dirname(os.path.realpath(__file__))
@@ -32,20 +32,16 @@ def download_plotly_files(run_path: str):
     folder_path = os.path.join(path_to_this_file, "wandb_files", run_path)
     os.makedirs(folder_path, exist_ok=True)
 
-    # Get plotly files
-    plotly_file_paths = []
-    files = run.files()
-    for f in tqdm(files, desc="Getting plotly files"):
-        if "plotly" not in f.name:
-            continue
-
+    unsorted_plotly_files = [f for f in run.files() if "plotly" in f.name]
+    sorted_plotly_files = sorted(
+        unsorted_plotly_files, key=lambda f: datetime.fromisoformat(f.updated_at)
+    )
+    for f in tqdm(sorted_plotly_files, desc="Downloading plotly files"):
         f.download(root=folder_path, exist_ok=True)
-        plotly_file_paths.append(os.path.join(folder_path, f.name))
+    print(f"Got {len(sorted_plotly_files)} files")
 
-    plotly_file_paths.sort()
-    print(f"Got {len(plotly_file_paths)} files")
-    print(f"First file: {plotly_file_paths[0]}")
-
+    plotly_file_paths = [os.path.join(folder_path, f.name) for f in sorted_plotly_files]
+    print(f"First files: {plotly_file_paths[:3]}")
     return plotly_file_paths
 
 
@@ -58,12 +54,15 @@ def main():
     print(f"Run path: {run_path}")
 
     # Get files from wandb
-    plotly_files = download_plotly_files(run_path)
+    plotly_file_paths = download_plotly_files(run_path)
 
     # Read in json files
     MAX_FIGS_TO_READ = 100
-    plotly_files = plotly_files[:MAX_FIGS_TO_READ]
-    orig_figs = [plotly.io.read_json(file=plotly_file) for plotly_file in plotly_files]
+    plotly_file_paths = plotly_file_paths[:MAX_FIGS_TO_READ]
+    orig_figs = [
+        plotly.io.read_json(file=plotly_file_path)
+        for plotly_file_path in plotly_file_paths
+    ]
 
     # Create new figure with all plots
     new_fig = go.Figure(
