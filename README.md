@@ -40,6 +40,86 @@ Random info:
 
 * We are using ALLEGRO_HAND entirely for now (SHADOW_HAND mostly compatible, but not focusing/developing much)
 
+Next, we need to get the DexGraspNet dataset from the website: https://pku-epic.github.io/DexGraspNet/
+
+```
+dexgraspnet.tar.gz (~355 MB)
+meshdata.tar.gz (~330MB)
+```
+
+This repo comes with a small version of these datasets with the same name, but I modified their names so they are called `mesh_smallversion` and `dataset_smallversion`.
+
+Move the above files into `data` and then unzip them with `tar -xf <filename>`.
+
+You should have the following directory structure:
+
+```
+data
+├── dataset_smallversion
+│   ├── core-mug-8570d9a8d24cb0acbebd3c0c0c70fb03.npy
+│   ├── ddg-gd_banana_poisson_002.npy
+│   ├── mujoco-Ecoforms_Plant_Plate_S11Turquoise.npy
+│   ├── sem-Bottle-437678d4bc6be981c8724d5673a063a6.npy
+│   └── sem-Camera-7bff4fd4dc53de7496dece3f86cb5dd5.npy
+├── dexgraspnet
+│   ├── core-bottle-1071fa4cddb2da2fc8724d5673a063a6.npy
+│   ├── core-bottle-109d55a137c042f5760315ac3bf2c13e.npy
+│   ├── core-bottle-10dff3c43200a7a7119862dbccbaa609.npy
+│   ├── core-bottle-10f709cecfbb8d59c2536abb1e8e5eab.npy
+│   ├── core-bottle-114509277e76e413c8724d5673a063a6.npy
+│   ├── core-bottle-11fc9827d6b467467d3aa3bae1f7b494.npy
+│   ├── core-bottle-134c723696216addedee8d59893c8633.npy
+│   ├── core-bottle-13544f09512952bbc9273c10871e1c3d.npy
+...
+├── meshdata
+│   ├── core-bottle-1071fa4cddb2da2fc8724d5673a063a6
+│   │   └── coacd
+│   │       ├── coacd_convex_piece_0.obj
+│   │       ├── coacd_convex_piece_1.obj
+│   │       ├── coacd.urdf
+│   │       ├── decomposed_log.txt
+│   │       ├── decomposed.obj
+│   │       ├── decomposed.wrl
+│   │       └── model.config
+│   ├── core-bottle-109d55a137c042f5760315ac3bf2c13e
+│   │   └── coacd
+│   │       ├── coacd_convex_piece_0.obj
+│   │       ├── coacd.urdf
+│   │       ├── decomposed_log.txt
+│   │       ├── decomposed.obj
+│   │       ├── decomposed.wrl
+│   │       └── model.config
+│   ├── core-bottle-10dff3c43200a7a7119862dbccbaa609
+│   │   └── coacd
+│   │       ├── coacd_convex_piece_0.obj
+│   │       ├── coacd_convex_piece_1.obj
+│   │       ├── coacd_convex_piece_2.obj
+│   │       ├── coacd_convex_piece_3.obj
+│   │       ├── coacd_convex_piece_4.obj
+│   │       ├── coacd.urdf
+│   │       ├── decomposed_log.txt
+│   │       ├── decomposed.obj
+│   │       ├── decomposed.wrl
+│   │       └── model.config
+...
+├── meshdata_smallversion
+│   ├── core-mug-8570d9a8d24cb0acbebd3c0c0c70fb03
+│   │   └── coacd
+│   │       └── decomposed.obj
+│   ├── ddg-gd_banana_poisson_002
+│   │   └── coacd
+│   │       └── decomposed.obj
+│   ├── mujoco-Ecoforms_Plant_Plate_S11Turquoise
+│   │   └── coacd
+│   │       └── decomposed.obj
+│   ├── sem-Bottle-437678d4bc6be981c8724d5673a063a6
+│   │   └── coacd
+│   │       └── decomposed.obj
+│   └── sem-Camera-7bff4fd4dc53de7496dece3f86cb5dd5
+│       └── coacd
+│           └── decomposed.obj
+```
+
 ### 1. Grasp Generation
 
 From `grasp_generation`:
