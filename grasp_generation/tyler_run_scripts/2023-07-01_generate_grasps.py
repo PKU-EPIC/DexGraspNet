@@ -11,4 +11,4 @@ command_parts = [
 
 full_command = " ".join(command_parts)
 print(f"Running command: {full_command}")
-# subprocess.run(full_command, shell=True, check=True)
+subprocess.run(full_command, shell=True, check=True)
