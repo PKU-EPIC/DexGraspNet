@@ -197,11 +197,11 @@ def main(args: VisualizeOptimizationArgumentParser):
         method="animate",
         args=[
             None,
-            {
-                "frame": {"duration": 1000, "redraw": False},
-                "fromcurrent": True,
-                "transition": {"duration": 1000, "easing": "quadratic-in-out"},
-            },
+            # {
+            #     "frame": {"duration": 1000, "redraw": False},
+            #     "fromcurrent": True,
+            #     "transition": {"duration": 1000, "easing": "quadratic-in-out"},
+            # },
         ],
     )
     pause_button_dict = dict(
@@ -231,13 +231,13 @@ def main(args: VisualizeOptimizationArgumentParser):
                 dict(
                     type="buttons",
                     buttons=[play_button_dict, pause_button_dict],
-                    direction="left",
-                    pad={"r": 10, "t": 87},
-                    showactive=False,
-                    x=0.1,
-                    y=0,
-                    xanchor="right",
-                    yanchor="top",
+                    # direction="left",
+                    # pad={"r": 10, "t": 87},
+                    # showactive=False,
+                    # x=0.1,
+                    # y=0,
+                    # xanchor="right",
+                    # yanchor="top",
                 ),
             ],
             sliders=[sliders_dict],
