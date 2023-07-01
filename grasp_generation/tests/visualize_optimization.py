@@ -69,41 +69,41 @@ def main(args: VisualizeOptimizationArgumentParser):
     ]
 
     # Create new figure with all plots
-    new_fig = go.Figure(
-        data=orig_figs[0].data,
-        layout=go.Layout(
-            scene=dict(
-                xaxis=dict(title="X"),
-                yaxis=dict(title="Y"),
-                zaxis=dict(title="Z"),
-                aspectmode="data",
-            ),
-            showlegend=True,
-            title="new_fig",
-            updatemenus=[
-                dict(
-                    type="buttons",
-                    buttons=[dict(label="Play", method="animate", args=[None])],
-                )
-            ],
-        ),
-        frames=[
-            go.Frame(
-                data=fig.data,
-                layout=go.Layout(
-                    scene=dict(
-                        xaxis=dict(title="X"),
-                        yaxis=dict(title="Y"),
-                        zaxis=dict(title="Z"),
-                        aspectmode="data",
-                    ),
-                    showlegend=True,
-                    title=f"new_fig frame {i}",
-                ),
-            )
-            for i, fig in enumerate(orig_figs)
-        ],
-    )
+    # new_fig = go.Figure(
+    #     data=orig_figs[0].data,
+    #     layout=go.Layout(
+    #         scene=dict(
+    #             xaxis=dict(title="X"),
+    #             yaxis=dict(title="Y"),
+    #             zaxis=dict(title="Z"),
+    #             aspectmode="data",
+    #         ),
+    #         showlegend=True,
+    #         title="new_fig",
+    #         updatemenus=[
+    #             dict(
+    #                 type="buttons",
+    #                 buttons=[dict(label="Play", method="animate", args=[None])],
+    #             )
+    #         ],
+    #     ),
+    #     frames=[
+    #         go.Frame(
+    #             data=fig.data,
+    #             layout=go.Layout(
+    #                 scene=dict(
+    #                     xaxis=dict(title="X"),
+    #                     yaxis=dict(title="Y"),
+    #                     zaxis=dict(title="Z"),
+    #                     aspectmode="data",
+    #                 ),
+    #                 showlegend=True,
+    #                 title=f"new_fig frame {i}",
+    #             ),
+    #         )
+    #         for i, fig in enumerate(orig_figs)
+    #     ],
+    # )
     #     fig_idx_per_trace = []
     #     for fig_idx_to_visualize, fig in enumerate(orig_figs):
     #         for d in fig.data:
@@ -146,7 +146,119 @@ def main(args: VisualizeOptimizationArgumentParser):
     #             )
     #         ],
     #     )
+    FIG_TO_SHOW_FIRST = 0
 
+    # sliders_dict = dict(
+    #     steps=slider_steps,
+    #     active=FIG_TO_SHOW_FIRST,  # Initial active index
+    #     currentvalue=dict(
+    #         font=dict(size=12),
+    #         prefix="Optimization Iter",  # Prefix for the slider label
+    #         xanchor="center",
+    #         visible=True,
+    #     ),
+    #     len=1.0,  # Length of the slider
+    # )
+    slider_steps = [
+        dict(
+            args=[
+                [frame_idx],
+                {
+                    "frame": {"duration": 1000, "redraw": False},
+                    "mode": "immediate",
+                    "transition": {"duration": 300},
+                },
+            ],
+            label=f"Plot {frame_idx + 1}",
+            method="animate",
+        )
+        for frame_idx, f in enumerate(orig_figs)
+    ]
+    sliders_dict = dict(
+        active=FIG_TO_SHOW_FIRST,
+        yanchor="top",
+        xanchor="left",
+        currentvalue=dict(
+            font=dict(size=12),
+            prefix="Optimization Iter",  # Prefix for the slider label
+            xanchor="right",
+            visible=True,
+        ),
+        transition=dict(duration=300, easing="cubic-in-out"),
+        pad=dict(b=10, t=50),
+        len=0.9,
+        x=0.1,
+        y=0,
+        steps=slider_steps,
+    )
+
+    play_button_dict = dict(
+        label="Play",
+        method="animate",
+        args=[
+            None,
+            {
+                "frame": {"duration": 1000, "redraw": False},
+                "fromcurrent": True,
+                "transition": {"duration": 1000, "easing": "quadratic-in-out"},
+            },
+        ],
+    )
+    pause_button_dict = dict(
+        label="Pause",
+        method="animate",
+        args=[
+            None,
+            {
+                "frame": {"duration": 0, "redraw": False},
+                "mode": "immediate",
+                "transition": {"duration": 0},
+            },
+        ],
+    )
+    new_fig = go.Figure(
+        data=orig_figs[FIG_TO_SHOW_FIRST].data,
+        layout=go.Layout(
+            scene=dict(
+                xaxis=dict(title="X"),
+                yaxis=dict(title="Y"),
+                zaxis=dict(title="Z"),
+                aspectmode="data",
+            ),
+            showlegend=True,
+            title="new_fig",
+            updatemenus=[
+                dict(
+                    type="buttons",
+                    buttons=[play_button_dict, pause_button_dict],
+                    direction="left",
+                    pad={"r": 10, "t": 87},
+                    showactive=False,
+                    x=0.1,
+                    y=0,
+                    xanchor="right",
+                    yanchor="top",
+                ),
+            ],
+            sliders=[sliders_dict],
+        ),
+        frames=[
+            go.Frame(
+                data=fig.data,
+                layout=go.Layout(
+                    scene=dict(
+                        xaxis=dict(title="X"),
+                        yaxis=dict(title="Y"),
+                        zaxis=dict(title="Z"),
+                        aspectmode="data",
+                    ),
+                    showlegend=True,
+                    title=f"new_fig frame {i}",
+                ),
+            )
+            for i, fig in enumerate(orig_figs)
+        ],
+    )
     new_fig.show()
 
 
