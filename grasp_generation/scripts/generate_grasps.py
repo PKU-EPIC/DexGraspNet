@@ -75,7 +75,7 @@ class GenerateGraspsArgumentParser(Tap):
     w_pen: float = 100.0
     w_spen: float = 100.0
     w_joints: float = 1.0
-    w_ff: float = 1.0
+    w_ff: float = 3.0
     w_fp: float = 0.0
 
     # initialization settings
