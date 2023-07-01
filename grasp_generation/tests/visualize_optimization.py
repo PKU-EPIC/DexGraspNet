@@ -87,7 +87,7 @@ def main(args: VisualizeOptimizationArgumentParser):
             new_fig.add_trace(d)
             fig_idx_per_trace.append(fig_idx_to_visualize)
 
-    # Create one step per figure
+    # Setup slider to show one figure per step
     slider_steps = []
     for fig_idx_to_visualize in range(len(orig_figs)):
         # Only visualize the traces for this figure
@@ -102,11 +102,17 @@ def main(args: VisualizeOptimizationArgumentParser):
             "label": f"Plot {fig_idx_to_visualize + 1}",
         }
         slider_steps.append(step)
+
+    # Show one fig first
+    fig_to_show_first = 0
+    for i, fig_idx_to_visualize in enumerate(fig_idx_per_trace):
+        new_fig.data[i].visible = fig_idx_to_visualize == fig_to_show_first
+
     new_fig.update_layout(
         sliders=[
             dict(
                 steps=slider_steps,
-                active=0,  # Initial active index
+                active=fig_to_show_first,  # Initial active index
                 currentvalue=dict(
                     font=dict(size=12),
                     prefix="Optimization Iter",  # Prefix for the slider label
@@ -118,10 +124,6 @@ def main(args: VisualizeOptimizationArgumentParser):
         ],
     )
 
-    # Show one fig first
-    fig_to_show_first = 0
-    for i, fig_idx_to_visualize in enumerate(fig_idx_per_trace):
-        new_fig.data[i].visible = fig_idx_to_visualize == fig_to_show_first
     new_fig.show()
 
 
