@@ -17,11 +17,19 @@ import wandb
 from tqdm import tqdm
 from datetime import datetime
 from typing import List
+from tap import Tap
 
 # Get path to this file
 path_to_this_file = os.path.dirname(os.path.realpath(__file__))
 
 set_seed(1)
+
+
+class VisualizeOptimizationArgumentParser(Tap):
+    wandb_entity: str = "tylerlum"
+    wandb_project: str = "DexGraspNet_v1"
+    run_id: str = "drv5njep"
+    max_files_to_read: int = 100
 
 
 def download_plotly_files(run_path: str):
@@ -45,20 +53,16 @@ def download_plotly_files(run_path: str):
     return plotly_file_paths
 
 
-def main():
+def main(args: VisualizeOptimizationArgumentParser):
     # Specify run
-    wandb_entity = "tylerlum"
-    wandb_project = "DexGraspNet_v1"
-    run_id = "drv5njep"
-    run_path = f"{wandb_entity}/{wandb_project}/{run_id}"
+    run_path = f"{args.wandb_entity}/{args.wandb_project}/{args.run_id}"
     print(f"Run path: {run_path}")
 
     # Get files from wandb
     plotly_file_paths = download_plotly_files(run_path)
 
     # Read in json files
-    MAX_FIGS_TO_READ = 100
-    plotly_file_paths = plotly_file_paths[:MAX_FIGS_TO_READ]
+    plotly_file_paths = plotly_file_paths[:args.max_files_to_read]
     orig_figs = [
         plotly.io.read_json(file=plotly_file_path)
         for plotly_file_path in plotly_file_paths
@@ -122,4 +126,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = VisualizeOptimizationArgumentParser().parse_args()
+    main(args)
