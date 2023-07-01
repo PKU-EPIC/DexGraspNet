@@ -1,0 +1,126 @@
+"""
+Last modified date: 2023.07.01
+Author: Tyler Lum
+Description: visualize hand model grasp optimization
+"""
+
+import os
+import sys
+
+# os.chdir(os.path.dirname(os.path.dirname(__file__)))
+sys.path.append(os.path.realpath("."))
+
+import numpy as np
+import trimesh as tm
+import plotly.graph_objects as go
+import plotly
+from utils.seed import set_seed
+import wandb
+from tqdm import tqdm
+
+# Get path to this file
+path_to_this_file = os.path.dirname(os.path.realpath(__file__))
+
+set_seed(1)
+
+
+def download_plotly_files(run_path: str):
+    api = wandb.Api()
+    run = api.run(run_path)
+
+    # Store in folder
+    folder_path = os.path.join(path_to_this_file, "wandb_files", run_path)
+    os.makedirs(folder_path, exist_ok=True)
+
+    # Get plotly files
+    plotly_file_paths = []
+    files = run.files()
+    for f in tqdm(files, desc="Getting plotly files"):
+        if "plotly" not in f.name:
+            continue
+
+        f.download(root=folder_path, exist_ok=True)
+        plotly_file_paths.append(os.path.join(folder_path, f.name))
+
+    plotly_file_paths.sort()
+    print(f"Got {len(plotly_file_paths)} files")
+    print(f"First file: {plotly_file_paths[0]}")
+
+    return plotly_file_paths
+
+
+def main():
+    # Specify run
+    wandb_entity = "tylerlum"
+    wandb_project = "DexGraspNet_v1"
+    run_id = "drv5njep"
+    run_path = f"{wandb_entity}/{wandb_project}/{run_id}"
+    print(f"Run path: {run_path}")
+
+    # Get files from wandb
+    plotly_files = download_plotly_files(run_path)
+
+    # Read in json files
+    MAX_FIGS_TO_READ = 100
+    plotly_files = plotly_files[:MAX_FIGS_TO_READ]
+    orig_figs = [plotly.io.read_json(file=plotly_file) for plotly_file in plotly_files]
+
+    # Create new figure with all plots
+    new_fig = go.Figure(
+        layout=go.Layout(
+            scene=dict(
+                xaxis=dict(title="X"),
+                yaxis=dict(title="Y"),
+                zaxis=dict(title="Z"),
+                aspectmode="data",
+            ),
+            showlegend=True,
+            title="new_fig",
+        )
+    )
+    fig_idx_per_trace = []
+    for fig_idx_to_visualize, fig in enumerate(orig_figs):
+        for d in fig.data:
+            new_fig.add_trace(d)
+            fig_idx_per_trace.append(fig_idx_to_visualize)
+
+    # Create one step per figure
+    slider_steps = []
+    for fig_idx_to_visualize in range(len(orig_figs)):
+        # Only visualize the traces for this figure
+        visible_list = [
+            fig_idx_to_visualize == fig_idx for fig_idx in fig_idx_per_trace
+        ]
+
+        # Add a step to the slider for each figure
+        step = {
+            "method": "update",
+            "args": [{"visible": visible_list}],  # Layout attribute
+            "label": f"Plot {fig_idx_to_visualize + 1}",
+        }
+        slider_steps.append(step)
+    new_fig.update_layout(
+        sliders=[
+            dict(
+                steps=slider_steps,
+                active=0,  # Initial active index
+                currentvalue=dict(
+                    font=dict(size=12),
+                    prefix="Optimization Iter",  # Prefix for the slider label
+                    xanchor="center",
+                    visible=True,
+                ),
+                len=1.0,  # Length of the slider
+            )
+        ],
+    )
+
+    # Show one fig first
+    fig_to_show_first = 0
+    for i, fig_idx_to_visualize in enumerate(fig_idx_per_trace):
+        new_fig.data[i].visible = fig_idx_to_visualize == fig_to_show_first
+    new_fig.show()
+
+
+if __name__ == "__main__":
+    main()
