@@ -6,6 +6,7 @@ Description: visualize hand model grasp optimization
 
 import os
 import sys
+from dataclasses import dataclass
 
 # os.chdir(os.path.dirname(os.path.dirname(__file__)))
 sys.path.append(os.path.realpath("."))
@@ -52,6 +53,23 @@ def download_plotly_files(run_path: str):
     print(f"First files: {plotly_file_paths[:3]}")
     return plotly_file_paths
 
+@dataclass
+class Bounds3D:
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
+    z_min: float
+    z_max: float
+
+def get_bounds(figs: List[go.Figure]):
+    x_min = min([min(d.x) for fig in figs for d in fig.data])
+    x_max = max([max(d.x) for fig in figs for d in fig.data])
+    y_min = min([min(d.y) for fig in figs for d in fig.data])
+    y_max = max([max(d.y) for fig in figs for d in fig.data])
+    z_min = min([min(d.z) for fig in figs for d in fig.data])
+    z_max = max([max(d.z) for fig in figs for d in fig.data])
+    return Bounds3D(x_min, x_max, y_min, y_max, z_min, z_max)
 
 def main(args: VisualizeOptimizationArgumentParser):
     # Specify run
@@ -67,109 +85,21 @@ def main(args: VisualizeOptimizationArgumentParser):
         plotly.io.read_json(file=plotly_file_path)
         for plotly_file_path in plotly_file_paths
     ]
+    bounds = get_bounds(orig_figs)
 
-    # Create new figure with all plots
-    # new_fig = go.Figure(
-    #     data=orig_figs[0].data,
-    #     layout=go.Layout(
-    #         scene=dict(
-    #             xaxis=dict(title="X"),
-    #             yaxis=dict(title="Y"),
-    #             zaxis=dict(title="Z"),
-    #             aspectmode="data",
-    #         ),
-    #         showlegend=True,
-    #         title="new_fig",
-    #         updatemenus=[
-    #             dict(
-    #                 type="buttons",
-    #                 buttons=[dict(label="Play", method="animate", args=[None])],
-    #             )
-    #         ],
-    #     ),
-    #     frames=[
-    #         go.Frame(
-    #             data=fig.data,
-    #             layout=go.Layout(
-    #                 scene=dict(
-    #                     xaxis=dict(title="X"),
-    #                     yaxis=dict(title="Y"),
-    #                     zaxis=dict(title="Z"),
-    #                     aspectmode="data",
-    #                 ),
-    #                 showlegend=True,
-    #                 title=f"new_fig frame {i}",
-    #             ),
-    #         )
-    #         for i, fig in enumerate(orig_figs)
-    #     ],
-    # )
-    #     fig_idx_per_trace = []
-    #     for fig_idx_to_visualize, fig in enumerate(orig_figs):
-    #         for d in fig.data:
-    #             new_fig.add_trace(d)
-    #             fig_idx_per_trace.append(fig_idx_to_visualize)
-    #
-    #     # Setup slider to show one figure per step
-    #     slider_steps = []
-    #     for fig_idx_to_visualize in range(len(orig_figs)):
-    #         # Only visualize the traces for this figure
-    #         visible_list = [
-    #             fig_idx_to_visualize == fig_idx for fig_idx in fig_idx_per_trace
-    #         ]
-    #
-    #         # Add a step to the slider for each figure
-    #         step = {
-    #             "method": "update",
-    #             "args": [{"visible": visible_list}],  # Layout attribute
-    #             "label": f"Plot {fig_idx_to_visualize + 1}",
-    #         }
-    #         slider_steps.append(step)
-    #
-    #     # Show one fig first
-    #     fig_to_show_first = 0
-    #     for i, fig_idx_to_visualize in enumerate(fig_idx_per_trace):
-    #         new_fig.data[i].visible = fig_idx_to_visualize == fig_to_show_first
-    #
-    #     new_fig.update_layout(
-    #         sliders=[
-    #             dict(
-    #                 steps=slider_steps,
-    #                 active=fig_to_show_first,  # Initial active index
-    #                 currentvalue=dict(
-    #                     font=dict(size=12),
-    #                     prefix="Optimization Iter",  # Prefix for the slider label
-    #                     xanchor="center",
-    #                     visible=True,
-    #                 ),
-    #                 len=1.0,  # Length of the slider
-    #             )
-    #         ],
-    #     )
     FIG_TO_SHOW_FIRST = 0
 
-    # sliders_dict = dict(
-    #     steps=slider_steps,
-    #     active=FIG_TO_SHOW_FIRST,  # Initial active index
-    #     currentvalue=dict(
-    #         font=dict(size=12),
-    #         prefix="Optimization Iter",  # Prefix for the slider label
-    #         xanchor="center",
-    #         visible=True,
-    #     ),
-    #     len=1.0,  # Length of the slider
-    # )
     slider_steps = [
         dict(
             args=[
                 [frame_idx],
                 {
-                    "frame": {"duration": 1000, "redraw": False},
-                    "mode": "immediate",
-                    "transition": {"duration": 300},
+                    # "frame": {"duration": 1000, "redraw": False},
+                    # "mode": "immediate",
+                    # "transition": {"duration": 300},
                 },
             ],
-            label=f"Plot {frame_idx + 1}",
+            label=frame_idx,
             method="animate",
         )
         for frame_idx, f in enumerate(orig_figs)
@@ -184,7 +114,7 @@ def main(args: VisualizeOptimizationArgumentParser):
             xanchor="right",
             visible=True,
         ),
-        transition=dict(duration=300, easing="cubic-in-out"),
+        # transition=dict(duration=300, easing="cubic-in-out"),
         pad=dict(b=10, t=50),
         len=0.9,
         x=0.1,
@@ -193,15 +123,15 @@ def main(args: VisualizeOptimizationArgumentParser):
     )
 
     play_button_dict = dict(
-        label="Play",
+        label="Play From Start",
         method="animate",
         args=[
             None,
-            # {
-            #     "frame": {"duration": 1000, "redraw": False},
-            #     "fromcurrent": True,
-            #     "transition": {"duration": 1000, "easing": "quadratic-in-out"},
-            # },
+            {
+                # "frame": {"duration": 1000, "redraw": False},
+                # "fromcurrent": True,
+                # "transition": {"duration": 1000, "easing": "quadratic-in-out"},
+            },
         ],
     )
     pause_button_dict = dict(
@@ -220,9 +150,9 @@ def main(args: VisualizeOptimizationArgumentParser):
         data=orig_figs[FIG_TO_SHOW_FIRST].data,
         layout=go.Layout(
             scene=dict(
-                xaxis=dict(title="X"),
-                yaxis=dict(title="Y"),
-                zaxis=dict(title="Z"),
+                xaxis=dict(title="X", range=[bounds.x_min, bounds.x_max]),
+                yaxis=dict(title="Y", range=[bounds.y_min, bounds.y_max]),
+                zaxis=dict(title="Z", range=[bounds.z_min, bounds.z_max]),
                 aspectmode="data",
             ),
             showlegend=True,
@@ -247,14 +177,15 @@ def main(args: VisualizeOptimizationArgumentParser):
                 data=fig.data,
                 layout=go.Layout(
                     scene=dict(
-                        xaxis=dict(title="X"),
-                        yaxis=dict(title="Y"),
-                        zaxis=dict(title="Z"),
+                        xaxis=dict(title="X", range=[bounds.x_min, bounds.x_max]),
+                        yaxis=dict(title="Y", range=[bounds.y_min, bounds.y_max]),
+                        zaxis=dict(title="Z", range=[bounds.z_min, bounds.z_max]),
                         aspectmode="data",
                     ),
                     showlegend=True,
                     title=f"new_fig frame {i}",
                 ),
+                name=f"frame {i}",
             )
             for i, fig in enumerate(orig_figs)
         ],
