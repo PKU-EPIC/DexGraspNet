@@ -93,15 +93,14 @@ def main(args: VisualizeOptimizationArgumentParser):
     bounds = get_bounds(orig_figs)
 
     FIG_TO_SHOW_FIRST = 0
-
     slider_steps = [
         dict(
             args=[
                 [fig_idx],
                 {
-                    # "frame": {"duration": 1000, "redraw": False},
-                    # "mode": "immediate",
-                    # "transition": {"duration": 300},
+                    "frame": {"duration": args.frame_duration, "redraw": True},
+                    "mode": "immediate",
+                    "transition": {"duration": args.transition_duration},
                 },
             ],
             label=fig_idx,
@@ -135,7 +134,10 @@ def main(args: VisualizeOptimizationArgumentParser):
             {
                 "frame": {"duration": args.frame_duration, "redraw": True},
                 "fromcurrent": True,
-                "transition": {"duration": args.transition_duration, "easing": "quadratic-in-out"},
+                "transition": {
+                    "duration": args.transition_duration,
+                    "easing": "quadratic-in-out",
+                },
             },
         ],
     )
@@ -143,13 +145,12 @@ def main(args: VisualizeOptimizationArgumentParser):
         label="Pause",
         method="animate",
         args=[
-            None,
+            [None],
             {
                 # TODO: Should these be 0 duration?
-                "frame": {"duration": args.frame_duration, "redraw": False},
+                "frame": {"duration": 0, "redraw": False},
                 "mode": "immediate",
-                "transition": {"duration": args.transition_duration},
-
+                "transition": {"duration": 0},
             },
         ],
     )
