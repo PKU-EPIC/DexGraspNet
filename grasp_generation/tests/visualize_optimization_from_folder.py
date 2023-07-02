@@ -37,12 +37,15 @@ class VisualizeOptimizationFromFolderArgumentParser(Tap):
 
     input_folder: str = "../data/2023-07-01_debug_graspdata_extra/"
     object_code: str = "core-pistol-ad72857d0fd2ad2d44a52d2e669c8daa"
+    idx_to_visualize: int = 0
     frame_duration: int = 200
     transition_duration: int = 100
     save_to_html: bool = False
 
 
-def get_grasps_from_folder(input_folder: str, object_code: str) -> List[go.Figure]:
+def get_grasps_from_folder(
+    input_folder: str, object_code: str, idx_to_visualize: int
+) -> List[go.Figure]:
     figs = []
     sorted_mid_folders = sorted(os.listdir(input_folder), key=int)
     for mid_folder in tqdm(sorted_mid_folders, desc="Going through folders..."):
@@ -54,7 +57,7 @@ def get_grasps_from_folder(input_folder: str, object_code: str) -> List[go.Figur
         fig = create_grasp_fig(
             hand_model=hand_model,
             object_model=object_model,
-            idx_to_visualize=0,
+            idx_to_visualize=idx_to_visualize,
         )
         figs.append(fig)
     return figs
@@ -74,19 +77,16 @@ def get_visualization_freq_from_folder(input_folder: str) -> int:
     return visualization_freq
 
 
-def get_figs_from_folder(
-    input_folder: str, object_code: str
-) -> Tuple[List[go.Figure], int]:
-    grasps = get_grasps_from_folder(input_folder=input_folder, object_code=object_code)
-    visualization_freq = get_visualization_freq_from_folder(input_folder=input_folder)
-    return grasps, visualization_freq
-
-
 def main(args: VisualizeOptimizationFromFolderArgumentParser):
-    input_figs, visualization_freq = get_figs_from_folder(
-        input_folder=args.input_folder, object_code=args.object_code
+    input_figs = get_grasps_from_folder(
+        input_folder=args.input_folder,
+        object_code=args.object_code,
+        idx_to_visualize=args.idx_to_visualize,
     )
 
+    visualization_freq = get_visualization_freq_from_folder(
+        input_folder=args.input_folder
+    )
     print("Making figure with buttons and slider...")
     new_fig = create_figure_with_buttons_and_slider(
         input_figs=input_figs,
@@ -103,6 +103,7 @@ def main(args: VisualizeOptimizationFromFolderArgumentParser):
         print(f"Saving to {output_filepath}")
         new_fig.write_html(output_filepath)
     else:
+        print("Showing figure...")
         new_fig.show()
 
 
