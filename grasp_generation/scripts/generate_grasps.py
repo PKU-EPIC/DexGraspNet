@@ -26,7 +26,7 @@ from utils.qpos_pose_conversion import pose_to_qpos
 from utils.seed import set_seed
 
 from torch.multiprocessing import set_start_method
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict, Any
 import trimesh
 import plotly.graph_objects as go
 import wandb
@@ -90,28 +90,123 @@ class GenerateGraspsArgumentParser(Tap):
     thres_dis: float = 0.005
     thres_pen: float = 0.001
 
+    # verbose (grasps throughout)
+    store_grasps_mid_optimization_freq: Optional[int] = 100
 
-def get_meshes(
+
+def create_visualization_figure(
     hand_model: HandModel,
     object_model: ObjectModel,
-    object_idx: int,
-    batch_idx: int,
-    batch_size_each: int,
-) -> Tuple[trimesh.Trimesh, trimesh.Trimesh]:
-    idx = object_idx * batch_size_each + batch_idx
+    idx_to_visualize: int,
+) -> Tuple[go.Figure, str]:
+    fig_title = f"hand_object_visualization_{idx_to_visualize}"
+    fig = go.Figure(
+        layout=go.Layout(
+            scene=dict(
+                xaxis=dict(title="X"),
+                yaxis=dict(title="Y"),
+                zaxis=dict(title="Z"),
+                aspectmode="data",
+            ),
+            showlegend=True,
+            title=fig_title,
+        )
+    )
+    plots = [
+        *hand_model.get_plotly_data(
+            i=idx_to_visualize,
+            opacity=1.0,
+            with_contact_points=True,
+            with_contact_candidates=True,
+        ),
+        *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
+    ]
+    for plot in plots:
+        fig.add_trace(plot)
+    return fig, fig_title
 
-    # Get hand mesh
-    hand_mesh = hand_model.get_trimesh_data(i=idx)
 
-    # Get object mesh
-    scale = object_model.object_scale_tensor[object_idx][batch_idx].item()
-    object_mesh = object_model.object_mesh_list[object_idx].copy().apply_scale(scale)
-    return hand_mesh, object_mesh
+def get_energy_term_log_dict(
+    unweighted_energy_matrix: torch.Tensor,
+    weighted_energy_matrix: torch.Tensor,
+    idx_to_visualize: int,
+) -> Dict[str, Any]:
+    log_dict = {}
+    for i, energy_name in enumerate(ENERGY_NAMES):
+        shorthand = ENERGY_NAME_TO_SHORTHAND_DICT[energy_name]
+        uw_shorthand = f"unweighted_{shorthand}"
+        log_dict.update(
+            {
+                uw_shorthand: unweighted_energy_matrix[:, i].mean().item(),
+                shorthand: weighted_energy_matrix[:, i].mean().item(),
+                f"{uw_shorthand}_{idx_to_visualize}": unweighted_energy_matrix[
+                    idx_to_visualize, i
+                ].item(),
+                f"{shorthand}_{idx_to_visualize}": weighted_energy_matrix[
+                    idx_to_visualize, i
+                ].item(),
+            }
+        )
+    return log_dict
 
 
-def generate(args_list):
-    args, object_code_list, id, gpu_list = args_list
-    args: GenerateGraspsArgumentParser = args
+def save_results(
+    hand_model: HandModel,
+    object_model: ObjectModel,
+    object_code_list: List[str],
+    hand_pose_st: torch.Tensor,
+    energy: torch.Tensor,
+    unweighted_energy_matrix: torch.Tensor,
+    output_folder: str,
+) -> None:
+    num_objects, num_grasps_per_object = object_model.object_scale_tensor.shape
+    assert len(object_code_list) == num_objects
+    assert hand_pose_st.shape[0] == num_objects * num_grasps_per_object
+
+    joint_names = handmodeltype_to_joint_names[hand_model.hand_model_type]
+    for object_i, object_code in enumerate(object_code_list):
+        object_grasp_data_list = []
+        for object_grasp_j in range(num_grasps_per_object):
+            grasp_idx = object_i * num_grasps_per_object + object_grasp_j
+
+            scale = object_model.object_scale_tensor[object_i, object_grasp_j].item()
+            qpos = pose_to_qpos(
+                hand_pose=hand_model.hand_pose[grasp_idx].detach().cpu(),
+                joint_names=joint_names,
+            )
+            qpos_st = pose_to_qpos(
+                hand_pose=hand_pose_st[grasp_idx].detach().cpu(),
+                joint_names=joint_names,
+            )
+            object_grasp_data = dict(
+                scale=scale,
+                qpos=qpos,
+                qpos_st=qpos_st,
+                energy=energy[grasp_idx].item(),
+            )
+
+            object_grasp_data.update(
+                {
+                    ENERGY_NAME_TO_SHORTHAND_DICT[
+                        energy_name
+                    ]: unweighted_energy_matrix[grasp_idx, k].item()
+                    for k, energy_name in enumerate(ENERGY_NAMES)
+                }
+            )
+
+            object_grasp_data_list.append(object_grasp_data)
+
+        np.save(
+            os.path.join(output_folder, object_code + ".npy"),
+            object_grasp_data_list,
+            allow_pickle=True,
+        )
+
+
+def generate(
+    args_tuple: Tuple[GenerateGraspsArgumentParser, List[str], int, List[str]]
+) -> None:
+    args, object_code_list, id, gpu_list = args_tuple
 
     # Log to wandb
     time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -215,6 +310,24 @@ def generate(args_list):
             unweighted_energy_matrix[accept] = new_unweighted_energy_matrix[accept]
             weighted_energy_matrix[accept] = new_weighted_energy_matrix[accept]
 
+        # Store grasps mid optimization
+        if args.store_grasps_mid_optimization_freq is not None and (
+            step % args.store_grasps_mid_optimization_freq == 0
+        ):
+            new_output_folder = os.path.join(
+                args.result_path + "_mid_optimization", str(step)
+            )
+            os.makedirs(new_output_folder, exist_ok=True)
+            save_results(
+                hand_model=hand_model,
+                object_model=object_model,
+                object_code_list=object_code_list,
+                hand_pose_st=hand_pose_st,
+                energy=energy,
+                unweighted_energy_matrix=unweighted_energy_matrix,
+                output_folder=new_output_folder,
+            )
+
         # Log
         wandb_log_dict.update(
             {
@@ -225,89 +338,35 @@ def generate(args_list):
                 f"energy_{idx_to_visualize}": energy[idx_to_visualize].item(),
             }
         )
-        for i, energy_name in enumerate(ENERGY_NAMES):
-            shorthand = ENERGY_NAME_TO_SHORTHAND_DICT[energy_name]
-            uw_shorthand = f"unweighted_{shorthand}"
-            wandb_log_dict.update(
-                {
-                    uw_shorthand: unweighted_energy_matrix[:, i].mean().item(),
-                    shorthand: weighted_energy_matrix[:, i].mean().item(),
-                    f"{uw_shorthand}_{idx_to_visualize}": unweighted_energy_matrix[
-                        idx_to_visualize, i
-                    ].item(),
-                    f"{shorthand}_{idx_to_visualize}": weighted_energy_matrix[
-                        idx_to_visualize, i
-                    ].item(),
-                }
+        wandb_log_dict.update(
+            get_energy_term_log_dict(
+                unweighted_energy_matrix=unweighted_energy_matrix,
+                weighted_energy_matrix=weighted_energy_matrix,
+                idx_to_visualize=idx_to_visualize,
             )
+        )
 
         # Visualize
         if step % args.visualization_freq == 0:
-            fig_title = f"hand_object_visualization_{idx_to_visualize}"
-            fig = go.Figure(
-                layout=go.Layout(
-                    scene=dict(
-                        xaxis=dict(title="X"),
-                        yaxis=dict(title="Y"),
-                        zaxis=dict(title="Z"),
-                        aspectmode="data",
-                    ),
-                    showlegend=True,
-                    title=fig_title,
-                )
+            fig, fig_title = create_visualization_figure(
+                hand_model=hand_model,
+                object_model=object_model,
+                idx_to_visualize=idx_to_visualize,
             )
-            plots = [
-                *hand_model.get_plotly_data(
-                    i=idx_to_visualize,
-                    opacity=1.0,
-                    with_contact_points=True,
-                    with_contact_candidates=True,
-                ),
-                *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
-            ]
-            for plot in plots:
-                fig.add_trace(plot)
             wandb_log_dict[fig_title] = fig
+
         wandb.log(wandb_log_dict)
 
     # save results
-    joint_names = handmodeltype_to_joint_names[args.hand_model_type]
-    for i, object_code in enumerate(object_code_list):
-        data_list = []
-        for j in range(args.batch_size_each):
-            idx = i * args.batch_size_each + j
-            scale = object_model.object_scale_tensor[i][j].item()
-            qpos = pose_to_qpos(
-                hand_pose=hand_model.hand_pose[idx].detach().cpu(),
-                joint_names=joint_names,
-            )
-            qpos_st = pose_to_qpos(
-                hand_pose=hand_pose_st[idx].detach().cpu(),
-                joint_names=joint_names,
-            )
-            data = dict(
-                scale=scale,
-                qpos=qpos,
-                qpos_st=qpos_st,
-                energy=energy[idx].item(),
-            )
-
-            data.update(
-                {
-                    ENERGY_NAME_TO_SHORTHAND_DICT[
-                        energy_name
-                    ]: unweighted_energy_matrix[idx, k].item()
-                    for k, energy_name in enumerate(ENERGY_NAMES)
-                }
-            )
-
-            data_list.append(data)
-
-        np.save(
-            os.path.join(args.result_path, object_code + ".npy"),
-            data_list,
-            allow_pickle=True,
-        )
+    save_results(
+        hand_model=hand_model,
+        object_model=object_model,
+        object_code_list=object_code_list,
+        hand_pose_st=hand_pose_st,
+        energy=energy,
+        unweighted_energy_matrix=unweighted_energy_matrix,
+        output_folder=args.result_path,
+    )
 
 
 if __name__ == "__main__":

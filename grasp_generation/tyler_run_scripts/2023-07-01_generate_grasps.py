@@ -6,7 +6,6 @@ command_parts = [
     "--seed 0",
     "--result_path ../data/2023-07-01_debug_graspdata",
     "--wandb_name debug",
-    "--visualization_freq 100",
 ]
 
 full_command = " ".join(command_parts)

@@ -8,22 +8,25 @@ import os
 import sys
 from dataclasses import dataclass
 
-# os.chdir(os.path.dirname(os.path.dirname(__file__)))
 sys.path.append(os.path.realpath("."))
 
 import plotly.graph_objects as go
-import plotly
-from utils.seed import set_seed
 import wandb
 from tqdm import tqdm
 from datetime import datetime
-from typing import List
-from tap import Tap
+from typing import List, Tuple
 
-# Get path to this file
+import torch
+import numpy as np
+from utils.qpos_pose_conversion import qpos_to_pose
+from utils.hand_model_type import (
+    HandModelType,
+    handmodeltype_to_joint_names,
+)
+from utils.hand_model import HandModel
+from utils.object_model import ObjectModel
+
 path_to_this_file = os.path.dirname(os.path.realpath(__file__))
-
-set_seed(1)
 
 # Need this to play all: https://github.com/plotly/plotly.js/issues/1221
 PLAY_BUTTON_ARG = None
@@ -52,17 +55,21 @@ class Bounds3D:
             z_max=max(self.z_max, other.z_max),
         )
 
+    @property
+    def x_range(self):
+        return self.x_max - self.x_min
 
-class VisualizeOptimizationArgumentParser(Tap):
-    wandb_entity: str = "tylerlum"
-    wandb_project: str = "DexGraspNet_v1"
-    run_id: str = "drv5njep"
-    max_files_to_read: int = 100
-    frame_duration: int = 200
-    transition_duration: int = 100
+    @property
+    def y_range(self):
+        return self.y_max - self.y_min
+
+    @property
+    def z_range(self):
+        return self.z_max - self.z_min
 
 
-def download_plotly_files(run_path: str):
+## From Wandb ##
+def download_plotly_files_from_wandb(run_path: str):
     api = wandb.Api()
     run = api.run(run_path)
 
@@ -83,7 +90,7 @@ def download_plotly_files(run_path: str):
     return plotly_file_paths
 
 
-def get_visualization_freq(run_path: str):
+def get_visualization_freq_from_wandb(run_path: str):
     api = wandb.Api()
     run = api.run(run_path)
     if not "visualization_freq" in run.config:
@@ -95,12 +102,85 @@ def get_visualization_freq(run_path: str):
     return run.config["visualization_freq"]
 
 
+## From Folder ##
+
+
+def create_grasp_fig(
+    hand_model: HandModel, object_model: ObjectModel, idx_to_visualize: int
+) -> go.Figure:
+    fig = go.Figure(
+        layout=go.Layout(
+            scene=dict(
+                xaxis=dict(title="X"),
+                yaxis=dict(title="Y"),
+                zaxis=dict(title="Z"),
+                aspectmode="data",
+            ),
+            showlegend=True,
+            title="Grasp Visualization",
+        )
+    )
+    plots = [
+        *hand_model.get_plotly_data(
+            i=idx_to_visualize,
+            opacity=1.0,
+            with_contact_points=False,  # No contact points after optimization
+            with_contact_candidates=True,
+        ),
+        *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
+    ]
+    for plot in plots:
+        fig.add_trace(plot)
+    return fig
+
+
+def get_hand_and_object_model_from_data_dict(
+    data_dict: np.ndarray, object_code: str
+) -> Tuple[HandModel, ObjectModel]:
+    HAND_MODEL_TYPE = HandModelType.ALLEGRO_HAND
+    MESH_PATH = "../data/meshdata"
+
+    joint_names = handmodeltype_to_joint_names[HAND_MODEL_TYPE]
+    batch_size = data_dict.shape[0]
+    scale_array = []
+    hand_pose_array = []
+    for i in range(batch_size):
+        qpos = data_dict[i]["qpos"]
+        hand_pose_array.append(
+            qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
+        )
+        scale = data_dict[i]["scale"]
+        scale_array.append(scale)
+
+    GPU = 0
+    device = torch.device(f"cuda:{GPU}" if torch.cuda.is_available() else "cpu")
+    batch_size = len(hand_pose_array)
+
+    # hand model
+    hand_model = HandModel(hand_model_type=HAND_MODEL_TYPE, device=device)
+    hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
+
+    # object model
+    object_model = ObjectModel(
+        data_root_path=MESH_PATH,
+        batch_size_each=batch_size,
+        num_samples=0,
+        device=device,
+    )
+    object_model.initialize(object_code)
+    object_model.object_scale_tensor = (
+        torch.tensor(scale_array).reshape(1, -1).to(device)
+    )  # 1 because 1 object code
+    return hand_model, object_model
+
+
+## Shared ##
 def get_scene_dict(bounds: Bounds3D):
     return dict(
         xaxis=dict(title="X", range=[bounds.x_min, bounds.x_max]),
         yaxis=dict(title="Y", range=[bounds.y_min, bounds.y_max]),
         zaxis=dict(title="Z", range=[bounds.z_min, bounds.z_max]),
-        aspectmode="cube",
+        aspectratio=dict(x=bounds.x_range, y=bounds.y_range, z=bounds.z_range),
     )
 
 
@@ -124,30 +204,20 @@ def get_fig_name(idx: int):
     return f"Fig {idx}"
 
 
-def main(args: VisualizeOptimizationArgumentParser):
-    # Specify run
-    run_path = f"{args.wandb_entity}/{args.wandb_project}/{args.run_id}"
-    print(f"Run path: {run_path}")
-
-    # Download plotly files
-    plotly_file_paths = download_plotly_files(run_path)
-    visualization_freq = get_visualization_freq(run_path)
-
-    # Read in json files
-    plotly_file_paths = plotly_file_paths[: args.max_files_to_read]
-    orig_figs = [
-        plotly.io.read_json(file=plotly_file_path)
-        for plotly_file_path in plotly_file_paths
-    ]
-
+def create_figure_with_buttons_and_slider(
+    input_figs: List[go.Figure],
+    visualization_freq: int,
+    frame_duration: int,
+    transition_duration: int,
+) -> go.Figure:
     # Get bounds
-    assert len(orig_figs) > 0, "No files read"
-    bounds = get_bounds(orig_figs[0])
-    for i in range(1, len(orig_figs)):
-        bounds = bounds.max_bounds(get_bounds(orig_figs[i]))
+    assert len(input_figs) > 0, "No files read"
+    bounds = get_bounds(input_figs[0])
+    for i in range(1, len(input_figs)):
+        bounds = bounds.max_bounds(get_bounds(input_figs[i]))
 
     # Will create slider with each step being a frame
-    # Each frame is one of the orig figs, which is a single optimization step
+    # Each frame is one of the input figs, which is a single optimization step
     FIG_TO_SHOW_FIRST = 0
     REDRAW = True  # Needed for animation to work with 3D: https://github.com/plotly/plotly.js/issues/1221
     slider_steps = [
@@ -157,15 +227,15 @@ def main(args: VisualizeOptimizationArgumentParser):
                     get_fig_name(fig_idx)
                 ],  # Draw this one frame: https://github.com/plotly/plotly.js/issues/1221
                 {
-                    "frame": {"duration": args.frame_duration, "redraw": REDRAW},
+                    "frame": {"duration": frame_duration, "redraw": REDRAW},
                     "mode": "immediate",
-                    "transition": {"duration": args.transition_duration},
+                    "transition": {"duration": transition_duration},
                 },
             ],
             label=get_fig_name(fig_idx),
             method="animate",
         )
-        for fig_idx in range(len(orig_figs))
+        for fig_idx in range(len(input_figs))
     ]
     sliders_dict = dict(
         active=FIG_TO_SHOW_FIRST,
@@ -177,7 +247,7 @@ def main(args: VisualizeOptimizationArgumentParser):
             xanchor="right",
             visible=True,
         ),
-        transition=dict(duration=args.transition_duration, easing="cubic-in-out"),
+        transition=dict(duration=transition_duration, easing="cubic-in-out"),
         pad=dict(b=10, t=50),
         len=0.9,
         x=0.1,
@@ -191,10 +261,10 @@ def main(args: VisualizeOptimizationArgumentParser):
         args=[
             PLAY_BUTTON_ARG,
             {
-                "frame": {"duration": args.frame_duration, "redraw": REDRAW},
+                "frame": {"duration": frame_duration, "redraw": REDRAW},
                 "fromcurrent": True,
                 "transition": {
-                    "duration": args.transition_duration,
+                    "duration": transition_duration,
                     "easing": "quadratic-in-out",
                 },
             },
@@ -218,7 +288,7 @@ def main(args: VisualizeOptimizationArgumentParser):
         ],
     )
     new_fig = go.Figure(
-        data=orig_figs[FIG_TO_SHOW_FIRST].data,
+        data=input_figs[FIG_TO_SHOW_FIRST].data,
         layout=go.Layout(
             scene=get_scene_dict(bounds),
             title=get_title(
@@ -250,12 +320,7 @@ def main(args: VisualizeOptimizationArgumentParser):
                 ),
                 name=get_fig_name(fig_idx),  # Important to match with slider label
             )
-            for fig_idx, fig in enumerate(orig_figs)
+            for fig_idx, fig in enumerate(input_figs)
         ],
     )
-    new_fig.show()
-
-
-if __name__ == "__main__":
-    args = VisualizeOptimizationArgumentParser().parse_args()
-    main(args)
+    return new_fig
