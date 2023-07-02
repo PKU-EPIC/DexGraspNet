@@ -99,7 +99,7 @@ def main(args: VisualizeOptimizationFromFolderArgumentParser):
     if args.save_to_html:
         output_folder = "../html_outputs"
         os.makedirs(output_folder, exist_ok=True)
-        output_filepath = os.path.join(output_folder, f"{args.object_code}.html")
+        output_filepath = os.path.join(output_folder, f"{args.object_code}_{args.idx_to_visualize}.html")
         print(f"Saving to {output_filepath}")
         new_fig.write_html(output_filepath)
     else:
