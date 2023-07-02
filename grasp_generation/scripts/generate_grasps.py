@@ -49,7 +49,7 @@ class GenerateGraspsArgumentParser(Tap):
     wandb_name: str = ""
     wandb_entity: str = "tylerlum"
     wandb_project: str = "DexGraspNet_v1"
-    visualization_freq: int = 2000
+    wandb_visualization_freq: int = 2000
     result_path: str = "../data/graspdata"
     data_root_path: str = "../data/meshdata"
     object_code_list: Optional[List[str]] = None
@@ -59,7 +59,7 @@ class GenerateGraspsArgumentParser(Tap):
     seed: int = 1
     batch_size_each: int = 500
     max_total_batch_size: int = 1000
-    n_iter: int = 6000
+    n_iter: int = 4000
 
     # hyper parameters
     switch_possibility: float = 0.5
