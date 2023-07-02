@@ -18,7 +18,7 @@ from visualize_optimization_helper import (
 )
 
 
-class VisualizeOptimizationArgumentParser(Tap):
+class VisualizeOptimizationFromWandbArgumentParser(Tap):
     wandb_entity: str = "tylerlum"
     wandb_project: str = "DexGraspNet_v1"
     run_id: str = "qg17990t"
@@ -27,7 +27,7 @@ class VisualizeOptimizationArgumentParser(Tap):
     transition_duration: int = 100
 
 
-def main(args: VisualizeOptimizationArgumentParser):
+def main(args: VisualizeOptimizationFromWandbArgumentParser):
     # Specify run
     run_path = f"{args.wandb_entity}/{args.wandb_project}/{args.run_id}"
     print(f"Run path: {run_path}")
@@ -55,4 +55,4 @@ def main(args: VisualizeOptimizationArgumentParser):
 
 
 if __name__ == "__main__":
-    main(VisualizeOptimizationArgumentParser().parse_args())
+    main(VisualizeOptimizationFromWandbArgumentParser().parse_args())

@@ -13,7 +13,7 @@ sys.path.append(os.path.realpath("."))
 import torch
 import numpy as np
 import plotly.graph_objects as go
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from tap import Tap
 from visualize_optimization_helper import (
     create_figure_with_buttons_and_slider,
@@ -27,7 +27,7 @@ from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 
 
-class VisualizeOptimizationArgumentParser(Tap):
+class VisualizeOptimizationFromFolderArgumentParser(Tap):
     """Expects a folder with the following structure:
     - input_folder
         - 0
@@ -45,6 +45,7 @@ class VisualizeOptimizationArgumentParser(Tap):
     object_code: str = "core-pistol-ad72857d0fd2ad2d44a52d2e669c8daa"
     frame_duration: int = 200
     transition_duration: int = 100
+    save_to_html: bool = False
 
 
 def get_visualization_freq_from_folder(input_folder: str) -> int:
@@ -80,7 +81,7 @@ def create_grasp_fig(
         *hand_model.get_plotly_data(
             i=idx_to_visualize,
             opacity=1.0,
-            with_contact_points=True,
+            with_contact_points=False,  # No contact points after optimization
             with_contact_candidates=True,
         ),
         *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
@@ -150,26 +151,35 @@ def get_grasps_from_folder(input_folder: str, object_code: str) -> List[go.Figur
 
 def get_figs_from_folder(
     input_folder: str, object_code: str
-) -> Tuple[List[go.Figure, int]]:
+) -> Tuple[List[go.Figure], int]:
     grasps = get_grasps_from_folder(input_folder=input_folder, object_code=object_code)
     visualization_freq = get_visualization_freq_from_folder(input_folder=input_folder)
     return grasps, visualization_freq
 
 
-def main(args: VisualizeOptimizationArgumentParser):
+def main(args: VisualizeOptimizationFromFolderArgumentParser):
     input_figs, visualization_freq = get_figs_from_folder(
         input_folder=args.input_folder, object_code=args.object_code
     )
 
+    print("Making figure with buttons and slider...")
     new_fig = create_figure_with_buttons_and_slider(
         input_figs=input_figs,
         visualization_freq=visualization_freq,
         frame_duration=args.frame_duration,
         transition_duration=args.transition_duration,
     )
+    print("Done making figure with buttons and slider")
 
-    new_fig.show()
+    if args.save_to_html:
+        output_folder = "../html_outputs"
+        os.makedirs(output_folder, exist_ok=True)
+        output_filepath = os.path.join(output_folder, f"{args.object_code}.html")
+        print(f"Saving to {output_filepath}")
+        new_fig.write_html(output_filepath)
+    else:
+        new_fig.show()
 
 
 if __name__ == "__main__":
-    main(VisualizeOptimizationArgumentParser().parse_args())
+    main(VisualizeOptimizationFromFolderArgumentParser().parse_args())
