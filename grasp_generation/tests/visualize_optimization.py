@@ -56,7 +56,7 @@ class Bounds3D:
 class VisualizeOptimizationArgumentParser(Tap):
     wandb_entity: str = "tylerlum"
     wandb_project: str = "DexGraspNet_v1"
-    run_id: str = "drv5njep"
+    run_id: str = "qg17990t"
     max_files_to_read: int = 100
     frame_duration: int = 200
     transition_duration: int = 100
@@ -134,7 +134,9 @@ def main(args: VisualizeOptimizationArgumentParser):
     visualization_freq = get_visualization_freq(run_path)
 
     # Read in json files
-    plotly_file_paths = plotly_file_paths[: args.max_files_to_read]
+    if len(plotly_file_paths) > args.max_files_to_read:
+        print(f"Limiting to {args.max_files_to_read} files")
+        plotly_file_paths = plotly_file_paths[: args.max_files_to_read]
     orig_figs = [
         plotly.io.read_json(file=plotly_file_path)
         for plotly_file_path in plotly_file_paths
