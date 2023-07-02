@@ -70,10 +70,11 @@ def _cal_force_closure(
     E_fc = norm * norm
     return E_fc
 
-def _cal_hand_object_penetration(hand_model: HandModel, object_model: ObjectModel) -> torch.Tensor:
-    object_scale = (
-        object_model.object_scale_tensor.flatten().unsqueeze(1).unsqueeze(2)
-    )
+
+def _cal_hand_object_penetration(
+    hand_model: HandModel, object_model: ObjectModel
+) -> torch.Tensor:
+    object_scale = object_model.object_scale_tensor.flatten().unsqueeze(1).unsqueeze(2)
     object_surface_points = (
         object_model.surface_points_tensor * object_scale
     )  # (n_objects * batch_size_each, num_samples, 3)
@@ -103,34 +104,37 @@ def cal_energy(
     ) = object_model.cal_distance(hand_model.contact_points)
 
     # Compute energies
-    unweighted_energy_matrix = torch.zeros(
-        batch_size, len(ENERGY_NAMES), dtype=torch.float, device=device
+    energy_dict = {}
+    energy_dict["Force Closure"] = _cal_force_closure(
+        object_to_hand_contact_point_normal=object_to_hand_contact_point_normal,
+        contact_points=hand_model.contact_points,
+        device=device,
     )
-    for i, energy_name in enumerate(ENERGY_NAMES):
-        if energy_name == "Force Closure":
-            unweighted_energy_matrix[:, i] = _cal_force_closure(
-                object_to_hand_contact_point_normal=object_to_hand_contact_point_normal,
-                contact_points=hand_model.contact_points,
-                device=device,
-            )
-        elif energy_name == "Hand Contact Point to Object Distance":
-            unweighted_energy_matrix[:, i] = torch.sum(
-                object_to_hand_contact_point_distances.abs(), dim=-1, dtype=torch.float
-            ).to(device)
-        elif energy_name == "Hand Object Penetration":
-            unweighted_energy_matrix = _cal_hand_object_penetration(hand_model, object_model)
-        elif energy_name == "Hand Self Penetration":
-            unweighted_energy_matrix[:, i] = hand_model.cal_self_penetration_energy()
-        elif energy_name == "Joint Limits Violation":
-            unweighted_energy_matrix[:, i] = hand_model.cal_joint_limit_energy()
-        elif energy_name == "Finger Finger Distance":
-            unweighted_energy_matrix[:, i] = hand_model.cal_finger_finger_distance_energy()
-        elif energy_name == "Finger Palm Distance":
-            unweighted_energy_matrix[:, i] = hand_model.cal_palm_finger_distance_energy()
-        else:
-            raise ValueError(f"Unknown energy name: {energy_name}")
+    energy_dict["Hand Contact Point to Object Distance"] = torch.sum(
+        object_to_hand_contact_point_distances.abs(), dim=-1, dtype=torch.float
+    ).to(device)
+    energy_dict["Hand Object Penetration"] = _cal_hand_object_penetration(
+        hand_model, object_model
+    )
+    energy_dict["Hand Self Penetration"] = hand_model.cal_self_penetration_energy()
+    energy_dict["Joint Limits Violation"] = hand_model.cal_joint_limit_energy()
+    energy_dict[
+        "Finger Finger Distance"
+    ] = hand_model.cal_finger_finger_distance_energy()
+    energy_dict["Finger Palm Distance"] = hand_model.cal_palm_finger_distance_energy()
 
-    energy_weights = torch.tensor([energy_name_to_weight_dict[energy_name] for energy_name in ENERGY_NAMES], device=device)
+    assert set(energy_dict.keys()) == set(ENERGY_NAMES)
+
+    # Compute weighted energy
+    unweighted_energy_matrix = torch.stack(
+        [energy_dict[energy_name] for energy_name in ENERGY_NAMES], dim=1
+    )
+    assert unweighted_energy_matrix.shape == (batch_size, len(ENERGY_NAMES))
+
+    energy_weights = torch.tensor(
+        [energy_name_to_weight_dict[energy_name] for energy_name in ENERGY_NAMES],
+        device=device,
+    )
     weighted_energy_matrix = unweighted_energy_matrix * energy_weights[None, ...]
     energy = weighted_energy_matrix.sum(dim=-1)
     return energy, unweighted_energy_matrix, weighted_energy_matrix
