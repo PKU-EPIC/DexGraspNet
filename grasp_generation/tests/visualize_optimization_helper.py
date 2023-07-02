@@ -55,6 +55,18 @@ class Bounds3D:
             z_max=max(self.z_max, other.z_max),
         )
 
+    @property
+    def x_range(self):
+        return self.x_max - self.x_min
+
+    @property
+    def y_range(self):
+        return self.y_max - self.y_min
+
+    @property
+    def z_range(self):
+        return self.z_max - self.z_min
+
 
 ## From Wandb ##
 def download_plotly_files_from_wandb(run_path: str):
@@ -168,7 +180,7 @@ def get_scene_dict(bounds: Bounds3D):
         xaxis=dict(title="X", range=[bounds.x_min, bounds.x_max]),
         yaxis=dict(title="Y", range=[bounds.y_min, bounds.y_max]),
         zaxis=dict(title="Z", range=[bounds.z_min, bounds.z_max]),
-        aspectmode="cube",
+        aspectratio=dict(x=bounds.x_range, y=bounds.y_range, z=bounds.z_range),
     )
 
 
