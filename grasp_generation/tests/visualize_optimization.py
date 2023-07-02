@@ -26,6 +26,27 @@ path_to_this_file = os.path.dirname(os.path.realpath(__file__))
 set_seed(1)
 
 
+@dataclass
+class Bounds3D:
+    x_min: float
+    x_max: float
+    y_min: float
+    y_max: float
+    z_min: float
+    z_max: float
+
+    def max_bounds(self, other):
+        assert isinstance(other, Bounds3D)
+        return Bounds3D(
+            x_min=min(self.x_min, other.x_min),
+            x_max=max(self.x_max, other.x_max),
+            y_min=min(self.y_min, other.y_min),
+            y_max=max(self.y_max, other.y_max),
+            z_min=min(self.z_min, other.z_min),
+            z_max=max(self.z_max, other.z_max),
+        )
+
+
 class VisualizeOptimizationArgumentParser(Tap):
     wandb_entity: str = "tylerlum"
     wandb_project: str = "DexGraspNet_v1"
@@ -56,25 +77,25 @@ def download_plotly_files(run_path: str):
     return plotly_file_paths
 
 
-@dataclass
-class Bounds3D:
-    x_min: float
-    x_max: float
-    y_min: float
-    y_max: float
-    z_min: float
-    z_max: float
-
-    def max_bounds(self, other):
-        assert isinstance(other, Bounds3D)
-        return Bounds3D(
-            x_min=min(self.x_min, other.x_min),
-            x_max=max(self.x_max, other.x_max),
-            y_min=min(self.y_min, other.y_min),
-            y_max=max(self.y_max, other.y_max),
-            z_min=min(self.z_min, other.z_min),
-            z_max=max(self.z_max, other.z_max),
+def get_visualization_freq(run_path: str):
+    api = wandb.Api()
+    run = api.run(run_path)
+    if not "visualization_freq" in run.config:
+        default_freq = 1
+        print(
+            f"WARNING: visualization_freq not in run config, defaulting to {default_freq}"
         )
+        return default_freq
+    return run.config["visualization_freq"]
+
+
+def get_scene_dict(bounds: Bounds3D):
+    return dict(
+        xaxis=dict(title="X", range=[bounds.x_min, bounds.x_max]),
+        yaxis=dict(title="Y", range=[bounds.y_min, bounds.y_max]),
+        zaxis=dict(title="Z", range=[bounds.z_min, bounds.z_max]),
+        aspectmode="cube",
+    )
 
 
 def get_bounds(fig: go.Figure):
@@ -89,6 +110,13 @@ def get_bounds(fig: go.Figure):
     )
 
 
+def get_title(idx: int, visualization_freq: int):
+    return f"Optimization step {idx * visualization_freq}"
+
+
+def get_fig_name(idx: int):
+    return f"Fig {idx}"
+
 def main(args: VisualizeOptimizationArgumentParser):
     # Specify run
     run_path = f"{args.wandb_entity}/{args.wandb_project}/{args.run_id}"
@@ -96,6 +124,7 @@ def main(args: VisualizeOptimizationArgumentParser):
 
     # Download plotly files
     plotly_file_paths = download_plotly_files(run_path)
+    visualization_freq = get_visualization_freq(run_path)
 
     # Read in json files
     plotly_file_paths = plotly_file_paths[: args.max_files_to_read]
@@ -113,20 +142,23 @@ def main(args: VisualizeOptimizationArgumentParser):
     # Will create slider with each step being a frame
     # Each frame is one of the orig figs, which is a single optimization step
     FIG_TO_SHOW_FIRST = 0
+    REDRAW = True  # Needed for animation to work with 3D: https://github.com/plotly/plotly.js/issues/1221
     slider_steps = [
         dict(
             args=[
-                [fig_idx],
+                [
+                    get_fig_name(fig_idx)
+                ],  # Draw this one frame: https://github.com/plotly/plotly.js/issues/1221
                 {
-                    "frame": {"duration": args.frame_duration, "redraw": True},
+                    "frame": {"duration": args.frame_duration, "redraw": REDRAW},
                     "mode": "immediate",
                     "transition": {"duration": args.transition_duration},
                 },
             ],
-            label=fig_idx,
+            label=get_fig_name(fig_idx),
             method="animate",
         )
-        for fig_idx, f in enumerate(orig_figs)
+        for fig_idx in range(len(orig_figs))
     ]
     sliders_dict = dict(
         active=FIG_TO_SHOW_FIRST,
@@ -146,13 +178,16 @@ def main(args: VisualizeOptimizationArgumentParser):
         steps=slider_steps,
     )
 
+    PLAY_BUTTON_ARG = (
+        None  # Need this to play all: https://github.com/plotly/plotly.js/issues/1221
+    )
     play_button_dict = dict(
         label="Play From Start",
         method="animate",
         args=[
-            None,
+            PLAY_BUTTON_ARG,
             {
-                "frame": {"duration": args.frame_duration, "redraw": True},
+                "frame": {"duration": args.frame_duration, "redraw": REDRAW},
                 "fromcurrent": True,
                 "transition": {
                     "duration": args.transition_duration,
@@ -161,29 +196,34 @@ def main(args: VisualizeOptimizationArgumentParser):
             },
         ],
     )
+    PAUSE_BUTTON_REDRAW = False
+    PAUSE_BUTTON_DURATION = 0
+    PAUSE_BUTTON_ARG = [
+        None
+    ]  # Need this for pause button: https://github.com/plotly/plotly.js/issues/1221
     pause_button_dict = dict(
         label="Pause",
         method="animate",
         args=[
-            [None],
+            PAUSE_BUTTON_ARG,
             {
-                "frame": {"duration": 0, "redraw": False},
+                "frame": {
+                    "duration": PAUSE_BUTTON_DURATION,
+                    "redraw": PAUSE_BUTTON_REDRAW,
+                },
                 "mode": "immediate",
-                "transition": {"duration": 0},
+                "transition": {"duration": PAUSE_BUTTON_DURATION},
             },
         ],
     )
     new_fig = go.Figure(
         data=orig_figs[FIG_TO_SHOW_FIRST].data,
         layout=go.Layout(
-            scene=dict(
-                xaxis=dict(title="X", range=[bounds.x_min, bounds.x_max]),
-                yaxis=dict(title="Y", range=[bounds.y_min, bounds.y_max]),
-                zaxis=dict(title="Z", range=[bounds.z_min, bounds.z_max]),
-                aspectmode="cube",
+            scene=get_scene_dict(bounds),
+            title=get_title(
+                idx=FIG_TO_SHOW_FIRST, visualization_freq=visualization_freq
             ),
             showlegend=True,
-            title="new_fig",
             updatemenus=[
                 dict(
                     type="buttons",
@@ -203,16 +243,11 @@ def main(args: VisualizeOptimizationArgumentParser):
             go.Frame(
                 data=fig.data,
                 layout=go.Layout(
-                    scene=dict(
-                        xaxis=dict(title="X", range=[bounds.x_min, bounds.x_max]),
-                        yaxis=dict(title="Y", range=[bounds.y_min, bounds.y_max]),
-                        zaxis=dict(title="Z", range=[bounds.z_min, bounds.z_max]),
-                        aspectmode="cube",
-                    ),
+                    scene=get_scene_dict(bounds),
+                    title=get_title(idx=fig_idx, visualization_freq=visualization_freq),
                     showlegend=True,
-                    title=fig_idx,
                 ),
-                name=fig_idx,
+                name=get_fig_name(fig_idx),  # Important to match with slider label
             )
             for fig_idx, fig in enumerate(orig_figs)
         ],
