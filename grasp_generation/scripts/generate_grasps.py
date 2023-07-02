@@ -91,7 +91,6 @@ class GenerateGraspsArgumentParser(Tap):
     thres_pen: float = 0.001
 
     # verbose (grasps throughout)
-    store_grasps_mid_optimization_path: Optional[str] = None
     store_grasps_mid_optimization_freq: Optional[int] = None
 
 
@@ -315,10 +314,9 @@ def generate(
         if (
             args.store_grasps_mid_optimization_freq is not None
             and (step % args.store_grasps_mid_optimization_freq == 0)
-            and args.store_grasps_mid_optimization_path is not None
         ):
             new_output_folder = os.path.join(
-                args.store_grasps_mid_optimization_path, str(step)
+                args.result_path + "_mid_optimization", str(step)
             )
             os.makedirs(new_output_folder, exist_ok=True)
             save_results(
