@@ -8,22 +8,15 @@ import os
 import sys
 from dataclasses import dataclass
 
-# os.chdir(os.path.dirname(os.path.dirname(__file__)))
 sys.path.append(os.path.realpath("."))
 
 import plotly.graph_objects as go
-import plotly
-from utils.seed import set_seed
 import wandb
 from tqdm import tqdm
 from datetime import datetime
 from typing import List
-from tap import Tap
 
-# Get path to this file
 path_to_this_file = os.path.dirname(os.path.realpath(__file__))
-
-set_seed(1)
 
 # Need this to play all: https://github.com/plotly/plotly.js/issues/1221
 PLAY_BUTTON_ARG = None
@@ -53,16 +46,7 @@ class Bounds3D:
         )
 
 
-class VisualizeOptimizationArgumentParser(Tap):
-    wandb_entity: str = "tylerlum"
-    wandb_project: str = "DexGraspNet_v1"
-    run_id: str = "qg17990t"
-    max_files_to_read: int = 100
-    frame_duration: int = 200
-    transition_duration: int = 100
-
-
-def download_plotly_files(run_path: str):
+def download_plotly_files_from_wandb(run_path: str):
     api = wandb.Api()
     run = api.run(run_path)
 
@@ -83,7 +67,7 @@ def download_plotly_files(run_path: str):
     return plotly_file_paths
 
 
-def get_visualization_freq(run_path: str):
+def get_visualization_freq_from_wandb(run_path: str):
     api = wandb.Api()
     run = api.run(run_path)
     if not "visualization_freq" in run.config:
@@ -124,32 +108,20 @@ def get_fig_name(idx: int):
     return f"Fig {idx}"
 
 
-def main(args: VisualizeOptimizationArgumentParser):
-    # Specify run
-    run_path = f"{args.wandb_entity}/{args.wandb_project}/{args.run_id}"
-    print(f"Run path: {run_path}")
-
-    # Download plotly files
-    plotly_file_paths = download_plotly_files(run_path)
-    visualization_freq = get_visualization_freq(run_path)
-
-    # Read in json files
-    if len(plotly_file_paths) > args.max_files_to_read:
-        print(f"Limiting to {args.max_files_to_read} files")
-        plotly_file_paths = plotly_file_paths[: args.max_files_to_read]
-    orig_figs = [
-        plotly.io.read_json(file=plotly_file_path)
-        for plotly_file_path in plotly_file_paths
-    ]
-
+def create_figure_with_buttons_and_slider(
+    input_figs: List[go.Figure],
+    visualization_freq: int,
+    frame_duration: int,
+    transition_duration: int,
+) -> go.Figure:
     # Get bounds
-    assert len(orig_figs) > 0, "No files read"
-    bounds = get_bounds(orig_figs[0])
-    for i in range(1, len(orig_figs)):
-        bounds = bounds.max_bounds(get_bounds(orig_figs[i]))
+    assert len(input_figs) > 0, "No files read"
+    bounds = get_bounds(input_figs[0])
+    for i in range(1, len(input_figs)):
+        bounds = bounds.max_bounds(get_bounds(input_figs[i]))
 
     # Will create slider with each step being a frame
-    # Each frame is one of the orig figs, which is a single optimization step
+    # Each frame is one of the input figs, which is a single optimization step
     FIG_TO_SHOW_FIRST = 0
     REDRAW = True  # Needed for animation to work with 3D: https://github.com/plotly/plotly.js/issues/1221
     slider_steps = [
@@ -159,15 +131,15 @@ def main(args: VisualizeOptimizationArgumentParser):
                     get_fig_name(fig_idx)
                 ],  # Draw this one frame: https://github.com/plotly/plotly.js/issues/1221
                 {
-                    "frame": {"duration": args.frame_duration, "redraw": REDRAW},
+                    "frame": {"duration": frame_duration, "redraw": REDRAW},
                     "mode": "immediate",
-                    "transition": {"duration": args.transition_duration},
+                    "transition": {"duration": transition_duration},
                 },
             ],
             label=get_fig_name(fig_idx),
             method="animate",
         )
-        for fig_idx in range(len(orig_figs))
+        for fig_idx in range(len(input_figs))
     ]
     sliders_dict = dict(
         active=FIG_TO_SHOW_FIRST,
@@ -179,7 +151,7 @@ def main(args: VisualizeOptimizationArgumentParser):
             xanchor="right",
             visible=True,
         ),
-        transition=dict(duration=args.transition_duration, easing="cubic-in-out"),
+        transition=dict(duration=transition_duration, easing="cubic-in-out"),
         pad=dict(b=10, t=50),
         len=0.9,
         x=0.1,
@@ -193,10 +165,10 @@ def main(args: VisualizeOptimizationArgumentParser):
         args=[
             PLAY_BUTTON_ARG,
             {
-                "frame": {"duration": args.frame_duration, "redraw": REDRAW},
+                "frame": {"duration": frame_duration, "redraw": REDRAW},
                 "fromcurrent": True,
                 "transition": {
-                    "duration": args.transition_duration,
+                    "duration": transition_duration,
                     "easing": "quadratic-in-out",
                 },
             },
@@ -220,7 +192,7 @@ def main(args: VisualizeOptimizationArgumentParser):
         ],
     )
     new_fig = go.Figure(
-        data=orig_figs[FIG_TO_SHOW_FIRST].data,
+        data=input_figs[FIG_TO_SHOW_FIRST].data,
         layout=go.Layout(
             scene=get_scene_dict(bounds),
             title=get_title(
@@ -252,12 +224,7 @@ def main(args: VisualizeOptimizationArgumentParser):
                 ),
                 name=get_fig_name(fig_idx),  # Important to match with slider label
             )
-            for fig_idx, fig in enumerate(orig_figs)
+            for fig_idx, fig in enumerate(input_figs)
         ],
     )
-    new_fig.show()
-
-
-if __name__ == "__main__":
-    args = VisualizeOptimizationArgumentParser().parse_args()
-    main(args)
+    return new_fig
