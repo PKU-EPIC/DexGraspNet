@@ -14,7 +14,17 @@ import plotly.graph_objects as go
 import wandb
 from tqdm import tqdm
 from datetime import datetime
-from typing import List
+from typing import List, Tuple
+
+import torch
+import numpy as np
+from utils.qpos_pose_conversion import qpos_to_pose
+from utils.hand_model_type import (
+    HandModelType,
+    handmodeltype_to_joint_names,
+)
+from utils.hand_model import HandModel
+from utils.object_model import ObjectModel
 
 path_to_this_file = os.path.dirname(os.path.realpath(__file__))
 
@@ -46,6 +56,7 @@ class Bounds3D:
         )
 
 
+## From Wandb ##
 def download_plotly_files_from_wandb(run_path: str):
     api = wandb.Api()
     run = api.run(run_path)
@@ -79,6 +90,79 @@ def get_visualization_freq_from_wandb(run_path: str):
     return run.config["visualization_freq"]
 
 
+## From Folder ##
+
+
+def create_grasp_fig(
+    hand_model: HandModel, object_model: ObjectModel, idx_to_visualize: int
+) -> go.Figure:
+    fig = go.Figure(
+        layout=go.Layout(
+            scene=dict(
+                xaxis=dict(title="X"),
+                yaxis=dict(title="Y"),
+                zaxis=dict(title="Z"),
+                aspectmode="data",
+            ),
+            showlegend=True,
+            title="Grasp Visualization",
+        )
+    )
+    plots = [
+        *hand_model.get_plotly_data(
+            i=idx_to_visualize,
+            opacity=1.0,
+            with_contact_points=False,  # No contact points after optimization
+            with_contact_candidates=True,
+        ),
+        *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
+    ]
+    for plot in plots:
+        fig.add_trace(plot)
+    return fig
+
+
+def get_hand_and_object_model_from_data_dict(
+    data_dict: np.ndarray, object_code: str
+) -> Tuple[HandModel, ObjectModel]:
+    HAND_MODEL_TYPE = HandModelType.ALLEGRO_HAND
+    MESH_PATH = "../data/meshdata"
+
+    joint_names = handmodeltype_to_joint_names[HAND_MODEL_TYPE]
+    batch_size = data_dict.shape[0]
+    scale_array = []
+    hand_pose_array = []
+    for i in range(batch_size):
+        qpos = data_dict[i]["qpos"]
+        hand_pose_array.append(
+            qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
+        )
+        scale = data_dict[i]["scale"]
+        scale_array.append(scale)
+
+    GPU = 0
+    device = torch.device(f"cuda:{GPU}" if torch.cuda.is_available() else "cpu")
+    batch_size = len(hand_pose_array)
+
+    # hand model
+    hand_model = HandModel(hand_model_type=HAND_MODEL_TYPE, device=device)
+    hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
+
+    # object model
+    object_model = ObjectModel(
+        data_root_path=MESH_PATH,
+        batch_size_each=batch_size,
+        num_samples=0,
+        device=device,
+    )
+    object_model.initialize(object_code)
+    object_model.object_scale_tensor = (
+        torch.tensor(scale_array).reshape(1, -1).to(device)
+    )  # 1 because 1 object code
+    return hand_model, object_model
+
+
+## Shared ##
 def get_scene_dict(bounds: Bounds3D):
     return dict(
         xaxis=dict(title="X", range=[bounds.x_min, bounds.x_max]),
