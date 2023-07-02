@@ -25,6 +25,12 @@ path_to_this_file = os.path.dirname(os.path.realpath(__file__))
 
 set_seed(1)
 
+# Need this to play all: https://github.com/plotly/plotly.js/issues/1221
+PLAY_BUTTON_ARG = None
+
+# Need this for pause button: https://github.com/plotly/plotly.js/issues/1221
+PAUSE_BUTTON_ARG = [None]
+
 
 @dataclass
 class Bounds3D:
@@ -111,11 +117,12 @@ def get_bounds(fig: go.Figure):
 
 
 def get_title(idx: int, visualization_freq: int):
-    return f"Optimization step {idx * visualization_freq}"
+    return f"Grasp Optimization Step {idx * visualization_freq}"
 
 
 def get_fig_name(idx: int):
     return f"Fig {idx}"
+
 
 def main(args: VisualizeOptimizationArgumentParser):
     # Specify run
@@ -166,7 +173,7 @@ def main(args: VisualizeOptimizationArgumentParser):
         xanchor="left",
         currentvalue=dict(
             font=dict(size=12),
-            prefix="Optimization Iter",  # Prefix for the slider label
+            prefix="Step: ",  # Prefix for the slider label
             xanchor="right",
             visible=True,
         ),
@@ -178,11 +185,8 @@ def main(args: VisualizeOptimizationArgumentParser):
         steps=slider_steps,
     )
 
-    PLAY_BUTTON_ARG = (
-        None  # Need this to play all: https://github.com/plotly/plotly.js/issues/1221
-    )
     play_button_dict = dict(
-        label="Play From Start",
+        label="Play",
         method="animate",
         args=[
             PLAY_BUTTON_ARG,
@@ -198,9 +202,6 @@ def main(args: VisualizeOptimizationArgumentParser):
     )
     PAUSE_BUTTON_REDRAW = False
     PAUSE_BUTTON_DURATION = 0
-    PAUSE_BUTTON_ARG = [
-        None
-    ]  # Need this for pause button: https://github.com/plotly/plotly.js/issues/1221
     pause_button_dict = dict(
         label="Pause",
         method="animate",
