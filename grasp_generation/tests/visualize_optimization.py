@@ -65,15 +65,28 @@ class Bounds3D:
     z_min: float
     z_max: float
 
+    def max_bounds(self, other):
+        assert isinstance(other, Bounds3D)
+        return Bounds3D(
+            x_min=min(self.x_min, other.x_min),
+            x_max=max(self.x_max, other.x_max),
+            y_min=min(self.y_min, other.y_min),
+            y_max=max(self.y_max, other.y_max),
+            z_min=min(self.z_min, other.z_min),
+            z_max=max(self.z_max, other.z_max),
+        )
 
-def get_bounds(figs: List[go.Figure]):
-    x_min = min([min(d.x) for fig in figs for d in fig.data])
-    x_max = max([max(d.x) for fig in figs for d in fig.data])
-    y_min = min([min(d.y) for fig in figs for d in fig.data])
-    y_max = max([max(d.y) for fig in figs for d in fig.data])
-    z_min = min([min(d.z) for fig in figs for d in fig.data])
-    z_max = max([max(d.z) for fig in figs for d in fig.data])
-    return Bounds3D(x_min, x_max, y_min, y_max, z_min, z_max)
+
+def get_bounds(fig: go.Figure):
+    x_min = min([min(d.x) for d in fig.data])
+    x_max = max([max(d.x) for d in fig.data])
+    y_min = min([min(d.y) for d in fig.data])
+    y_max = max([max(d.y) for d in fig.data])
+    z_min = min([min(d.z) for d in fig.data])
+    z_max = max([max(d.z) for d in fig.data])
+    return Bounds3D(
+        x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max, z_min=z_min, z_max=z_max
+    )
 
 
 def main(args: VisualizeOptimizationArgumentParser):
@@ -81,7 +94,7 @@ def main(args: VisualizeOptimizationArgumentParser):
     run_path = f"{args.wandb_entity}/{args.wandb_project}/{args.run_id}"
     print(f"Run path: {run_path}")
 
-    # Get files from wandb
+    # Download plotly files
     plotly_file_paths = download_plotly_files(run_path)
 
     # Read in json files
@@ -90,8 +103,15 @@ def main(args: VisualizeOptimizationArgumentParser):
         plotly.io.read_json(file=plotly_file_path)
         for plotly_file_path in plotly_file_paths
     ]
-    bounds = get_bounds(orig_figs)
 
+    # Get bounds
+    assert len(orig_figs) > 0, "No files read"
+    bounds = get_bounds(orig_figs[0])
+    for i in range(1, len(orig_figs)):
+        bounds = bounds.max_bounds(get_bounds(orig_figs[i]))
+
+    # Will create slider with each step being a frame
+    # Each frame is one of the orig figs, which is a single optimization step
     FIG_TO_SHOW_FIRST = 0
     slider_steps = [
         dict(
@@ -147,7 +167,6 @@ def main(args: VisualizeOptimizationArgumentParser):
         args=[
             [None],
             {
-                # TODO: Should these be 0 duration?
                 "frame": {"duration": 0, "redraw": False},
                 "mode": "immediate",
                 "transition": {"duration": 0},
