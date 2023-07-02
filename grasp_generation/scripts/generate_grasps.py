@@ -91,7 +91,7 @@ class GenerateGraspsArgumentParser(Tap):
     thres_pen: float = 0.001
 
     # verbose (grasps throughout)
-    store_grasps_mid_optimization_freq: Optional[int] = None
+    store_grasps_mid_optimization_freq: Optional[int] = 100
 
 
 def create_visualization_figure(
@@ -311,9 +311,8 @@ def generate(
             weighted_energy_matrix[accept] = new_weighted_energy_matrix[accept]
 
         # Store grasps mid optimization
-        if (
-            args.store_grasps_mid_optimization_freq is not None
-            and (step % args.store_grasps_mid_optimization_freq == 0)
+        if args.store_grasps_mid_optimization_freq is not None and (
+            step % args.store_grasps_mid_optimization_freq == 0
         ):
             new_output_folder = os.path.join(
                 args.result_path + "_mid_optimization", str(step)
