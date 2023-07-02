@@ -92,17 +92,17 @@ def main(args: VisualizeOptimizationArgumentParser):
     slider_steps = [
         dict(
             args=[
-                [frame_idx],
+                [fig_idx],
                 {
                     # "frame": {"duration": 1000, "redraw": False},
                     # "mode": "immediate",
                     # "transition": {"duration": 300},
                 },
             ],
-            label=frame_idx,
+            label=fig_idx,
             method="animate",
         )
-        for frame_idx, f in enumerate(orig_figs)
+        for fig_idx, f in enumerate(orig_figs)
     ]
     sliders_dict = dict(
         active=FIG_TO_SHOW_FIRST,
@@ -183,11 +183,11 @@ def main(args: VisualizeOptimizationArgumentParser):
                         aspectmode="cube",
                     ),
                     showlegend=True,
-                    title=f"new_fig frame {i}",
+                    title=fig_idx,
                 ),
-                name=f"frame {i}",
+                name=fig_idx
             )
-            for i, fig in enumerate(orig_figs)
+            for fig_idx, fig in enumerate(orig_figs)
         ],
     )
     new_fig.show()
