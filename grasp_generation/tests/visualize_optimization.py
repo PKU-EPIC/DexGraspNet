@@ -31,6 +31,8 @@ class VisualizeOptimizationArgumentParser(Tap):
     wandb_project: str = "DexGraspNet_v1"
     run_id: str = "drv5njep"
     max_files_to_read: int = 100
+    frame_duration: int = 200
+    transition_duration: int = 100
 
 
 def download_plotly_files(run_path: str):
@@ -53,6 +55,7 @@ def download_plotly_files(run_path: str):
     print(f"First files: {plotly_file_paths[:3]}")
     return plotly_file_paths
 
+
 @dataclass
 class Bounds3D:
     x_min: float
@@ -62,6 +65,7 @@ class Bounds3D:
     z_min: float
     z_max: float
 
+
 def get_bounds(figs: List[go.Figure]):
     x_min = min([min(d.x) for fig in figs for d in fig.data])
     x_max = max([max(d.x) for fig in figs for d in fig.data])
@@ -70,6 +74,7 @@ def get_bounds(figs: List[go.Figure]):
     z_min = min([min(d.z) for fig in figs for d in fig.data])
     z_max = max([max(d.z) for fig in figs for d in fig.data])
     return Bounds3D(x_min, x_max, y_min, y_max, z_min, z_max)
+
 
 def main(args: VisualizeOptimizationArgumentParser):
     # Specify run
@@ -114,7 +119,7 @@ def main(args: VisualizeOptimizationArgumentParser):
             xanchor="right",
             visible=True,
         ),
-        # transition=dict(duration=300, easing="cubic-in-out"),
+        transition=dict(duration=args.transition_duration, easing="cubic-in-out"),
         pad=dict(b=10, t=50),
         len=0.9,
         x=0.1,
@@ -128,9 +133,9 @@ def main(args: VisualizeOptimizationArgumentParser):
         args=[
             None,
             {
-                # "frame": {"duration": 1000, "redraw": False},
-                # "fromcurrent": True,
-                # "transition": {"duration": 1000, "easing": "quadratic-in-out"},
+                "frame": {"duration": args.frame_duration, "redraw": True},
+                "fromcurrent": True,
+                "transition": {"duration": args.transition_duration, "easing": "quadratic-in-out"},
             },
         ],
     )
@@ -140,9 +145,11 @@ def main(args: VisualizeOptimizationArgumentParser):
         args=[
             None,
             {
-                "frame": {"duration": 0, "redraw": False},
+                # TODO: Should these be 0 duration?
+                "frame": {"duration": args.frame_duration, "redraw": False},
                 "mode": "immediate",
-                "transition": {"duration": 0},
+                "transition": {"duration": args.transition_duration},
+
             },
         ],
     )
@@ -161,13 +168,13 @@ def main(args: VisualizeOptimizationArgumentParser):
                 dict(
                     type="buttons",
                     buttons=[play_button_dict, pause_button_dict],
-                    # direction="left",
-                    # pad={"r": 10, "t": 87},
-                    # showactive=False,
-                    # x=0.1,
-                    # y=0,
-                    # xanchor="right",
-                    # yanchor="top",
+                    direction="left",
+                    pad={"r": 10, "t": 65},
+                    showactive=False,
+                    x=0.1,
+                    y=0,
+                    xanchor="right",
+                    yanchor="top",
                 ),
             ],
             sliders=[sliders_dict],
@@ -185,7 +192,7 @@ def main(args: VisualizeOptimizationArgumentParser):
                     showlegend=True,
                     title=fig_idx,
                 ),
-                name=fig_idx
+                name=fig_idx,
             )
             for fig_idx, fig in enumerate(orig_figs)
         ],
