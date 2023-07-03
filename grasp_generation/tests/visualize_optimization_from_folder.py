@@ -35,8 +35,8 @@ class VisualizeOptimizationFromFolderArgumentParser(Tap):
         ...
     """
 
-    input_folder: str = "../data/2023-07-01_debug_graspdata_extra/"
-    object_code: str = "core-pistol-ad72857d0fd2ad2d44a52d2e669c8daa"
+    input_folder: str = "../data/2023-07-01_dryrun_graspdata_mid_optimization/"
+    object_code: str = "sem-ToyFigure-47204f6aaa776c7bf8208b6313b1ffa0"
     idx_to_visualize: int = 0
     frame_duration: int = 200
     transition_duration: int = 100
@@ -78,6 +78,7 @@ def get_visualization_freq_from_folder(input_folder: str) -> int:
 
 
 def main(args: VisualizeOptimizationFromFolderArgumentParser):
+    print(f"args = {args}")
     input_figs = get_grasps_from_folder(
         input_folder=args.input_folder,
         object_code=args.object_code,
