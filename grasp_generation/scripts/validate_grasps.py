@@ -30,7 +30,6 @@ from utils.seed import set_seed
 from utils.joint_angle_targets import (
     compute_optimized_joint_angle_targets,
     OptimizationMethod,
-    compute_optimized_canonicalized_hand_pose,
 )
 from utils.energy import _cal_hand_object_penetration
 
@@ -53,47 +52,6 @@ class ValidateGraspArgumentParser(Tap):
     start_with_step_mode: bool = False
     no_force: bool = False
     penetration_threshold: Optional[float] = None
-    canonicalize_grasp: bool = False
-
-
-def compute_canonicalized_hand_pose(
-    args: ValidateGraspArgumentParser,
-    hand_pose_array: List[torch.Tensor],
-    scale_array: List[float],
-) -> torch.Tensor:
-    assert len(hand_pose_array) == len(scale_array)
-
-    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
-    batch_size = len(hand_pose_array)
-
-    # hand model
-    hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
-    hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
-
-    # object model
-    object_model = ObjectModel(
-        data_root_path=args.mesh_path,
-        batch_size_each=batch_size,
-        num_samples=0,
-        device=device,
-    )
-    object_model.initialize(args.object_code)
-    object_model.object_scale_tensor = (
-        torch.tensor(scale_array).reshape(1, -1).to(device)
-    )  # 1 because 1 object code
-
-    # Optimization
-    (
-        canonicalized_hand_pose,
-        losses,
-        debug_infos,
-    ) = compute_optimized_canonicalized_hand_pose(
-        hand_model=hand_model,
-        object_model=object_model,
-        device=device,
-    )
-
-    return canonicalized_hand_pose
 
 
 def compute_joint_angle_targets(
@@ -229,47 +187,6 @@ def main(args: ValidateGraspArgumentParser):
             E_pen_array.append(0)
     E_pen_array = np.array(E_pen_array)
 
-    if args.canonicalize_grasp:
-        canonicalized_hand_poses = compute_canonicalized_hand_pose(
-            args=args,
-            hand_pose_array=hand_pose_array,
-            scale_array=scale_array,
-        )
-        translation_array = []
-        quaternion_array = []
-        joint_angles_array = []
-        hand_pose_array = []
-        for i in range(batch_size):
-            qpos = pose_to_qpos(
-                hand_pose=canonicalized_hand_poses[i].cpu(), joint_names=joint_names
-            )
-            (
-                translation,
-                quaternion,
-                joint_angles,
-            ) = qpos_to_translation_quaternion_jointangles(
-                qpos=qpos, joint_names=joint_names
-            )
-            translation_array.append(translation)
-            quaternion_array.append(quaternion)
-            joint_angles_array.append(joint_angles)
-            hand_pose_array.append(
-                qpos_to_pose(
-                    qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False
-                )
-            )
-
-        # Update E_pen_array
-        E_pen_array = (
-            compute_E_pen(
-                args=args,
-                hand_pose_array=hand_pose_array,
-                scale_array=scale_array,
-            )
-            .cpu()
-            .numpy()
-        )
-
     # Compute joint angle targets
     if not args.no_force:
         joint_angle_targets_array = (
@@ -294,22 +211,24 @@ def main(args: ValidateGraspArgumentParser):
         index = args.debug_index
         if args.debug_only_valid_grasps:
             # Try to give a valid grasp
-            valid_list = [data_dicts[i]["valid"] for i in range(batch_size) if "valid" in data_dicts[i]]
+            valid_list = [
+                data_dicts[i]["valid"]
+                for i in range(batch_size)
+                if "valid" in data_dicts[i]
+            ]
             if len(valid_list) == 0:
-                print("Error: No valid labels found")
-                return
+                raise ValueError("No valid labels found")
 
             valid_idxs = [i for i, valid in enumerate(valid_list) if valid]
-            print(f"valid_idxs = {valid_idxs}")
+            print(f"valid_idxs = {valid_idxs}, len(valid_idxs) = {len(valid_idxs)}")
             if len(valid_idxs) == 0:
-                print("Error: No valid grasps found")
-                return
+                raise ValueError("No valid grasps found")
 
-            if len(valid_idxs) < args.debug_index:
-                print(f"Warning: args.debug_index = {args.debug_index} is too large")
-                index = valid_idxs[-1]
-            else:
-                index = valid_idxs[args.debug_index]
+            index = (
+                valid_idxs[args.debug_index]
+                if len(valid_idxs) > args.debug_index
+                else valid_idxs[-1]
+            )
 
         sim.add_env_single_test_rotation(
             hand_quaternion=quaternion_array[index],

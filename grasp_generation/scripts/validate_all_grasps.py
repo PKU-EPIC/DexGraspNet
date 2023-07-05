@@ -5,12 +5,18 @@ import sys
 
 sys.path.append(os.path.realpath("."))
 from utils.hand_model_type import HandModelType
+from utils.joint_angle_targets import OptimizationMethod
+from utils.isaac_validator import ValidationType
 
 from tap import Tap
 
 
 class ValidateAllGraspsArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
+    optimization_method: OptimizationMethod = (
+        OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
+    )
+    validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
     gpu: int = 0
     grasp_path: str = "../data/graspdata_2023-05-24_allegro_distalonly"
     result_path: str = "../data/dataset_2023-05-24_allegro_distalonly"
@@ -55,6 +61,8 @@ if __name__ == "__main__":
                 f"CUDA_VISIBLE_DEVICES={args.gpu}",
                 "python scripts/validate_grasps.py",
                 f"--hand_model_type {args.hand_model_type.name}",
+                f"--optimization_method {args.optimization_method.name}",
+                f"--validation_type {args.validation_type.name}",
                 f"--gpu {args.gpu}",
                 f"--grasp_path {args.grasp_path}",
                 f"--result_path {args.result_path}",
