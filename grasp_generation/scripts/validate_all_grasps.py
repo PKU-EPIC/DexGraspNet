@@ -54,7 +54,7 @@ if __name__ == "__main__":
             [
                 f"CUDA_VISIBLE_DEVICES={args.gpu}",
                 "python scripts/validate_grasps.py",
-                f"--hand_model_type {args.hand_model_type}",
+                f"--hand_model_type {args.hand_model_type.name}",
                 f"--gpu {args.gpu}",
                 f"--grasp_path {args.grasp_path}",
                 f"--result_path {args.result_path}",

@@ -291,7 +291,7 @@ class IsaacValidator:
     def _setup_hand(
         self,
         env,
-        hand_rotation,
+        hand_quaternion,
         hand_translation,
         hand_qpos,
         transformation,
