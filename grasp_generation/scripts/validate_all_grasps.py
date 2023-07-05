@@ -4,9 +4,9 @@ from tqdm import tqdm
 import sys
 
 sys.path.append(os.path.realpath("."))
+from utils.isaac_validator import ValidationType
 from utils.hand_model_type import HandModelType
 from utils.joint_angle_targets import OptimizationMethod
-from utils.isaac_validator import ValidationType
 
 from tap import Tap
 
