@@ -50,7 +50,6 @@ class ValidateGraspArgumentParser(Tap):
     # if debug_index is received, then the debug mode is on
     debug_index: Optional[int] = None
     only_valid_grasps: bool = False
-    only_invalid_grasps: bool = False
     start_with_step_mode: bool = False
     no_force: bool = False
     penetration_threshold: Optional[float] = None
@@ -223,7 +222,7 @@ def main(args: ValidateGraspArgumentParser):
         # Note: Will not do penetration check if E_pen is not found
         else:
             if i == 0:
-                print(f"Warning: E_pen not found in data_dict[{i}]")
+                print(f"Warning: E_pen not found in data_dicts[{i}]")
                 print(
                     "This is expected behavior if you are validating already validated grasps"
                 )
@@ -292,8 +291,26 @@ def main(args: ValidateGraspArgumentParser):
             obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
             obj_file="coacd.urdf",
         )
-        if args.only_valid_grasps
         index = args.debug_index
+        if args.only_valid_grasps:
+            # Try to give a valid grasp
+            valid_list = [data_dicts[i]["valid"] for i in range(batch_size) if "valid" in data_dicts[i]]
+            if len(valid_list) == 0:
+                print("Error: No valid labels found")
+                return
+
+            valid_idxs = [i for i, valid in enumerate(valid_list) if valid]
+            print(f"valid_idxs = {valid_idxs}")
+            if len(valid_idxs) == 0:
+                print("Error: No valid grasps found")
+                return
+
+            if len(valid_idxs) < args.debug_index:
+                index = valid_idxs[args.debug_index]
+            else:
+                print(f"Warning: args.debug_index = {args.debug_index} is too large")
+                index = valid_idxs[-1]
+
         sim.add_env_single_test_rotation(
             hand_quaternion=quaternion_array[index],
             hand_translation=translation_array[index],

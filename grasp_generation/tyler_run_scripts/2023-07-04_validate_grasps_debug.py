@@ -7,6 +7,7 @@ command_parts = [
     "--object_code sem-TableClock-293a741396ed3cb45341654902142cca",
     "--index 0",
     "--start_with_step_mode",
+    "--only_valid_grasps",
     "--optimization_method DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS",
     "--validation_type NO_GRAVITY_SHAKING",
 ]
