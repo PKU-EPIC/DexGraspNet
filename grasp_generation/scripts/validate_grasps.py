@@ -358,15 +358,15 @@ def main(args: ValidateGraspArgumentParser):
         )
         success_data_dicts = []
         for i in range(batch_size):
-            if valid[i]:
-                success_data_dicts.append(
-                    {
-                        "qpos": pose_to_qpos(
-                            hand_pose=hand_pose_array[i], joint_names=joint_names
-                        ),
-                        "scale": scale_array[i],
-                    }
-                )
+            success_data_dicts.append(
+                {
+                    "qpos": pose_to_qpos(
+                        hand_pose=hand_pose_array[i], joint_names=joint_names
+                    ),
+                    "scale": scale_array[i],
+                    "valid": valid[i],
+                }
+            )
 
         os.makedirs(args.result_path, exist_ok=True)
         np.save(
