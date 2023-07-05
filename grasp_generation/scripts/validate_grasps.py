@@ -49,7 +49,7 @@ class ValidateGraspArgumentParser(Tap):
     object_code: str = "sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2"
     # if debug_index is received, then the debug mode is on
     debug_index: Optional[int] = None
-    only_valid_grasps: bool = False
+    debug_only_valid_grasps: bool = False
     start_with_step_mode: bool = False
     no_force: bool = False
     penetration_threshold: Optional[float] = None
@@ -292,7 +292,7 @@ def main(args: ValidateGraspArgumentParser):
             obj_file="coacd.urdf",
         )
         index = args.debug_index
-        if args.only_valid_grasps:
+        if args.debug_only_valid_grasps:
             # Try to give a valid grasp
             valid_list = [data_dicts[i]["valid"] for i in range(batch_size) if "valid" in data_dicts[i]]
             if len(valid_list) == 0:
