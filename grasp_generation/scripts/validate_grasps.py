@@ -305,6 +305,8 @@ def main(args: ValidateGraspArgumentParser):
                 print("Error: No valid grasps found")
                 return
 
+            print(f"len(valid_idxs) = {len(valid_idxs)}")
+            print(f"args.debug_index = {args.debug_index}")
             if len(valid_idxs) < args.debug_index:
                 index = valid_idxs[args.debug_index]
             else:
