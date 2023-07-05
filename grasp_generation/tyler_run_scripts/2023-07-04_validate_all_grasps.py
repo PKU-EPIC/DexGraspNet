@@ -5,7 +5,7 @@ command_parts = [
     "--optimization_method DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS",
     "--validation_type NO_GRAVITY_SHAKING",
     "--grasp_path ../data/2023-07-01_graspdata",
-    "--result_path ../data/2023-07-01_dataset",
+    "--result_path ../data/2023-07-01_dataset_DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS",
 ]
 
 full_command = " ".join(command_parts)

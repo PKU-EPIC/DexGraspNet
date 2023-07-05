@@ -291,11 +291,13 @@ def main(args: ValidateGraspArgumentParser):
             else np.ones(batch_size, dtype=np.bool8)
         )
         valid = passed_simulation * passed_penetration_threshold
+        print("=" * 80)
         print(
             f"passed_penetration_threshold: {passed_penetration_threshold.sum().item()}/{batch_size}, "
             f"passed_simulation: {passed_simulation.sum().item()}/{batch_size}, "
             f"valid = passed_simulation * passed_penetration_threshold: {valid.sum().item()}/{batch_size}"
         )
+        print("=" * 80)
         success_data_dicts = []
         for i in range(batch_size):
             success_data_dicts.append(
