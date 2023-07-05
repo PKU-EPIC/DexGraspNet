@@ -47,8 +47,10 @@ class ValidateGraspArgumentParser(Tap):
     grasp_path: str = "../data/graspdata"
     result_path: str = "../data/dataset"
     object_code: str = "sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2"
-    # if index is received, then the debug mode is on
-    index: Optional[int] = None
+    # if debug_index is received, then the debug mode is on
+    debug_index: Optional[int] = None
+    only_valid_grasps: bool = False
+    only_invalid_grasps: bool = False
     start_with_step_mode: bool = False
     no_force: bool = False
     penetration_threshold: Optional[float] = None
@@ -171,7 +173,7 @@ def main(args: ValidateGraspArgumentParser):
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
-    if args.index is not None:
+    if args.debug_index is not None:
         sim = IsaacValidator(
             hand_model_type=args.hand_model_type,
             gpu=args.gpu,
@@ -187,10 +189,10 @@ def main(args: ValidateGraspArgumentParser):
         )
 
     # Read in data
-    data_dict = np.load(
+    data_dicts = np.load(
         os.path.join(args.grasp_path, args.object_code + ".npy"), allow_pickle=True
     )
-    batch_size = data_dict.shape[0]
+    batch_size = data_dicts.shape[0]
     translation_array = []
     quaternion_array = []
     joint_angles_array = []
@@ -198,7 +200,7 @@ def main(args: ValidateGraspArgumentParser):
     E_pen_array = []
     hand_pose_array = []
     for i in range(batch_size):
-        qpos = data_dict[i]["qpos"]
+        qpos = data_dicts[i]["qpos"]
         (
             translation,
             quaternion,
@@ -213,17 +215,18 @@ def main(args: ValidateGraspArgumentParser):
             qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
         )
 
-        scale = data_dict[i]["scale"]
+        scale = data_dicts[i]["scale"]
         scale_array.append(scale)
 
-        if "E_pen" in data_dict[i]:
-            E_pen_array.append(data_dict[i]["E_pen"])
+        if "E_pen" in data_dicts[i]:
+            E_pen_array.append(data_dicts[i]["E_pen"])
         # Note: Will not do penetration check if E_pen is not found
         else:
-            print(f"Warning: E_pen not found in data_dict[{i}]")
-            print(
-                "This is expected behavior if you are validating already validated grasps"
-            )
+            if i == 0:
+                print(f"Warning: E_pen not found in data_dict[{i}]")
+                print(
+                    "This is expected behavior if you are validating already validated grasps"
+                )
             E_pen_array.append(0)
     E_pen_array = np.array(E_pen_array)
 
@@ -284,12 +287,13 @@ def main(args: ValidateGraspArgumentParser):
         joint_angle_targets_array = None
 
     # Debug with single grasp
-    if args.index is not None:
+    if args.debug_index is not None:
         sim.set_obj_asset(
             obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
             obj_file="coacd.urdf",
         )
-        index = args.index
+        if args.only_valid_grasps
+        index = args.debug_index
         sim.add_env_single_test_rotation(
             hand_quaternion=quaternion_array[index],
             hand_translation=translation_array[index],

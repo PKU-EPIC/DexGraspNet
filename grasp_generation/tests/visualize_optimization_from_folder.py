@@ -16,7 +16,7 @@ from tap import Tap
 import numpy as np
 from visualize_optimization_helper import (
     create_figure_with_buttons_and_slider,
-    get_hand_and_object_model_from_data_dict,
+    get_hand_and_object_model_from_data_dicts,
     create_grasp_fig,
 )
 
@@ -50,9 +50,9 @@ def get_grasps_from_folder(
     sorted_mid_folders = sorted(os.listdir(input_folder), key=int)
     for mid_folder in tqdm(sorted_mid_folders, desc="Going through folders..."):
         filepath = os.path.join(input_folder, mid_folder, f"{object_code}.npy")
-        data_dict = np.load(os.path.join(filepath), allow_pickle=True)
-        hand_model, object_model = get_hand_and_object_model_from_data_dict(
-            data_dict=data_dict, object_code=object_code
+        data_dicts = np.load(os.path.join(filepath), allow_pickle=True)
+        hand_model, object_model = get_hand_and_object_model_from_data_dicts(
+            data_dicts=data_dicts, object_code=object_code
         )
         fig = create_grasp_fig(
             hand_model=hand_model,
