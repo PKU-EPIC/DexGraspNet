@@ -22,38 +22,45 @@ class ValidateAllGraspsArgumentParser(Tap):
     result_path: str = "../data/dataset_2023-05-24_allegro_distalonly"
 
 
-if __name__ == "__main__":
-    args = ValidateAllGraspsArgumentParser().parse_args()
-    print(f"args = {args}")
-
+def get_object_codes_to_process(args: ValidateAllGraspsArgumentParser):
     # Compare input and output directories
-    input_object_code_files = os.listdir(args.grasp_path)
-    print(f"Found {len(input_object_code_files)} object codes in {args.grasp_path}")
-    existing_object_code_files = (
-        os.listdir(args.result_path) if os.path.exists(args.result_path) else []
+    input_object_codes = [
+        os.path.splitext(object_code_dot_npy)[0]
+        for object_code_dot_npy in os.listdir(args.grasp_path)
+    ]
+    print(f"Found {len(input_object_codes)} object codes in {args.grasp_path}")
+    existing_object_codes = (
+        [
+            os.path.splitext(object_code_dot_npy)[0]
+            for object_code_dot_npy in os.listdir(args.result_path)
+        ]
+        if os.path.exists(args.result_path)
+        else []
     )
-    print(f"Found {len(existing_object_code_files)} object codes in {args.result_path}")
+    print(f"Found {len(existing_object_codes)} object codes in {args.result_path}")
 
     # Sanity check that we are going into the right folder
-    objects_only_in_output = set(existing_object_code_files) - set(
-        input_object_code_files
-    )
-    print(f"Num objects only in output: {len(objects_only_in_output)}")
+    object_codes_only_in_output = set(existing_object_codes) - set(input_object_codes)
+    print(f"Num objects only in output: {len(object_codes_only_in_output)}")
     assert (
-        len(objects_only_in_output) == 0
-    ), f"Objects only in output: {objects_only_in_output}"
+        len(object_codes_only_in_output) == 0
+    ), f"Object codes only in output: {object_codes_only_in_output}"
 
     # Don't redo old work
-    object_only_in_input = set(input_object_code_files) - set(
-        existing_object_code_files
-    )
-    print(f"Num objects only in input: {len(object_only_in_input)}")
-    object_only_in_input = list(object_only_in_input)
+    object_codes_only_in_input = set(input_object_codes) - set(existing_object_codes)
+    print(f"Num objects codes only in input: {len(object_codes_only_in_input)}")
+    object_codes_only_in_input = list(object_codes_only_in_input)
     print("Processing these only...")
+    return object_codes_only_in_input
 
-    pbar = tqdm(object_only_in_input)
-    for object_code_file in pbar:
-        object_code = object_code_file.split(".")[0]
+
+def main(args: ValidateAllGraspsArgumentParser):
+    print(f"args = {args}")
+
+    input_object_codes = get_object_codes_to_process(args)
+
+    pbar = tqdm(input_object_codes)
+    for object_code in pbar:
         pbar.set_description(f"Processing {object_code}")
 
         command = " ".join(
@@ -77,3 +84,8 @@ if __name__ == "__main__":
             print(f"Exception: {e}")
             print(f"Skipping {object_code} and continuing")
             continue
+
+
+if __name__ == "__main__":
+    args = ValidateAllGraspsArgumentParser().parse_args()
+    main(args)
