@@ -40,25 +40,30 @@ OBJ_SEGMENTATION_ID = 1
 
 
 def get_fixed_camera_transform(gym, sim, env, camera):
-    # currently x+ is pointing down camera view axis - other degree of freedom is messed up
+    # OLD: currently x+ is pointing down camera view axis - other degree of freedom is messed up
+    # NEW: currently z- is pointing down camera view axis - other degree of freedom is messed up
     # output will have x+ be optical axis, y+ pointing left (looking down camera) and z+ pointing up
     t = gym.get_camera_transform(sim, env, camera)
     pos = torch.tensor([t.p.x, t.p.y, t.p.z])
     quat = Quaternion.fromWLast([t.r.x, t.r.y, t.r.z, t.r.w])
 
-    x_axis = torch.tensor([1.0, 0, 0])
-    # y_axis = torch.tensor([0, 1.0, 0])
+    # x_axis = torch.tensor([1.0, 0, 0])
+    y_axis = torch.tensor([0, 1.0, 0])
     z_axis = torch.tensor([0, 0, 1.0])
 
-    optical_axis = quat.rotate(x_axis)
-    side_left_axis = z_axis.cross(optical_axis)
+    optical_axis = quat.rotate(-z_axis)
+    side_left_axis = y_axis.cross(optical_axis)
     up_axis = optical_axis.cross(side_left_axis)
 
     optical_axis /= torch.norm(optical_axis)
     side_left_axis /= torch.norm(side_left_axis)
     up_axis /= torch.norm(up_axis)
 
-    rot_matrix = torch.stack([optical_axis, side_left_axis, up_axis], dim=-1)
+    new_x_axis = optical_axis
+    new_y_axis = side_left_axis
+    new_z_axis = up_axis
+
+    rot_matrix = torch.stack([new_x_axis, new_y_axis, new_z_axis], dim=-1)
     fixed_quat = Quaternion.fromMatrix(rot_matrix)
 
     return pos, fixed_quat
