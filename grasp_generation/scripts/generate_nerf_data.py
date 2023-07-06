@@ -43,11 +43,11 @@ def get_object_codes_to_process(args: GenerateNerfDataArgumentParser):
 
     # Check for existing object codes
     existing_object_code_files = (
-        [object_code for object_code in os.listdir(args.result_path)]
-        if os.path.exists(args.result_path)
+        [object_code for object_code in os.listdir(args.output_nerf_path)]
+        if os.path.exists(args.output_nerf_path)
         else []
     )
-    print(f"Found {len(existing_object_code_files)} object codes in {args.result_path}")
+    print(f"Found {len(existing_object_code_files)} object codes in {args.output_nerf_path}")
 
     # Sanity check that we are going into the right folder
     object_codes_only_in_output = set(existing_object_code_files) - set(input_object_codes)
