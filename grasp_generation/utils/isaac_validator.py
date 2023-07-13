@@ -18,7 +18,7 @@ from utils.hand_model_type import (
 from collections import defaultdict
 import torch
 from enum import Enum, auto
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 ## NERF GRASPING START ##
 
@@ -890,12 +890,40 @@ class IsaacValidator:
         self._create_one_split(split_name="val", split_range=val_range, folder=folder)
         self._create_one_split(split_name="test", split_range=test_range, folder=folder)
 
+    def _run_sanity_check_proj_matrices_all_same(self):
+        proj_matrix = gym.get_camera_proj_matrix(self.sim, self.envs[0], self.overhead_camera_handle)
+        for camera_handle in self.camera_handles:
+            next_proj_matrix = gym.get_camera_proj_matrix(self.sim, self.envs[0], camera_handle)
+            assert np.allclose(proj_matrix, next_proj_matrix)
+
+    def _get_camera_intrinsics(self) -> Tuple[float, float, float, float]:
+        self._run_sanity_check_proj_matrices_all_same()
+
+        proj_matrix = gym.get_camera_proj_matrix(self.sim, self.envs[0], self.camera_handles[0])
+        fx = proj_matrix[0, 0]
+        fy = proj_matrix[1, 1]
+        cx = proj_matrix[0, 2]
+        cy = proj_matrix[0, 2]
+
+        assert math.isclose(fx, fy)
+        assert math.isclose(cx, cy) and math.isclose(cx, 0) and math.isclose(cy, 0)
+        return fx, fy, cx, cy
+
     def _create_one_split(self, split_name, split_range, folder):
         import scipy
 
+        # Sanity check
+        fx, fy, cx, cy = self._get_camera_intrinsics()
+
         json_dict = {
-            "camera_angle_x": math.radians(CAMERA_HORIZONTAL_FOV_DEG),
-            "camera_angle_y": math.radians(CAMERA_VERTICAL_FOV_DEG),
+            "fl_x": fx * CAMERA_IMG_WIDTH,
+            "fl_y": fy * CAMERA_IMG_HEIGHT,
+            "cx": cx * CAMERA_IMG_WIDTH,
+            "cy": cy * CAMERA_IMG_HEIGHT,
+            "h": CAMERA_IMG_HEIGHT,
+            "w": CAMERA_IMG_WIDTH,
+            # "camera_angle_x": math.radians(CAMERA_HORIZONTAL_FOV_DEG),
+            # "camera_angle_y": math.radians(CAMERA_VERTICAL_FOV_DEG),
             "frames": [],
         }
         for ii in split_range:
@@ -934,9 +962,7 @@ class IsaacValidator:
                 json_dict["frames"].append(
                     {
                         "transform_matrix": transform_mat.tolist(),
-                        "file_path": os.path.splitext(target_img)[
-                            0
-                        ],  # Exclude ext because adds it in load
+                        "file_path": target_img,
                     }
                 )
 
