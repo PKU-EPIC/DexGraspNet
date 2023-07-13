@@ -41,27 +41,7 @@ def get_object_codes_to_process(args: GenerateNerfDataArgumentParser):
             f"Found {len(input_object_codes)} object codes in args.mesh_path ({args.mesh_path})"
         )
 
-    # Check for existing object codes
-    existing_object_code_files = (
-        [object_code for object_code in os.listdir(args.output_nerf_path)]
-        if os.path.exists(args.output_nerf_path)
-        else []
-    )
-    print(f"Found {len(existing_object_code_files)} object codes in {args.output_nerf_path}")
-
-    # Sanity check that we are going into the right folder
-    object_codes_only_in_output = set(existing_object_code_files) - set(input_object_codes)
-    print(f"Num object codes only in output: {len(object_codes_only_in_output)}")
-    assert (
-        len(object_codes_only_in_output) == 0
-    ), f"Object codes only in output: {object_codes_only_in_output}"
-
-    # Don't redo old work
-    object_codes_only_in_input = set(input_object_codes) - set(existing_object_code_files)
-    print(f"Num objects only in input: {len(object_codes_only_in_input)}")
-    object_codes_only_in_input = list(object_codes_only_in_input)
-    print("Processing these only...")
-    return object_codes_only_in_input
+    return input_object_codes
 
 
 def main(args: GenerateNerfDataArgumentParser):
