@@ -912,20 +912,31 @@ class IsaacValidator:
     def _create_one_split(self, split_name, split_range, folder):
         import scipy
 
-        # Sanity check
-        fx, fy, cx, cy = self._get_camera_intrinsics()
+        USE_TORCH_NGP = True
+        USE_NERF_STUDIO = False
+        assert sum([USE_TORCH_NGP, USE_NERF_STUDIO]) == 1
 
-        json_dict = {
-            "fl_x": fx * CAMERA_IMG_WIDTH,
-            "fl_y": fy * CAMERA_IMG_HEIGHT,
-            "cx": cx * CAMERA_IMG_WIDTH,
-            "cy": cy * CAMERA_IMG_HEIGHT,
-            "h": CAMERA_IMG_HEIGHT,
-            "w": CAMERA_IMG_WIDTH,
-            # "camera_angle_x": math.radians(CAMERA_HORIZONTAL_FOV_DEG),
-            # "camera_angle_y": math.radians(CAMERA_VERTICAL_FOV_DEG),
-            "frames": [],
-        }
+        # Sanity check
+        if USE_TORCH_NGP:
+            json_dict = {
+                "camera_angle_x": math.radians(CAMERA_HORIZONTAL_FOV_DEG),
+                "camera_angle_y": math.radians(CAMERA_VERTICAL_FOV_DEG),
+                "frames": [],
+            }
+        elif USE_NERF_STUDIO:
+            fx, fy, cx, cy = self._get_camera_intrinsics()
+            json_dict = {
+                "fl_x": fx * CAMERA_IMG_WIDTH,
+                "fl_y": fy * CAMERA_IMG_HEIGHT,
+                "cx": cx * CAMERA_IMG_WIDTH,
+                "cy": cy * CAMERA_IMG_HEIGHT,
+                "h": CAMERA_IMG_HEIGHT,
+                "w": CAMERA_IMG_WIDTH,
+                "frames": [],
+            }
+        else:
+            raise ValueError()
+
         for ii in split_range:
             pose_file = os.path.join(folder, f"pos_xyz_quat_xyzw_{ii}.txt")
             with open(pose_file) as file:
@@ -958,6 +969,14 @@ class IsaacValidator:
                 target_img = os.path.join(
                     *target_img_split[target_img_split.index(split_name) :]
                 )
+
+                if USE_TORCH_NGP:
+                    # Exclude ext because adds it in load
+                    target_img, _ = os.path.splitext(target_img)
+                elif USE_NERF_STUDIO:
+                    target_img = target_img
+                else:
+                    raise ValueError()
 
                 json_dict["frames"].append(
                     {
