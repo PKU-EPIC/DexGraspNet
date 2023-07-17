@@ -16,21 +16,23 @@ import trimesh as tm
 from utils.rot6d import robust_compute_rotation_matrix_from_ortho6d
 import pytorch_kinematics as pk
 from urdf_parser_py.urdf import Robot, Box, Sphere
+import pytorch3d.structures
+import pytorch3d.ops
 import plotly.graph_objects as go
 from torchsdf import index_vertices_by_faces, compute_sdf
 
 
 class HandModel:
-    def __init__(self, urdf_path, contact_points_path, penetration_points_path, device='cpu'):
+    def __init__(self, urdf_path, contact_points_path, n_surface_points=0, device='cpu'):
         self.device = device
         self.chain = pk.build_chain_from_urdf(open(urdf_path).read()).to(dtype=torch.float, device=device)
         self.robot = Robot.from_xml_file(urdf_path)
         self.n_dofs = len(self.chain.get_joint_parameter_names())
         
-        penetration_points = json.load(open(penetration_points_path, 'r'))
         contact_points = json.load(open(contact_points_path, 'r'))
 
         self.mesh = {}
+        areas = {}
         for link in self.robot.links:
             if link.visual is None or link.collision is None:
                 continue
@@ -60,6 +62,7 @@ class HandModel:
             })
             if 'radius' not in self.mesh[link.name]:
                 self.mesh[link.name]['face_verts'] = index_vertices_by_faces(vertices, faces)
+            areas[link.name] = tm.Trimesh(vertices.cpu().numpy(), faces.cpu().numpy()).area.item()
             # load visual mesh
             visual = link.visual
             filename = os.path.join(os.path.dirname(os.path.dirname(urdf_path)), visual.geometry.filename[10:])
@@ -80,16 +83,29 @@ class HandModel:
             })
             # load contact candidates and penetration keypoints
             contact_candidates = torch.tensor(contact_points[link.name], dtype=torch.float32, device=device).reshape(-1, 3)
-            penetration_keypoints = torch.tensor(penetration_points[link.name], dtype=torch.float32, device=device).reshape(-1, 3)
             self.mesh[link.name].update({
                 'contact_candidates': contact_candidates,
-                'penetration_keypoints': penetration_keypoints,
             })
 
         self.joints_lower = torch.tensor([joint.limit.lower for joint in self.robot.joints if joint.joint_type == 'revolute'], dtype=torch.float, device=device)
         self.joints_upper = torch.tensor([joint.limit.upper for joint in self.robot.joints if joint.joint_type == 'revolute'], dtype=torch.float, device=device)
+        
+        # sample surface points
+        total_area = sum(areas.values())
+        num_samples = dict([(link_name, int(areas[link_name] / total_area * n_surface_points)) for link_name in self.mesh])
+        num_samples[list(num_samples.keys())[0]] += n_surface_points - sum(num_samples.values())
+        for link_name in self.mesh:
+            if num_samples[link_name] == 0:
+                self.mesh[link_name]['surface_points'] = torch.tensor([], dtype=torch.float, device=device).reshape(0, 3)
+                continue
+            mesh = pytorch3d.structures.Meshes(self.mesh[link_name]['vertices'].unsqueeze(0), self.mesh[link_name]['faces'].unsqueeze(0))
+            dense_point_cloud = pytorch3d.ops.sample_points_from_meshes(mesh, num_samples=100 * num_samples[link_name])
+            surface_points = pytorch3d.ops.sample_farthest_points(dense_point_cloud, K=num_samples[link_name])[0][0]
+            surface_points.to(dtype=float, device=device)
+            self.mesh[link_name]['surface_points'] = surface_points
 
         self.link_name_to_link_index = dict(zip([link_name for link_name in self.mesh], range(len(self.mesh))))
+        self.surface_points_link_indices = torch.cat([self.link_name_to_link_index[link_name] * torch.ones(self.mesh[link_name]['surface_points'].shape[0], dtype=torch.long, device=device) for link_name in self.mesh])
         
         self.contact_candidates = [self.mesh[link_name]['contact_candidates'] for link_name in self.mesh]
         self.global_index_to_link_index = sum([[i] * len(contact_candidates) for i, contact_candidates in enumerate(self.contact_candidates)], [])
@@ -97,11 +113,15 @@ class HandModel:
         self.global_index_to_link_index = torch.tensor(self.global_index_to_link_index, dtype=torch.long, device=device)
         self.n_contact_candidates = self.contact_candidates.shape[0]
         
-        self.penetration_keypoints = [self.mesh[link_name]['penetration_keypoints'] for link_name in self.mesh]
-        self.global_index_to_link_index_penetration = sum([[i] * len(penetration_keypoints) for i, penetration_keypoints in enumerate(self.penetration_keypoints)], [])
-        self.penetration_keypoints = torch.cat(self.penetration_keypoints, dim=0)
-        self.global_index_to_link_index_penetration = torch.tensor(self.global_index_to_link_index_penetration, dtype=torch.long, device=device)
-        self.n_keypoints = self.penetration_keypoints.shape[0]
+        # build collision mask
+        self.adjacency_mask = torch.zeros([len(self.mesh), len(self.mesh)], dtype=torch.bool, device=device)
+        for joint in self.robot.joints:
+            parent_id = self.link_name_to_link_index[joint.parent]
+            child_id = self.link_name_to_link_index[joint.child]
+            self.adjacency_mask[parent_id, child_id] = True
+            self.adjacency_mask[child_id, parent_id] = True
+        self.adjacency_mask[self.link_name_to_link_index['base_link'], self.link_name_to_link_index['link_13.0']] = True
+        self.adjacency_mask[self.link_name_to_link_index['link_13.0'], self.link_name_to_link_index['base_link']] = True
 
         self.hand_pose = None
         self.contact_point_indices = None
@@ -155,23 +175,47 @@ class HandModel:
         dis = torch.max(torch.stack(dis, dim=0), dim=0)[0]
         return dis
     
-    def self_penetration(self):
+    def cal_self_distance(self):
+        # get surface points
+        x = []
         batch_size = self.global_translation.shape[0]
-        points = self.penetration_keypoints.clone().repeat(batch_size, 1, 1)
-        link_indices = self.global_index_to_link_index_penetration.clone().repeat(batch_size,1)
-        transforms = torch.zeros(batch_size, self.n_keypoints, 4, 4, dtype=torch.float, device=self.device)
         for link_name in self.mesh:
-            mask = link_indices == self.link_name_to_link_index[link_name]
-            cur = self.current_status[link_name].get_matrix().unsqueeze(1).expand(batch_size, self.n_keypoints, 4, 4)
-            transforms[mask] = cur[mask]
-        points = torch.cat([points, torch.ones(batch_size, self.n_keypoints, 1, dtype=torch.float, device=self.device)], dim=2)
-        points = (transforms @ points.unsqueeze(3))[:, :, :3, 0]
-        points = points @ self.global_rotation.transpose(1, 2) + self.global_translation.unsqueeze(1)
-        dis = (points.unsqueeze(1) - points.unsqueeze(2) + 1e-13).square().sum(3).sqrt()
-        dis = torch.where(dis < 1e-6, 1e6 * torch.ones_like(dis), dis)
-        dis = 0.024 - dis
-        E_spen = torch.where(dis > 0, dis, torch.zeros_like(dis))
-        return E_spen.sum((1,2))
+            n_surface_points = self.mesh[link_name]['surface_points'].shape[0]
+            x.append(self.current_status[link_name].transform_points(self.mesh[link_name]['surface_points']))
+            if 1 < batch_size != x[-1].shape[0]:
+                x[-1] = x[-1].expand(batch_size, n_surface_points, 3)
+        x = torch.cat(x, dim=-2).to(self.device)  # (total_batch_size, n_surface_points, 3)
+        if len(x.shape) == 2:
+            x = x.expand(1, x.shape[0], x.shape[1])
+        # cal distance
+        dis = []
+        for link_name in self.mesh:
+            matrix = self.current_status[link_name].get_matrix()
+            # if len(matrix) != len(x): 
+            #     matrix = matrix.expand(len(x), 4, 4)
+            # x_local = transform_points_inverse(x, matrix)
+            x_local = (x - matrix[:, :3, 3].unsqueeze(1)) @ matrix[:, :3, :3]
+            x_local = x_local.reshape(-1, 3)  # (total_batch_size * n_surface_points, 3)
+            if 'radius' in self.mesh[link_name]:
+                radius = self.mesh[link_name]['radius']
+                dis_local = radius - (x_local.square().sum(-1) + 1e-8).sqrt()  # (total_batch_size * n_surface_points,)
+            else:
+                face_verts = self.mesh[link_name]['face_verts']
+                dis_local, dis_signs, _, _ = compute_sdf(x_local, face_verts)
+                dis_local = (dis_local + 1e-8).sqrt()
+                dis_local = dis_local * (-dis_signs)
+            dis_local = dis_local.reshape(x.shape[0], x.shape[1])  # (total_batch_size, n_surface_points)
+            is_adjacent = self.adjacency_mask[self.link_name_to_link_index[link_name], self.surface_points_link_indices]  # (n_surface_points,)
+            dis_local[:, is_adjacent | (self.link_name_to_link_index[link_name] == self.surface_points_link_indices)] = -float('inf')
+            dis.append(dis_local)
+        dis = torch.max(torch.stack(dis, dim=0), dim=0)[0]
+        return dis
+
+    def self_penetration(self):
+        dis = self.cal_self_distance()
+        dis[dis <= 0] = 0
+        E_spen = dis.sum(-1)
+        return E_spen
 
     def get_contact_candidates(self):
         points = []
@@ -185,18 +229,18 @@ class HandModel:
         points = points @ self.global_rotation.transpose(1, 2) + self.global_translation.unsqueeze(1)
         return points
     
-    def get_penetraion_keypoints(self):
+    def get_surface_points(self):
         points = []
         batch_size = self.global_translation.shape[0]
         for link_name in self.mesh:
-            n_surface_points = self.mesh[link_name]['penetration_keypoints'].shape[0]
-            points.append(self.current_status[link_name].transform_points(self.mesh[link_name]['penetration_keypoints']))
+            n_surface_points = self.mesh[link_name]['surface_points'].shape[0]
+            points.append(self.current_status[link_name].transform_points(self.mesh[link_name]['surface_points']))
             if 1 < batch_size != points[-1].shape[0]:
                 points[-1] = points[-1].expand(batch_size, n_surface_points, 3)
         points = torch.cat(points, dim=-2).to(self.device)
         points = points @ self.global_rotation.transpose(1, 2) + self.global_translation.unsqueeze(1)
         return points
-
+    
     def get_plotly_data(self, i, opacity=0.5, color='lightblue', with_contact_points=False, visual=False):
         data = []
         for link_name in self.mesh:

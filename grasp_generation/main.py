@@ -54,7 +54,7 @@ parser.add_argument('--annealing_period', default=30, type=int)
 parser.add_argument('--temperature_decay', default=0.95, type=float)
 parser.add_argument('--w_dis', default=100.0, type=float)
 parser.add_argument('--w_pen', default=100.0, type=float)
-parser.add_argument('--w_spen', default=10.0, type=float)
+parser.add_argument('--w_spen', default=30.0, type=float)
 parser.add_argument('--w_joints', default=1.0, type=float)
 # initialization settings
 parser.add_argument('--jitter_strength', default=0.1, type=float)
@@ -87,7 +87,7 @@ print('running on', device)
 hand_model = HandModel(
     urdf_path='allegro_hand_description/allegro_hand_description_right.urdf',
     contact_points_path='allegro_hand_description/contact_points.json', 
-    penetration_points_path='allegro_hand_description/penetration_points.json', 
+    n_surface_points=1000, 
     device=device
 )
 

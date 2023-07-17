@@ -48,7 +48,6 @@ if __name__ == '__main__':
     hand_model = HandModel(
         urdf_path='allegro_hand_description/allegro_hand_description_right.urdf',
         contact_points_path='allegro_hand_description/contact_points.json', 
-        penetration_points_path='allegro_hand_description/penetration_points.json', 
         device=device
     )
 
