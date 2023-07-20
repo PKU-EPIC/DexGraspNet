@@ -777,27 +777,27 @@ class IsaacValidator:
         heights = [0.1, 0.3, 0.25, 0.35]
         distances = [0.2, 0.2, 0.3, 0.3]
         counts = [16, 16, 16, 16]
-        target_y = [0.0, 0.1, 0.0, 0.1]
+        target_ys = [0.0, 0.1, 0.0, 0.1]
 
         # compute camera positions
         camera_positions = []
-        for h, d, c, y in zip(heights, distances, counts, target_y):
-            for alpha in np.linspace(0, 2 * np.pi, c, endpoint=False):
-                pos = [d * np.sin(alpha), h, d * np.cos(alpha)]
-                camera_positions.append((pos, y))
+        for height, distance, count, target_y in zip(heights, distances, counts, target_ys):
+            for alpha in np.linspace(0, 2 * np.pi, count, endpoint=False):
+                pos = [distance * np.sin(alpha), height, distance * np.cos(alpha)]
+                camera_positions.append((pos, target_y))
         # repeat all from under since there is no ground plane
-        for h, d, c, y in zip(heights, distances, counts, target_y):
-            h = -h
-            y = -y
-            for alpha in np.linspace(0, 2 * np.pi, c, endpoint=False):
-                pos = [d * np.sin(alpha), h, d * np.cos(alpha)]
-                camera_positions.append((pos, y))
+        for height, distance, count, target_y in zip(heights, distances, counts, target_ys):
+            height = -height
+            target_y = -target_y
+            for alpha in np.linspace(0, 2 * np.pi, count, endpoint=False):
+                pos = [distance * np.sin(alpha), height, distance * np.cos(alpha)]
+                camera_positions.append((pos, target_y))
 
         self.camera_handles = []
-        for pos, y in camera_positions:
+        for pos, target_y in camera_positions:
             camera_handle = gym.create_camera_sensor(env, camera_props)
             gym.set_camera_location(
-                camera_handle, env, gymapi.Vec3(*pos), gymapi.Vec3(0, y, 0)
+                camera_handle, env, gymapi.Vec3(*pos), gymapi.Vec3(0, target_y, 0)
             )
 
             self.camera_handles.append(camera_handle)
