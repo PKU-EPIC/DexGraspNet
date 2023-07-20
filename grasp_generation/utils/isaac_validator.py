@@ -913,8 +913,8 @@ class IsaacValidator:
     def _create_one_split(self, split_name, split_range, folder):
         import scipy
 
-        USE_TORCH_NGP = False
-        USE_NERF_STUDIO = True
+        USE_TORCH_NGP = True
+        USE_NERF_STUDIO = False
         assert sum([USE_TORCH_NGP, USE_NERF_STUDIO]) == 1
 
         # Sanity check
