@@ -775,8 +775,8 @@ class IsaacValidator:
 
         # generates camera positions along rings around object
         heights = [0.1, 0.3, 0.25, 0.35]
-        distances = [0.2, 0.2, 0.3, 0.3]
-        counts = [16, 16, 16, 16]
+        distances = [0.05, 0.125, 0.3, 0.3]
+        counts = [56, 104, 96, 1]
         target_ys = [0.0, 0.1, 0.0, 0.1]
 
         # compute camera positions
