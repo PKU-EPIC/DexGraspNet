@@ -871,6 +871,7 @@ class IsaacValidator:
         num_train = int(train_frac * num_imgs)
         num_val = int(val_frac * num_imgs)
         num_test = num_imgs - num_train - num_val
+        print()
         print(f"num_imgs = {num_imgs}")
         print(f"num_train = {num_train}")
         print(f"num_val = {num_val}")
@@ -912,8 +913,8 @@ class IsaacValidator:
     def _create_one_split(self, split_name, split_range, folder):
         import scipy
 
-        USE_TORCH_NGP = True
-        USE_NERF_STUDIO = False
+        USE_TORCH_NGP = False
+        USE_NERF_STUDIO = True
         assert sum([USE_TORCH_NGP, USE_NERF_STUDIO]) == 1
 
         # Sanity check
@@ -928,8 +929,10 @@ class IsaacValidator:
             json_dict = {
                 "fl_x": fx * CAMERA_IMG_WIDTH,
                 "fl_y": fy * CAMERA_IMG_HEIGHT,
-                "cx": cx * CAMERA_IMG_WIDTH,
-                "cy": cy * CAMERA_IMG_HEIGHT,
+                # "cx": cx * CAMERA_IMG_WIDTH,
+                # "cy": cy * CAMERA_IMG_HEIGHT,
+                "cx": CAMERA_IMG_WIDTH//2,
+                "cy": CAMERA_IMG_HEIGHT//2,
                 "h": CAMERA_IMG_HEIGHT,
                 "w": CAMERA_IMG_WIDTH,
                 "frames": [],
