@@ -342,8 +342,8 @@ def main(args: ValidateGraspArgumentParser):
                     ),
                     "scale": scale_array[i],
                     "valid": valid[i],
-                    "link_name_to_contact_candidates": {link_name: all_contact_candidates[i] for link_name, all_contact_candidates in link_name_to_all_contact_candidates.items()},
-                    "link_name_to_target_contact_candidates": {link_name: all_target_contact_candidates[i] for link_name, all_target_contact_candidates in link_name_to_all_target_contact_candidates.items()},
+                    "link_name_to_contact_candidates": {link_name: all_contact_candidates[i].cpu().numpy() for link_name, all_contact_candidates in link_name_to_all_contact_candidates.items()},
+                    "link_name_to_target_contact_candidates": {link_name: all_target_contact_candidates[i].cpu().numpy() for link_name, all_target_contact_candidates in link_name_to_all_target_contact_candidates.items()},
                 }
             )
 
