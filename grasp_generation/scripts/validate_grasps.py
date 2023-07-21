@@ -24,7 +24,7 @@ from utils.qpos_pose_conversion import (
     qpos_to_translation_quaternion_jointangles,
     pose_to_qpos,
 )
-from typing import List, Optional
+from typing import List, Optional, Dict
 import math
 from utils.seed import set_seed
 from utils.joint_angle_targets import (
@@ -124,6 +124,39 @@ def compute_E_pen(
     E_pen = _cal_hand_object_penetration(hand_model, object_model)
     return E_pen
 
+
+def compute_link_name_to_all_contact_candidates(
+    args: ValidateGraspArgumentParser,
+    hand_pose_array: List[torch.Tensor],
+    joint_angles: torch.Tensor,
+) -> Dict[str, torch.Tensor]:
+    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+
+    # hand model
+    hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
+    hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
+    batch_size = len(hand_pose_array)
+
+    current_status = hand_model.chain.forward_kinematics(
+        joint_angles.to(device)
+    )
+    link_name_to_contact_candidates = {}
+    for i, link_name in enumerate(hand_model.mesh):
+        contact_candidates = hand_model.mesh[link_name]["contact_candidates"]
+        if len(contact_candidates) == 0:
+            continue
+
+        contact_candidates = (
+            current_status[link_name]
+            .transform_points(contact_candidates)
+            .expand(batch_size, -1, 3)
+        )
+        contact_candidates = contact_candidates @ hand_model.global_rotation.transpose(
+            1, 2
+        ) + hand_model.global_translation.unsqueeze(1)
+
+        link_name_to_contact_candidates[link_name] = contact_candidates
+    return link_name_to_contact_candidates
 
 def main(args: ValidateGraspArgumentParser):
     set_seed(42)
@@ -299,6 +332,8 @@ def main(args: ValidateGraspArgumentParser):
         )
         print("=" * 80)
         success_data_dicts = []
+        link_name_to_all_contact_candidates = compute_link_name_to_all_contact_candidates(args=args, hand_pose_array=hand_pose_array, joint_angles=torch.from_numpy(np.stack(joint_angles_array, axis=0)),)
+        link_name_to_all_target_contact_candidates = compute_link_name_to_all_contact_candidates(args=args, hand_pose_array=hand_pose_array, joint_angles=torch.from_numpy(np.stack(joint_angle_targets_array, axis=0)),)
         for i in range(batch_size):
             success_data_dicts.append(
                 {
@@ -307,6 +342,8 @@ def main(args: ValidateGraspArgumentParser):
                     ),
                     "scale": scale_array[i],
                     "valid": valid[i],
+                    "link_name_to_contact_candidates": {link_name: all_contact_candidates[i] for link_name, all_contact_candidates in link_name_to_all_contact_candidates.items()},
+                    "link_name_to_target_contact_candidates": {link_name: all_target_contact_candidates[i] for link_name, all_target_contact_candidates in link_name_to_all_target_contact_candidates.items()},
                 }
             )
 
