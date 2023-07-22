@@ -14,6 +14,7 @@ from tap import Tap
 import torch
 import numpy as np
 import plotly.graph_objects as go
+from typing import Dict, Any, List
 
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
@@ -29,9 +30,30 @@ class VisualizeResultArgumentParser(Tap):
     save_to_html: bool = False
 
 
-if __name__ == "__main__":
-    args = VisualizeResultArgumentParser().parse_args()
+def get_contact_candidates_plot(link_name_to_contact_candidates: Dict[str, Any], plot_name: str, color: str) -> List[go.Scatter3d]:
+    all_contact_candidates = np.concatenate(
+        [
+            contact_candidates
+            for _, contact_candidates in link_name_to_contact_candidates.items()
+        ],
+        axis=0,
+    )
+    num_points = all_contact_candidates.shape[0]
+    assert all_contact_candidates.shape == (num_points, 3)
+    plotly_list = [
+        go.Scatter3d(
+            x=all_contact_candidates[:, 0],
+            y=all_contact_candidates[:, 1],
+            z=all_contact_candidates[:, 2],
+            mode="markers",
+            marker=dict(size=2, color=color),
+            name=plot_name,
+        )
+    ]
+    return plotly_list
 
+
+def main(args: VisualizeResultArgumentParser):
     device = "cpu"
 
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
@@ -51,47 +73,14 @@ if __name__ == "__main__":
         else None
     )
 
-    link_name_to_contact_candidates = data_dict["link_name_to_contact_candidates"]
-    all_contact_candidates = np.concatenate(
-        [
-            contact_candidates
-            for _, contact_candidates in link_name_to_contact_candidates.items()
-        ],
-        axis=0,
-    )
-    num_points = all_contact_candidates.shape[0]
-    assert all_contact_candidates.shape == (num_points, 3)
-    contact_plotly = [
-        go.Scatter3d(
-            x=all_contact_candidates[:, 0],
-            y=all_contact_candidates[:, 1],
-            z=all_contact_candidates[:, 2],
-            mode="markers",
-            marker=dict(size=2, color="red"),
-            name="contact candidates",
-        )
-    ]
-
-    link_name_to_target_contact_candidates = data_dict["link_name_to_target_contact_candidates"]
-    all_target_contact_candidates = np.concatenate(
-        [
-            target_contact_candidates
-            for _, target_contact_candidates in link_name_to_target_contact_candidates.items()
-        ],
-        axis=0,
-    )
-    num_points = all_target_contact_candidates.shape[0]
-    assert all_target_contact_candidates.shape == (num_points, 3)
-    target_contact_plotly = [
-        go.Scatter3d(
-            x=all_target_contact_candidates[:, 0],
-            y=all_target_contact_candidates[:, 1],
-            z=all_target_contact_candidates[:, 2],
-            mode="markers",
-            marker=dict(size=2, color="green"),
-            name="target contact candidates",
-        )
-    ]
+    if "link_name_to_contact_candidates" in data_dict:
+        contact_candidates_plotly = get_contact_candidates_plot(link_name_to_contact_candidates=data_dict["link_name_to_contact_candidates"], plot_name="contact_candidates", color="red")
+    else:
+        contact_candidates_plotly = []
+    if "link_name_to_target_contact_candidates" in data_dict:
+        target_contact_candidates_plotly = get_contact_candidates_plot(link_name_to_contact_candidates=data_dict["link_name_to_target_contact_candidates"], plot_name="target_contact_candidates", color="green")
+    else:
+        target_contact_candidates_plotly = []
 
     # hand model
     hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
@@ -122,7 +111,7 @@ if __name__ == "__main__":
         i=0, opacity=1, color="lightblue", with_contact_points=False
     )
     object_plotly = object_model.get_plotly_data(i=0, color="lightgreen", opacity=1)
-    fig = go.Figure(hand_st_plotly + hand_en_plotly + object_plotly + contact_plotly + target_contact_plotly)
+    fig = go.Figure(hand_st_plotly + hand_en_plotly + object_plotly + contact_candidates_plotly + target_contact_candidates_plotly)
     if "energy" in data_dict:
         energy = data_dict["energy"]
         E_fc = round(data_dict["E_fc"], 3)
@@ -146,3 +135,7 @@ if __name__ == "__main__":
     else:
         print("Showing figure...")
         fig.show()
+
+if __name__ == "__main__":
+    args = VisualizeResultArgumentParser().parse_args()
+    main(args)
