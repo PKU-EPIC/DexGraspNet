@@ -51,6 +51,48 @@ if __name__ == "__main__":
         else None
     )
 
+    link_name_to_contact_candidates = data_dict["link_name_to_contact_candidates"]
+    all_contact_candidates = np.concatenate(
+        [
+            contact_candidates
+            for _, contact_candidates in link_name_to_contact_candidates.items()
+        ],
+        axis=0,
+    )
+    num_points = all_contact_candidates.shape[0]
+    assert all_contact_candidates.shape == (num_points, 3)
+    contact_plotly = [
+        go.Scatter3d(
+            x=all_contact_candidates[:, 0],
+            y=all_contact_candidates[:, 1],
+            z=all_contact_candidates[:, 2],
+            mode="markers",
+            marker=dict(size=2, color="red"),
+            name="contact candidates",
+        )
+    ]
+
+    link_name_to_target_contact_candidates = data_dict["link_name_to_target_contact_candidates"]
+    all_target_contact_candidates = np.concatenate(
+        [
+            target_contact_candidates
+            for _, target_contact_candidates in link_name_to_target_contact_candidates.items()
+        ],
+        axis=0,
+    )
+    num_points = all_target_contact_candidates.shape[0]
+    assert all_target_contact_candidates.shape == (num_points, 3)
+    target_contact_plotly = [
+        go.Scatter3d(
+            x=all_target_contact_candidates[:, 0],
+            y=all_target_contact_candidates[:, 1],
+            z=all_target_contact_candidates[:, 2],
+            mode="markers",
+            marker=dict(size=2, color="green"),
+            name="target contact candidates",
+        )
+    ]
+
     # hand model
     hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
 
@@ -80,7 +122,7 @@ if __name__ == "__main__":
         i=0, opacity=1, color="lightblue", with_contact_points=False
     )
     object_plotly = object_model.get_plotly_data(i=0, color="lightgreen", opacity=1)
-    fig = go.Figure(hand_st_plotly + hand_en_plotly + object_plotly)
+    fig = go.Figure(hand_st_plotly + hand_en_plotly + object_plotly + contact_plotly + target_contact_plotly)
     if "energy" in data_dict:
         energy = data_dict["energy"]
         E_fc = round(data_dict["E_fc"], 3)
