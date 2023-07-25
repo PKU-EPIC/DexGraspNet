@@ -774,10 +774,10 @@ class IsaacValidator:
         camera_props.height = CAMERA_IMG_HEIGHT
 
         # generates camera positions along rings around object
-        heights = [0.1, 0.3, 0.25, 0.35]
-        distances = [0.05, 0.125, 0.3, 0.3]
-        counts = [56, 104, 96, 1]
-        target_ys = [0.0, 0.1, 0.0, 0.1]
+        heights = [0.1, 0.3, 0.25, 0.35, 0.0]
+        distances = [0.05, 0.125, 0.3, 0.3, 0.2]
+        counts = [56, 104, 96, 1, 60]
+        target_ys = [0.0, 0.1, 0.0, 0.1, 0.0]
 
         # compute camera positions
         camera_positions = []
@@ -787,6 +787,9 @@ class IsaacValidator:
                 camera_positions.append((pos, target_y))
         # repeat all from under since there is no ground plane
         for height, distance, count, target_y in zip(heights, distances, counts, target_ys):
+            if height == 0.0:
+                print(f"Continuing because height == 0.0")
+                continue
             height = -height
             target_y = -target_y
             for alpha in np.linspace(0, 2 * np.pi, count, endpoint=False):
