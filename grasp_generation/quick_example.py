@@ -67,12 +67,12 @@ for filename in os.listdir(data_path):
 
 # %%
 grasp_code = random.choice(grasp_code_list)
-grasp_data = np.load(os.path.join(data_path, grasp_code + ".npy"), allow_pickle=True)
+grasp_data_list = np.load(os.path.join(data_path, grasp_code + ".npy"), allow_pickle=True)
 print(f"Randomly sampled grasp_code = {grasp_code}")
 
-index = random.randint(0, len(grasp_data) - 1)
-qpos = grasp_data[index]["qpos"]
-scale = grasp_data[index]["scale"]
+index = random.randint(0, len(grasp_data_list) - 1)
+qpos = grasp_data_list[index]["qpos"]
+scale = grasp_data_list[index]["scale"]
 print(f"Randomly sampled index = {index}")
 print(f"scale = {scale}")
 

@@ -134,22 +134,22 @@ def create_grasp_fig(
     return fig
 
 
-def get_hand_and_object_model_from_data_dict(
-    data_dict: np.ndarray, object_code: str
+def get_hand_and_object_model_from_data_dicts(
+    data_dicts: np.ndarray, object_code: str
 ) -> Tuple[HandModel, ObjectModel]:
     HAND_MODEL_TYPE = HandModelType.ALLEGRO_HAND
     MESH_PATH = "../data/meshdata"
 
     joint_names = handmodeltype_to_joint_names[HAND_MODEL_TYPE]
-    batch_size = data_dict.shape[0]
+    batch_size = data_dicts.shape[0]
     scale_array = []
     hand_pose_array = []
     for i in range(batch_size):
-        qpos = data_dict[i]["qpos"]
+        qpos = data_dicts[i]["qpos"]
         hand_pose_array.append(
             qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
         )
-        scale = data_dict[i]["scale"]
+        scale = data_dicts[i]["scale"]
         scale_array.append(scale)
 
     GPU = 0

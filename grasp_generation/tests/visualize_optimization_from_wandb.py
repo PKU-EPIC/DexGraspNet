@@ -21,15 +21,16 @@ from visualize_optimization_helper import (
 class VisualizeOptimizationFromWandbArgumentParser(Tap):
     wandb_entity: str = "tylerlum"
     wandb_project: str = "DexGraspNet_v1"
-    run_id: str = "qg17990t"
+    wandb_run_id: str = "qg17990t"
     max_files_to_read: int = 100
     frame_duration: int = 200
     transition_duration: int = 100
+    save_to_html: bool = False
 
 
 def main(args: VisualizeOptimizationFromWandbArgumentParser):
     # Specify run
-    run_path = f"{args.wandb_entity}/{args.wandb_project}/{args.run_id}"
+    run_path = f"{args.wandb_entity}/{args.wandb_project}/{args.wandb_run_id}"
     print(f"Run path: {run_path}")
 
     # Download plotly files
@@ -51,7 +52,18 @@ def main(args: VisualizeOptimizationFromWandbArgumentParser):
         transition_duration=args.transition_duration,
     )
 
-    new_fig.show()
+    if args.save_to_html:
+        output_folder = "../html_outputs"
+        os.makedirs(output_folder, exist_ok=True)
+        output_filepath = os.path.join(
+            output_folder,
+            f"optimization_{args.wandb_entity}-{args.wandb_project}-{args.wandb_run_id}.html",
+        )
+        print(f"Saving to {output_filepath}")
+        new_fig.write_html(output_filepath)
+    else:
+        print("Showing figure...")
+        new_fig.show()
 
 
 if __name__ == "__main__":

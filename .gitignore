@@ -6,3 +6,11 @@ dataset
 
 # Caches
 __pycache__
+
+# TYLER ADDITIONS
+data/*
+*cluster*
+thirdparty
+wandb
+html_outputs
+*.swp

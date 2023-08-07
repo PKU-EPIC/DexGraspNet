@@ -20,6 +20,28 @@ class GenerateNerfDataArgumentParser(Tap):
     mesh_path: str = "../data/meshdata"
     output_nerf_path: str = "../data/nerfdata"
     randomize_order_seed: Optional[int] = None
+    only_objects_in_this_graspdata_path: Optional[str] = None
+
+
+def get_object_codes_to_process(args: GenerateNerfDataArgumentParser):
+    # Get input object codes
+    if args.only_objects_in_this_graspdata_path is not None:
+        input_object_codes = [
+            os.path.splitext(object_code_dot_npy)[0]
+            for object_code_dot_npy in os.listdir(
+                args.only_objects_in_this_graspdata_path
+            )
+        ]
+        print(
+            f"Found {len(input_object_codes)} object codes in args.only_objects_in_this_graspdata_path ({args.only_objects_in_this_graspdata_path})"
+        )
+    else:
+        input_object_codes = [object_code for object_code in os.listdir(args.mesh_path)]
+        print(
+            f"Found {len(input_object_codes)} object codes in args.mesh_path ({args.mesh_path})"
+        )
+
+    return input_object_codes
 
 
 def main(args: GenerateNerfDataArgumentParser):
@@ -27,23 +49,20 @@ def main(args: GenerateNerfDataArgumentParser):
     script_to_run = "scripts/generate_nerf_data_one_object.py"
     assert os.path.exists(script_to_run)
 
-    object_codes = [
-        object_code
-        for object_code in os.listdir(args.mesh_path)
-        if os.path.isdir(os.path.join(args.mesh_path, object_code))
-    ]
+    input_object_codes = get_object_codes_to_process(args)
 
     # Randomize order
     if args.randomize_order_seed is not None:
         import random
+
         print(f"Randomizing order with seed {args.randomize_order_seed}")
-        random.Random(args.randomize_order_seed).shuffle(object_codes)
+        random.Random(args.randomize_order_seed).shuffle(input_object_codes)
 
     for i, object_code in tqdm(
-        enumerate(object_codes),
+        enumerate(input_object_codes),
         desc="Generating NeRF data for all objects",
         dynamic_ncols=True,
-        total=len(object_codes),
+        total=len(input_object_codes),
     ):
         command = " ".join(
             [

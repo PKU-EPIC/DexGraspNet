@@ -18,7 +18,7 @@ from utils.hand_model_type import (
 from collections import defaultdict
 import torch
 from enum import Enum, auto
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 ## NERF GRASPING START ##
 
@@ -40,25 +40,30 @@ OBJ_SEGMENTATION_ID = 1
 
 
 def get_fixed_camera_transform(gym, sim, env, camera):
-    # currently x+ is pointing down camera view axis - other degree of freedom is messed up
+    # OLD: currently x+ is pointing down camera view axis - other degree of freedom is messed up
+    # NEW: currently z- is pointing down camera view axis - other degree of freedom is messed up
     # output will have x+ be optical axis, y+ pointing left (looking down camera) and z+ pointing up
     t = gym.get_camera_transform(sim, env, camera)
     pos = torch.tensor([t.p.x, t.p.y, t.p.z])
     quat = Quaternion.fromWLast([t.r.x, t.r.y, t.r.z, t.r.w])
 
-    x_axis = torch.tensor([1.0, 0, 0])
-    # y_axis = torch.tensor([0, 1.0, 0])
+    # x_axis = torch.tensor([1.0, 0, 0])
+    y_axis = torch.tensor([0, 1.0, 0])
     z_axis = torch.tensor([0, 0, 1.0])
 
-    optical_axis = quat.rotate(x_axis)
-    side_left_axis = z_axis.cross(optical_axis)
+    optical_axis = quat.rotate(-z_axis)
+    side_left_axis = y_axis.cross(optical_axis)
     up_axis = optical_axis.cross(side_left_axis)
 
     optical_axis /= torch.norm(optical_axis)
     side_left_axis /= torch.norm(side_left_axis)
     up_axis /= torch.norm(up_axis)
 
-    rot_matrix = torch.stack([optical_axis, side_left_axis, up_axis], dim=-1)
+    new_x_axis = optical_axis
+    new_y_axis = side_left_axis
+    new_z_axis = up_axis
+
+    rot_matrix = torch.stack([new_x_axis, new_y_axis, new_z_axis], dim=-1)
     fixed_quat = Quaternion.fromMatrix(rot_matrix)
 
     return pos, fixed_quat
@@ -291,7 +296,7 @@ class IsaacValidator:
     def _setup_hand(
         self,
         env,
-        hand_rotation,
+        hand_quaternion,
         hand_translation,
         hand_qpos,
         transformation,
@@ -769,30 +774,33 @@ class IsaacValidator:
         camera_props.height = CAMERA_IMG_HEIGHT
 
         # generates camera positions along rings around object
-        heights = [0.1, 0.3, 0.25, 0.35]
-        distances = [0.2, 0.2, 0.3, 0.3]
-        counts = [16, 16, 16, 16]
-        target_y = [0.0, 0.1, 0.0, 0.1]
+        heights = [0.1, 0.3, 0.25, 0.35, 0.0]
+        distances = [0.05, 0.125, 0.3, 0.3, 0.2]
+        counts = [56, 104, 96, 1, 60]
+        target_ys = [0.0, 0.1, 0.0, 0.1, 0.0]
 
         # compute camera positions
         camera_positions = []
-        for h, d, c, y in zip(heights, distances, counts, target_y):
-            for alpha in np.linspace(0, 2 * np.pi, c, endpoint=False):
-                pos = [d * np.sin(alpha), h, d * np.cos(alpha)]
-                camera_positions.append((pos, y))
+        for height, distance, count, target_y in zip(heights, distances, counts, target_ys):
+            for alpha in np.linspace(0, 2 * np.pi, count, endpoint=False):
+                pos = [distance * np.sin(alpha), height, distance * np.cos(alpha)]
+                camera_positions.append((pos, target_y))
         # repeat all from under since there is no ground plane
-        for h, d, c, y in zip(heights, distances, counts, target_y):
-            h = -h
-            y = -y
-            for alpha in np.linspace(0, 2 * np.pi, c, endpoint=False):
-                pos = [d * np.sin(alpha), h, d * np.cos(alpha)]
-                camera_positions.append((pos, y))
+        for height, distance, count, target_y in zip(heights, distances, counts, target_ys):
+            if height == 0.0:
+                print(f"Continuing because height == 0.0")
+                continue
+            height = -height
+            target_y = -target_y
+            for alpha in np.linspace(0, 2 * np.pi, count, endpoint=False):
+                pos = [distance * np.sin(alpha), height, distance * np.cos(alpha)]
+                camera_positions.append((pos, target_y))
 
         self.camera_handles = []
-        for pos, y in camera_positions:
+        for pos, target_y in camera_positions:
             camera_handle = gym.create_camera_sensor(env, camera_props)
             gym.set_camera_location(
-                camera_handle, env, gymapi.Vec3(*pos), gymapi.Vec3(0, y, 0)
+                camera_handle, env, gymapi.Vec3(*pos), gymapi.Vec3(0, target_y, 0)
             )
 
             self.camera_handles.append(camera_handle)
@@ -866,6 +874,7 @@ class IsaacValidator:
         num_train = int(train_frac * num_imgs)
         num_val = int(val_frac * num_imgs)
         num_test = num_imgs - num_train - num_val
+        print()
         print(f"num_imgs = {num_imgs}")
         print(f"num_train = {num_train}")
         print(f"num_val = {num_val}")
@@ -885,14 +894,55 @@ class IsaacValidator:
         self._create_one_split(split_name="val", split_range=val_range, folder=folder)
         self._create_one_split(split_name="test", split_range=test_range, folder=folder)
 
+    def _run_sanity_check_proj_matrices_all_same(self):
+        proj_matrix = gym.get_camera_proj_matrix(self.sim, self.envs[0], self.overhead_camera_handle)
+        for camera_handle in self.camera_handles:
+            next_proj_matrix = gym.get_camera_proj_matrix(self.sim, self.envs[0], camera_handle)
+            assert np.allclose(proj_matrix, next_proj_matrix)
+
+    def _get_camera_intrinsics(self) -> Tuple[float, float, float, float]:
+        self._run_sanity_check_proj_matrices_all_same()
+
+        proj_matrix = gym.get_camera_proj_matrix(self.sim, self.envs[0], self.camera_handles[0])
+        fx = proj_matrix[0, 0]
+        fy = proj_matrix[1, 1]
+        cx = proj_matrix[0, 2]
+        cy = proj_matrix[0, 2]
+
+        assert math.isclose(fx, fy)
+        assert math.isclose(cx, cy) and math.isclose(cx, 0) and math.isclose(cy, 0)
+        return fx, fy, cx, cy
+
     def _create_one_split(self, split_name, split_range, folder):
         import scipy
 
-        json_dict = {
-            "camera_angle_x": math.radians(CAMERA_HORIZONTAL_FOV_DEG),
-            "camera_angle_y": math.radians(CAMERA_VERTICAL_FOV_DEG),
-            "frames": [],
-        }
+        USE_TORCH_NGP = True
+        USE_NERF_STUDIO = False
+        assert sum([USE_TORCH_NGP, USE_NERF_STUDIO]) == 1
+
+        # Sanity check
+        if USE_TORCH_NGP:
+            json_dict = {
+                "camera_angle_x": math.radians(CAMERA_HORIZONTAL_FOV_DEG),
+                "camera_angle_y": math.radians(CAMERA_VERTICAL_FOV_DEG),
+                "frames": [],
+            }
+        elif USE_NERF_STUDIO:
+            fx, fy, cx, cy = self._get_camera_intrinsics()
+            json_dict = {
+                "fl_x": fx * CAMERA_IMG_WIDTH,
+                "fl_y": fy * CAMERA_IMG_HEIGHT,
+                # "cx": cx * CAMERA_IMG_WIDTH,
+                # "cy": cy * CAMERA_IMG_HEIGHT,
+                "cx": CAMERA_IMG_WIDTH//2,
+                "cy": CAMERA_IMG_HEIGHT//2,
+                "h": CAMERA_IMG_HEIGHT,
+                "w": CAMERA_IMG_WIDTH,
+                "frames": [],
+            }
+        else:
+            raise ValueError()
+
         for ii in split_range:
             pose_file = os.path.join(folder, f"pos_xyz_quat_xyzw_{ii}.txt")
             with open(pose_file) as file:
@@ -926,12 +976,18 @@ class IsaacValidator:
                     *target_img_split[target_img_split.index(split_name) :]
                 )
 
+                if USE_TORCH_NGP:
+                    # Exclude ext because adds it in load
+                    target_img, _ = os.path.splitext(target_img)
+                elif USE_NERF_STUDIO:
+                    target_img = target_img
+                else:
+                    raise ValueError()
+
                 json_dict["frames"].append(
                     {
                         "transform_matrix": transform_mat.tolist(),
-                        "file_path": os.path.splitext(target_img)[
-                            0
-                        ],  # Exclude ext because adds it in load
+                        "file_path": target_img,
                     }
                 )
 
