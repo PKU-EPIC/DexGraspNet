@@ -384,7 +384,7 @@ class IsaacValidator:
             env, self.obj_asset, obj_pose, "obj", 0, 1, OBJ_SEGMENTATION_ID
         )
         self.obj_handles.append(obj_actor_handle)
-        # gym.set_actor_scale(env, obj_actor_handle, obj_scale)
+        gym.set_actor_scale(env, obj_actor_handle, obj_scale)
 
         # Store obj link_idx_to_name_dict
         self.obj_link_idx_to_name_dicts.append(
@@ -764,7 +764,7 @@ class IsaacValidator:
         # Avoid segfault if run multiple times by destroying camera sensors
         self._destroy_cameras(self.envs[0])
 
-    def _setup_cameras(self, env, num_cameras=750, radius=3.0):
+    def _setup_cameras(self, env, num_cameras=750, radius=0.3):
         camera_props = gymapi.CameraProperties()
         camera_props.horizontal_fov = CAMERA_HORIZONTAL_FOV_DEG
         camera_props.width = CAMERA_IMG_WIDTH
