@@ -211,12 +211,12 @@ def generate(
     # Log to wandb
     time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     name = f"{args.wandb_name}_{time_str}" if len(args.wandb_name) > 0 else time_str
-    wandb.init(
-        entity=args.wandb_entity,
-        project=args.wandb_project,
-        name=name,
-        config=args,
-    )
+    # wandb.init(
+    #     entity=args.wandb_entity,
+    #     project=args.wandb_project,
+    #     name=name,
+    #     config=args,
+    # )
 
     set_seed(args.seed)
 
@@ -359,7 +359,7 @@ def generate(
             )
             wandb_log_dict[fig_title] = fig
 
-        wandb.log(wandb_log_dict)
+        # wandb.log(wandb_log_dict)
 
     # save results
     save_results(

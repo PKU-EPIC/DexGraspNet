@@ -20,7 +20,7 @@ class GenerateNerfDataOneObjectOneScaleArgumentParser(Tap):
     gpu: int = 0
     mesh_path: str = "../data/meshdata"
     output_nerf_path: str = "../data/nerfdata"
-    object_code: str = "sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2"
+    object_code: str = "sem-Camera-7bff4fd4dc53de7496dece3f86cb5dd5"
     object_scale: float = 0.1
 
 
@@ -31,7 +31,8 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
     output_nerf_object_path = os.path.join(
-        args.output_nerf_path, f"{args.object_code}_{args.object_scale:.2f}".replace(".", "_")
+        args.output_nerf_path,
+        f"{args.object_code}_{args.object_scale:.2f}".replace(".", "_"),
     )
     if os.path.exists(output_nerf_object_path):
         print(f"Skipping {args.object_code} at scale {args.object_scale:.2f}")
@@ -50,7 +51,6 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
     )
     sim.add_env_nerf_data_collection(
         obj_scale=args.object_scale,
-
     )
     sim.save_images(folder=output_nerf_object_path)
     sim.create_train_val_test_split(

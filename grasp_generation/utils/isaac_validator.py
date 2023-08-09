@@ -384,7 +384,7 @@ class IsaacValidator:
             env, self.obj_asset, obj_pose, "obj", 0, 1, OBJ_SEGMENTATION_ID
         )
         self.obj_handles.append(obj_actor_handle)
-        gym.set_actor_scale(env, obj_actor_handle, obj_scale)
+        # gym.set_actor_scale(env, obj_actor_handle, obj_scale)
 
         # Store obj link_idx_to_name_dict
         self.obj_link_idx_to_name_dicts.append(
@@ -760,63 +760,79 @@ class IsaacValidator:
 
         for ii, camera_handle in enumerate(self.camera_handles):
             self._save_single_image(path, ii, camera_handle)
-        self._save_single_image(
-            path, "overhead", self.overhead_camera_handle, numpy_depth=True
-        )
 
         # Avoid segfault if run multiple times by destroying camera sensors
         self._destroy_cameras(self.envs[0])
 
-    def _setup_cameras(self, env):
+    def _setup_cameras(self, env, num_cameras=750, radius=3.0):
         camera_props = gymapi.CameraProperties()
         camera_props.horizontal_fov = CAMERA_HORIZONTAL_FOV_DEG
         camera_props.width = CAMERA_IMG_WIDTH
         camera_props.height = CAMERA_IMG_HEIGHT
 
-        # generates camera positions along rings around object
-        heights = [0.1, 0.3, 0.25, 0.35, 0.0]
-        distances = [0.05, 0.125, 0.3, 0.3, 0.2]
-        counts = [56, 104, 96, 1, 60]
-        target_ys = [0.0, 0.1, 0.0, 0.1, 0.0]
+        # Generates camera positions uniformly sampled from sphere around object.
+        u_vals = np.random.uniform(-1.0, 1.0, num_cameras)
+        th_vals = np.random.uniform(0.0, 2 * np.pi, num_cameras)
 
-        # compute camera positions
-        camera_positions = []
-        for height, distance, count, target_y in zip(heights, distances, counts, target_ys):
-            for alpha in np.linspace(0, 2 * np.pi, count, endpoint=False):
-                pos = [distance * np.sin(alpha), height, distance * np.cos(alpha)]
-                camera_positions.append((pos, target_y))
-        # repeat all from under since there is no ground plane
-        for height, distance, count, target_y in zip(heights, distances, counts, target_ys):
-            if height == 0.0:
-                print(f"Continuing because height == 0.0")
-                continue
-            height = -height
-            target_y = -target_y
-            for alpha in np.linspace(0, 2 * np.pi, count, endpoint=False):
-                pos = [distance * np.sin(alpha), height, distance * np.cos(alpha)]
-                camera_positions.append((pos, target_y))
+        x_vals = radius * np.sqrt(1 - np.square(u_vals)) * np.cos(th_vals)
+        y_vals = radius * np.sqrt(1 - np.square(u_vals)) * np.sin(th_vals)
+        z_vals = radius * u_vals
 
         self.camera_handles = []
-        for pos, target_y in camera_positions:
+        for xx, yy, zz in zip(x_vals, y_vals, z_vals):
             camera_handle = gym.create_camera_sensor(env, camera_props)
             gym.set_camera_location(
-                camera_handle, env, gymapi.Vec3(*pos), gymapi.Vec3(0, target_y, 0)
+                camera_handle, env, gymapi.Vec3(xx, yy, zz), gymapi.Vec3(0.0, 0.0, 0.0)
             )
-
             self.camera_handles.append(camera_handle)
 
-        self.overhead_camera_handle = gym.create_camera_sensor(env, camera_props)
-        gym.set_camera_location(
-            self.overhead_camera_handle,
-            env,
-            gymapi.Vec3(0, 0.5, 0.001),
-            gymapi.Vec3(0, 0.01, 0),
-        )
+        # # generates camera positions along rings around object
+        # heights = [0.1, 0.3, 0.25, 0.35, 0.0]
+        # distances = [0.05, 0.125, 0.3, 0.3, 0.2]
+        # counts = [56, 104, 96, 1, 60]
+        # target_ys = [0.0, 0.1, 0.0, 0.1, 0.0]
+
+        # # compute camera positions
+        # camera_positions = []
+        # for height, distance, count, target_y in zip(
+        #     heights, distances, counts, target_ys
+        # ):
+        #     for alpha in np.linspace(0, 2 * np.pi, count, endpoint=False):
+        #         pos = [distance * np.sin(alpha), height, distance * np.cos(alpha)]
+        #         camera_positions.append((pos, target_y))
+        # # repeat all from under since there is no ground plane
+        # for height, distance, count, target_y in zip(
+        #     heights, distances, counts, target_ys
+        # ):
+        #     if height == 0.0:
+        #         print(f"Continuing because height == 0.0")
+        #         continue
+        #     height = -height
+        #     target_y = -target_y
+        #     for alpha in np.linspace(0, 2 * np.pi, count, endpoint=False):
+        #         pos = [distance * np.sin(alpha), height, distance * np.cos(alpha)]
+        #         camera_positions.append((pos, target_y))
+
+        # self.camera_handles = []
+        # for pos, target_y in camera_positions:
+        #     camera_handle = gym.create_camera_sensor(env, camera_props)
+        #     gym.set_camera_location(
+        #         camera_handle, env, gymapi.Vec3(*pos), gymapi.Vec3(0, target_y, 0)
+        #     )
+
+        #     self.camera_handles.append(camera_handle)
+
+        # self.overhead_camera_handle = gym.create_camera_sensor(env, camera_props)
+        # gym.set_camera_location(
+        #     self.overhead_camera_handle,
+        #     env,
+        #     gymapi.Vec3(0, 0.5, 0.001),
+        #     gymapi.Vec3(0, 0.01, 0),
+        # )
 
     def _destroy_cameras(self, env):
         for camera_handle in self.camera_handles:
             gym.destroy_camera_sensor(self.sim, env, camera_handle)
-        gym.destroy_camera_sensor(self.sim, env, self.overhead_camera_handle)
 
     def _setup_save_dir(self, folder, overwrite=False):
         path = Path(folder)
@@ -831,7 +847,9 @@ class IsaacValidator:
         path.mkdir()
         return path
 
-    def _save_single_image(self, path, ii, camera_handle, numpy_depth=False, debug=False):
+    def _save_single_image(
+        self, path, ii, camera_handle, numpy_depth=False, debug=False
+    ):
         if debug:
             print(f"saving camera {ii}")
         env_idx = 0
@@ -856,11 +874,11 @@ class IsaacValidator:
             self.sim, env, camera_handle, gymapi.IMAGE_DEPTH
         )
         # distance in units I think
-        depth_image = -depth_image.reshape(CAMERA_IMG_HEIGHT, CAMERA_IMG_WIDTH)
+        depth_image = -1000 * depth_image.reshape(CAMERA_IMG_HEIGHT, CAMERA_IMG_WIDTH)
         if numpy_depth:
             np.save(path / f"dep_{ii}.npy", depth_image)
         else:
-            depth_image = (np.clip(depth_image, 0.0, 1.0) * 255).astype(np.uint8)
+            depth_image = (depth_image).astype(np.uint8)
             Image.fromarray(depth_image).convert("L").save(path / f"dep_{ii}.png")
 
         pos, quat = get_fixed_camera_transform(gym, self.sim, env, camera_handle)
@@ -895,19 +913,25 @@ class IsaacValidator:
         self._create_one_split(split_name="test", split_range=test_range, folder=folder)
 
     def _run_sanity_check_proj_matrices_all_same(self):
-        proj_matrix = gym.get_camera_proj_matrix(self.sim, self.envs[0], self.overhead_camera_handle)
+        proj_matrix = gym.get_camera_proj_matrix(
+            self.sim, self.envs[0], self.camera_handles[0]
+        )
         for camera_handle in self.camera_handles:
-            next_proj_matrix = gym.get_camera_proj_matrix(self.sim, self.envs[0], camera_handle)
+            next_proj_matrix = gym.get_camera_proj_matrix(
+                self.sim, self.envs[0], camera_handle
+            )
             assert np.allclose(proj_matrix, next_proj_matrix)
 
     def _get_camera_intrinsics(self) -> Tuple[float, float, float, float]:
         self._run_sanity_check_proj_matrices_all_same()
 
-        proj_matrix = gym.get_camera_proj_matrix(self.sim, self.envs[0], self.camera_handles[0])
+        proj_matrix = gym.get_camera_proj_matrix(
+            self.sim, self.envs[0], self.camera_handles[0]
+        )
         fx = proj_matrix[0, 0]
         fy = proj_matrix[1, 1]
         cx = proj_matrix[0, 2]
-        cy = proj_matrix[0, 2]
+        cy = proj_matrix[1, 2]
 
         assert math.isclose(fx, fy)
         assert math.isclose(cx, cy) and math.isclose(cx, 0) and math.isclose(cy, 0)
@@ -916,8 +940,8 @@ class IsaacValidator:
     def _create_one_split(self, split_name, split_range, folder):
         import scipy
 
-        USE_TORCH_NGP = True
-        USE_NERF_STUDIO = False
+        USE_TORCH_NGP = False
+        USE_NERF_STUDIO = True
         assert sum([USE_TORCH_NGP, USE_NERF_STUDIO]) == 1
 
         # Sanity check
@@ -930,12 +954,12 @@ class IsaacValidator:
         elif USE_NERF_STUDIO:
             fx, fy, cx, cy = self._get_camera_intrinsics()
             json_dict = {
-                "fl_x": fx * CAMERA_IMG_WIDTH,
+                "fl_x": fx * CAMERA_IMG_WIDTH,  # SUSPICIOUS
                 "fl_y": fy * CAMERA_IMG_HEIGHT,
                 # "cx": cx * CAMERA_IMG_WIDTH,
                 # "cy": cy * CAMERA_IMG_HEIGHT,
-                "cx": CAMERA_IMG_WIDTH//2,
-                "cy": CAMERA_IMG_HEIGHT//2,
+                "cx": CAMERA_IMG_WIDTH // 2,
+                "cy": CAMERA_IMG_HEIGHT // 2,
                 "h": CAMERA_IMG_HEIGHT,
                 "w": CAMERA_IMG_WIDTH,
                 "frames": [],
@@ -968,6 +992,7 @@ class IsaacValidator:
 
                 source_img = os.path.join(folder, f"col_{ii}.png")
                 target_img = os.path.join(new_folder, f"{ii}.png")
+                depth_img = f"dep_{ii}.png"
                 shutil.copyfile(source_img, target_img)
 
                 # Remove the first part of the path
@@ -988,6 +1013,7 @@ class IsaacValidator:
                     {
                         "transform_matrix": transform_mat.tolist(),
                         "file_path": target_img,
+                        "depth_file_path": depth_img,
                     }
                 )
 
@@ -995,5 +1021,9 @@ class IsaacValidator:
             os.path.join(folder, f"transforms_{split_name}.json"), "w"
         ) as outfile:
             outfile.write(json.dumps(json_dict))
+
+        if split_name == "train":
+            with open(os.path.join(folder, f"transforms.json"), "w") as outfile:
+                outfile.write(json.dumps(json_dict))
 
     ## NERF DATA COLLECTION END ##
