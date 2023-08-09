@@ -954,8 +954,8 @@ class IsaacValidator:
         elif USE_NERF_STUDIO:
             fx, fy, cx, cy = self._get_camera_intrinsics()
             json_dict = {
-                "fl_x": fx * CAMERA_IMG_WIDTH,  # SUSPICIOUS
-                "fl_y": fy * CAMERA_IMG_HEIGHT,
+                "fl_x": fx * CAMERA_IMG_WIDTH / 2,  # SUSPICIOUS
+                "fl_y": fy * CAMERA_IMG_HEIGHT / 2,
                 # "cx": cx * CAMERA_IMG_WIDTH,
                 # "cy": cy * CAMERA_IMG_HEIGHT,
                 "cx": CAMERA_IMG_WIDTH // 2,
