@@ -870,6 +870,7 @@ class IsaacValidator:
         ).astype(np.uint8)
         Image.fromarray(segmentation_image).convert("L").save(path / f"seg_{ii}.png")
 
+        # TODO: get_camera_image has -inf values, which can't be cast to int, should fix this for depth supervision
         depth_image = gym.get_camera_image(
             self.sim, env, camera_handle, gymapi.IMAGE_DEPTH
         )
