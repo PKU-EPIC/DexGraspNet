@@ -35,9 +35,6 @@ from utils.joint_angle_targets import (
 
 class EvalGraspArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
-    optimization_method: OptimizationMethod = (
-        OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
-    )
     validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
     gpu: int = 0
     val_batch: int = 500
@@ -97,6 +94,7 @@ def main(args: EvalGraspArgumentParser):
         )
 
     # Read in data
+    # TODO: Figure out details of grasp_configs
     grasp_configs = AllegroGraspConfig.from_path(args.grasp_path)
     batch_size = grasp_configs.batch_size
     translation_array = []
