@@ -2,6 +2,7 @@ from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 import torch
 from typing import Union, Dict, Any, Tuple, Optional, List
+import numpy as np
 
 from enum import Enum, auto
 
@@ -497,3 +498,125 @@ def compute_optimized_canonicalized_hand_pose(
     hand_model.set_parameters(new_hand_pose)
 
     return new_hand_pose, losses, debug_infos
+
+
+def compute_optimized_joint_angle_targets_given_directions(
+    hand_model: HandModel,
+    object_model: ObjectModel,
+    grasp_dirs: torch.Tensor,
+    device: torch.device,
+) -> Tuple[torch.Tensor, List[float], List[Dict[str, Any]]]:
+    from utils.hand_model_type import handmodeltype_to_fingerkeywords
+    batch_size = hand_model.hand_pose.shape[0]
+    num_fingers = len(handmodeltype_to_fingerkeywords[hand_model.hand_model_type])
+    num_xyz = 3
+    assert grasp_dirs.shape == (batch_size, num_fingers, num_xyz)
+
+    original_hand_pose = hand_model.hand_pose.detach().clone()
+    joint_angle_targets_to_optimize = (
+        original_hand_pose.detach().clone()[:, 9:].requires_grad_(True)
+    )
+
+    losses = []
+    debug_infos = []
+    N_ITERS = 100
+    # Use cached target and indices to continue moving the same points toward the same targets for each iter
+    # Otherwise, would be moving different points to different targets each iter
+    cached_contact_points_hand = None
+    cached_target_points = None
+    for i in range(N_ITERS):
+        loss, debug_info = compute_loss_desired_dist_move_given_directions(
+            joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
+            hand_model=hand_model,
+            device=device,
+            grasp_dirs=grasp_dirs,
+            cached_contact_points_hand=cached_contact_points_hand,
+            cached_target_points=cached_target_points,
+            return_debug_info=True,
+        )
+        if cached_contact_points_hand is None:
+            cached_contact_points_hand = debug_info["contact_points_hand"]
+        if cached_target_points is None:
+            cached_target_points = debug_info["target_points"]
+        grad_step_size = 5
+
+        loss.backward(retain_graph=True)
+
+        with torch.no_grad():
+            joint_angle_targets_to_optimize -= (
+                joint_angle_targets_to_optimize.grad * grad_step_size
+            )
+            joint_angle_targets_to_optimize.grad.zero_()
+        losses.append(loss.item())
+        debug_infos.append(debug_info)
+
+    # Update hand pose parameters
+    new_hand_pose = original_hand_pose.detach().clone()
+    new_hand_pose[:, 9:] = joint_angle_targets_to_optimize
+    hand_model.set_parameters(new_hand_pose)
+
+    return joint_angle_targets_to_optimize, losses, debug_infos
+
+def compute_loss_desired_dist_move_given_directions(
+    joint_angle_targets_to_optimize: torch.Tensor,
+    hand_model: HandModel,
+    device: torch.device,
+    grasp_dirs: torch.Tensor,
+    cached_contact_points_hand: Optional[torch.Tensor] = None,
+    cached_target_points: Optional[torch.Tensor] = None,
+    dist_move_link: float = 0.001,
+    return_debug_info: bool = False,
+) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
+    from utils.hand_model_type import handmodeltype_to_fingerkeywords
+    batch_size = joint_angle_targets_to_optimize.shape[0]
+    num_fingers = len(handmodeltype_to_fingerkeywords[hand_model.hand_model_type])
+    num_xyz = 3
+    assert grasp_dirs.shape == (batch_size, num_fingers, num_xyz)
+    assert cached_target_points is None or cached_target_points.shape == (batch_size, num_fingers, num_xyz)
+    assert cached_contact_points_hand is None or cached_contact_points_hand.shape == (batch_size, num_fingers, num_xyz)
+
+    # Forward kinematics
+    current_status = hand_model.chain.forward_kinematics(
+        joint_angle_targets_to_optimize
+    )
+    all_contact_candidates = []
+    num_links_with_contact_candidates = 0
+    for i, link_name in enumerate(hand_model.mesh):
+        contact_candidates = hand_model.mesh[link_name]["contact_candidates"]
+        if len(contact_candidates) == 0:
+            continue
+
+        num_links_with_contact_candidates += 1
+
+        contact_candidates = (
+            current_status[link_name]
+            .transform_points(contact_candidates)
+            .expand(batch_size, -1, 3)
+        )
+        contact_candidates = contact_candidates @ hand_model.global_rotation.transpose(
+            1, 2
+        ) + hand_model.global_translation.unsqueeze(1)
+        all_contact_candidates.append(contact_candidates)
+    all_contact_candidates = torch.cat(all_contact_candidates, dim=1).to(device)
+    assert all_contact_candidates.shape == (batch_size, num_links_with_contact_candidates, num_xyz)
+
+    # TODO: Get finger centers
+    all_contact_candidates = all_contact_candidates.reshape(
+        batch_size, num_fingers, -1, num_xyz
+    )
+    contact_points_hand = all_contact_candidates.mean(dim=2)
+    assert contact_points_hand.shape == (batch_size, num_fingers, num_xyz)
+
+    if cached_target_points is None:
+        target_points = contact_points_hand + grasp_dirs * dist_move_link
+    else:
+        target_points = cached_target_points
+    loss = (target_points.detach().clone() - contact_points_hand).square().sum()
+
+    if not return_debug_info:
+        return loss
+
+    return loss, {
+        "target_points": target_points,
+        "contact_points_hand": contact_points_hand,
+    }
