@@ -292,7 +292,10 @@ def compute_optimized_joint_angle_targets(
             losses.append(loss.item())
             debug_infos.append(debug_info)
 
-    elif optimization_method == OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_ONE_STEP:
+    elif (
+        optimization_method
+        == OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_ONE_STEP
+    ):
         N_ITERS = 1
         for i in range(N_ITERS):
             loss, debug_info = compute_loss_desired_dist_move(
@@ -316,7 +319,10 @@ def compute_optimized_joint_angle_targets(
             losses.append(loss.item())
             debug_infos.append(debug_info)
 
-    elif optimization_method == OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS:
+    elif (
+        optimization_method
+        == OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
+    ):
         N_ITERS = 100
         # Use cached target and indices to continue moving the same points toward the same targets for each iter
         # Otherwise, would be moving different points to different targets each iter
@@ -502,42 +508,43 @@ def compute_optimized_canonicalized_hand_pose(
 
 def compute_optimized_joint_angle_targets_given_directions(
     hand_model: HandModel,
-    object_model: ObjectModel,
-    grasp_dirs: torch.Tensor,
-    device: torch.device,
+    grasp_dirs_array: torch.Tensor,
 ) -> Tuple[torch.Tensor, List[float], List[Dict[str, Any]]]:
+    # Sanity check
     from utils.hand_model_type import handmodeltype_to_fingerkeywords
+
     batch_size = hand_model.hand_pose.shape[0]
     num_fingers = len(handmodeltype_to_fingerkeywords[hand_model.hand_model_type])
     num_xyz = 3
-    assert grasp_dirs.shape == (batch_size, num_fingers, num_xyz)
+    assert grasp_dirs_array.shape == (batch_size, num_fingers, num_xyz)
 
+    # Compute target positions
     original_hand_pose = hand_model.hand_pose.detach().clone()
+    original_joint_angle_targets = original_hand_pose[:, 9:].detach().clone()
+
+    # Compute target positions
+    DIST_MOVE_LINK = 0.01
+    original_contact_points_hand = get_contact_points_hand(
+        hand_model, original_joint_angle_targets
+    )
+    target_points = original_contact_points_hand + grasp_dirs_array * DIST_MOVE_LINK
+
     joint_angle_targets_to_optimize = (
-        original_hand_pose.detach().clone()[:, 9:].requires_grad_(True)
+        original_joint_angle_targets.detach().clone().requires_grad_(True)
     )
 
     losses = []
     debug_infos = []
     N_ITERS = 100
-    # Use cached target and indices to continue moving the same points toward the same targets for each iter
-    # Otherwise, would be moving different points to different targets each iter
-    cached_contact_points_hand = None
-    cached_target_points = None
     for i in range(N_ITERS):
-        loss, debug_info = compute_loss_desired_dist_move_given_directions(
-            joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
-            hand_model=hand_model,
-            device=device,
-            grasp_dirs=grasp_dirs,
-            cached_contact_points_hand=cached_contact_points_hand,
-            cached_target_points=cached_target_points,
-            return_debug_info=True,
+        contact_points_hand_to_optimize = get_contact_points_hand(
+            hand_model, joint_angle_targets_to_optimize
         )
-        if cached_contact_points_hand is None:
-            cached_contact_points_hand = debug_info["contact_points_hand"]
-        if cached_target_points is None:
-            cached_target_points = debug_info["target_points"]
+        loss = (
+            (target_points.detach().clone() - contact_points_hand_to_optimize)
+            .square()
+            .sum()
+        )
         grad_step_size = 5
 
         loss.backward(retain_graph=True)
@@ -548,7 +555,12 @@ def compute_optimized_joint_angle_targets_given_directions(
             )
             joint_angle_targets_to_optimize.grad.zero_()
         losses.append(loss.item())
-        debug_infos.append(debug_info)
+        debug_infos.append(
+            {
+                "target_points": target_points.detach().clone(),
+                "contact_points_hand": contact_points_hand_to_optimize.detach().clone(),
+            }
+        )
 
     # Update hand pose parameters
     new_hand_pose = original_hand_pose.detach().clone()
@@ -557,28 +569,18 @@ def compute_optimized_joint_angle_targets_given_directions(
 
     return joint_angle_targets_to_optimize, losses, debug_infos
 
-def compute_loss_desired_dist_move_given_directions(
-    joint_angle_targets_to_optimize: torch.Tensor,
-    hand_model: HandModel,
-    device: torch.device,
-    grasp_dirs: torch.Tensor,
-    cached_contact_points_hand: Optional[torch.Tensor] = None,
-    cached_target_points: Optional[torch.Tensor] = None,
-    dist_move_link: float = 0.001,
-    return_debug_info: bool = False,
-) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
+
+def get_contact_points_hand(
+    hand_model: HandModel, joint_angles: torch.Tensor
+) -> torch.Tensor:
     from utils.hand_model_type import handmodeltype_to_fingerkeywords
-    batch_size = joint_angle_targets_to_optimize.shape[0]
+
+    batch_size = joint_angles.shape[0]
     num_fingers = len(handmodeltype_to_fingerkeywords[hand_model.hand_model_type])
     num_xyz = 3
-    assert grasp_dirs.shape == (batch_size, num_fingers, num_xyz)
-    assert cached_target_points is None or cached_target_points.shape == (batch_size, num_fingers, num_xyz)
-    assert cached_contact_points_hand is None or cached_contact_points_hand.shape == (batch_size, num_fingers, num_xyz)
 
     # Forward kinematics
-    current_status = hand_model.chain.forward_kinematics(
-        joint_angle_targets_to_optimize
-    )
+    current_status = hand_model.chain.forward_kinematics(joint_angles)
     all_contact_candidates = []
     num_links_with_contact_candidates = 0
     for i, link_name in enumerate(hand_model.mesh):
@@ -597,26 +599,20 @@ def compute_loss_desired_dist_move_given_directions(
             1, 2
         ) + hand_model.global_translation.unsqueeze(1)
         all_contact_candidates.append(contact_candidates)
-    all_contact_candidates = torch.cat(all_contact_candidates, dim=1).to(device)
-    assert all_contact_candidates.shape == (batch_size, num_links_with_contact_candidates, num_xyz)
+    all_contact_candidates = torch.cat(all_contact_candidates, dim=1).to(
+        hand_model.device
+    )
+    assert all_contact_candidates.shape == (
+        batch_size,
+        num_links_with_contact_candidates,
+        num_xyz,
+    )
 
     # TODO: Get finger centers
+    # BRITTLE: Assumes ordering of links matches fingers nicely
     all_contact_candidates = all_contact_candidates.reshape(
         batch_size, num_fingers, -1, num_xyz
     )
     contact_points_hand = all_contact_candidates.mean(dim=2)
     assert contact_points_hand.shape == (batch_size, num_fingers, num_xyz)
-
-    if cached_target_points is None:
-        target_points = contact_points_hand + grasp_dirs * dist_move_link
-    else:
-        target_points = cached_target_points
-    loss = (target_points.detach().clone() - contact_points_hand).square().sum()
-
-    if not return_debug_info:
-        return loss
-
-    return loss, {
-        "target_points": target_points,
-        "contact_points_hand": contact_points_hand,
-    }
+    return contact_points_hand
