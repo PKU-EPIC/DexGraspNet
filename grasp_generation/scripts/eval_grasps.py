@@ -14,7 +14,6 @@ from tap import Tap
 import torch
 import numpy as np
 from utils.hand_model import HandModel
-from utils.object_model import ObjectModel
 from utils.hand_model_type import (
     HandModelType,
     handmodeltype_to_joint_names,
@@ -24,12 +23,11 @@ from utils.qpos_pose_conversion import (
     qpos_to_translation_quaternion_jointangles,
     pose_to_qpos,
 )
-from typing import List, Optional, Dict
+from typing import List, Optional
 import math
 from utils.seed import set_seed
 from utils.joint_angle_targets import (
     compute_optimized_joint_angle_targets_given_directions,
-    OptimizationMethod,
 )
 
 

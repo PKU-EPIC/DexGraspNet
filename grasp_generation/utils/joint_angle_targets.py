@@ -510,9 +510,9 @@ def compute_optimized_joint_angle_targets_given_directions(
     hand_model: HandModel,
     grasp_dirs_array: torch.Tensor,
 ) -> Tuple[torch.Tensor, List[float], List[Dict[str, Any]]]:
-    # Sanity check
     from utils.hand_model_type import handmodeltype_to_fingerkeywords
 
+    # Sanity check
     batch_size = hand_model.hand_pose.shape[0]
     num_fingers = len(handmodeltype_to_fingerkeywords[hand_model.hand_model_type])
     num_xyz = 3
@@ -521,18 +521,15 @@ def compute_optimized_joint_angle_targets_given_directions(
     # Compute target positions
     original_hand_pose = hand_model.hand_pose.detach().clone()
     original_joint_angle_targets = original_hand_pose[:, 9:].detach().clone()
-
-    # Compute target positions
-    DIST_MOVE_LINK = 0.01
     original_contact_points_hand = get_contact_points_hand(
         hand_model, original_joint_angle_targets
     )
+    DIST_MOVE_LINK = 0.01
     target_points = original_contact_points_hand + grasp_dirs_array * DIST_MOVE_LINK
 
     joint_angle_targets_to_optimize = (
         original_joint_angle_targets.detach().clone().requires_grad_(True)
     )
-
     losses = []
     debug_infos = []
     N_ITERS = 100
@@ -545,13 +542,13 @@ def compute_optimized_joint_angle_targets_given_directions(
             .square()
             .sum()
         )
-        grad_step_size = 5
+        GRAD_STEP_SIZE = 5
 
         loss.backward(retain_graph=True)
 
         with torch.no_grad():
             joint_angle_targets_to_optimize -= (
-                joint_angle_targets_to_optimize.grad * grad_step_size
+                joint_angle_targets_to_optimize.grad * GRAD_STEP_SIZE
             )
             joint_angle_targets_to_optimize.grad.zero_()
         losses.append(loss.item())
