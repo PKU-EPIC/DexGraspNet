@@ -923,3 +923,13 @@ class HandModel:
             f = self.mesh[link_name]["faces"].detach().cpu()
             data += trimesh.Trimesh(vertices=v, faces=f)
         return data
+
+    @property
+    def batch_size(self) -> int:
+        if self.hand_pose is None:
+            raise ValueError("Hand pose is not set")
+        return self.hand_pose.shape[0]
+
+    @property
+    def num_fingers(self) -> int:
+        return len(handmodeltype_to_fingerkeywords[self.hand_model_type])

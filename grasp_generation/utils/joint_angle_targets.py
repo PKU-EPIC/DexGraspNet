@@ -509,12 +509,11 @@ def compute_optimized_canonicalized_hand_pose(
 def compute_optimized_joint_angle_targets_given_directions(
     hand_model: HandModel,
     grasp_dirs_array: torch.Tensor,
+    dist_move_link: float = 0.01,
 ) -> Tuple[torch.Tensor, List[float], List[Dict[str, Any]]]:
-    from utils.hand_model_type import handmodeltype_to_fingerkeywords
-
     # Sanity check
-    batch_size = hand_model.hand_pose.shape[0]
-    num_fingers = len(handmodeltype_to_fingerkeywords[hand_model.hand_model_type])
+    batch_size = hand_model.batch_size
+    num_fingers = hand_model.num_fingers
     num_xyz = 3
     assert grasp_dirs_array.shape == (batch_size, num_fingers, num_xyz)
 
@@ -524,7 +523,7 @@ def compute_optimized_joint_angle_targets_given_directions(
     original_contact_points_hand = get_contact_points_hand(
         hand_model, original_joint_angle_targets
     )
-    DIST_MOVE_LINK = 0.01
+    DIST_MOVE_LINK = dist_move_link
     target_points = original_contact_points_hand + grasp_dirs_array * DIST_MOVE_LINK
 
     joint_angle_targets_to_optimize = (
@@ -570,22 +569,17 @@ def compute_optimized_joint_angle_targets_given_directions(
 def get_contact_points_hand(
     hand_model: HandModel, joint_angles: torch.Tensor
 ) -> torch.Tensor:
-    from utils.hand_model_type import handmodeltype_to_fingerkeywords
-
     batch_size = joint_angles.shape[0]
-    num_fingers = len(handmodeltype_to_fingerkeywords[hand_model.hand_model_type])
+    num_fingers = hand_model.num_fingers
     num_xyz = 3
 
     # Forward kinematics
     current_status = hand_model.chain.forward_kinematics(joint_angles)
     all_contact_candidates = []
-    num_links_with_contact_candidates = 0
     for i, link_name in enumerate(hand_model.mesh):
         contact_candidates = hand_model.mesh[link_name]["contact_candidates"]
         if len(contact_candidates) == 0:
             continue
-
-        num_links_with_contact_candidates += 1
 
         contact_candidates = (
             current_status[link_name]
@@ -599,17 +593,16 @@ def get_contact_points_hand(
     all_contact_candidates = torch.cat(all_contact_candidates, dim=1).to(
         hand_model.device
     )
-    assert all_contact_candidates.shape == (
-        batch_size,
-        num_links_with_contact_candidates,
-        num_xyz,
-    )
 
     # TODO: Get finger centers
     # BRITTLE: Assumes ordering of links matches fingers nicely
     all_contact_candidates = all_contact_candidates.reshape(
         batch_size, num_fingers, -1, num_xyz
     )
+    num_links_per_finger = all_contact_candidates.shape[2]
+    VERBOSE = False
+    if VERBOSE:
+        print(f"Assuming {num_links_per_finger} links per finger")
     contact_points_hand = all_contact_candidates.mean(dim=2)
     assert contact_points_hand.shape == (batch_size, num_fingers, num_xyz)
     return contact_points_hand
