@@ -129,6 +129,7 @@ def main(args: EvalGraspArgumentParser):
             qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
         )
 
+        # TODO: Figure out how we interface the scale and object with the config
         scale = grasp_configs.scale_array[i]
         scale_array.append(scale)
 
