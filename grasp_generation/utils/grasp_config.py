@@ -233,10 +233,11 @@ class AllegroGraspConfig(torch.nn.Module):
         )
 
     def get_qpos(self, i: int) -> dict:
-        from grasp_generation.utils.grasp_utils import DEXGRASPNET_TRANS_NAMES as translation_names, DEXGRASPNET_ROT_NAMES as rot_names, ALLEGRO_JOINT_NAMES as joint_names
+        from utils.grasp_utils import DEXGRASPNET_TRANS_NAMES as translation_names, DEXGRASPNET_ROT_NAMES as rot_names, ALLEGRO_JOINT_NAMES as joint_names
         import transforms3d
         joint_angles = self.joint_angles[i].tolist()
-        euler = transforms3d.euler.mat2euler(self.wrist_pose[i].rotation().matrix(), axes="sxyz").tolist()
+        roll, pitch, yaw = transforms3d.euler.mat2euler(self.wrist_pose[i].rotation().matrix().detach(), axes="sxyz")
+        euler = [roll, pitch, yaw]
         translation = self.wrist_pose[i].translation().tolist()
 
         qpos = {}
