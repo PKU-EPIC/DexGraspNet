@@ -29,6 +29,8 @@ from utils.seed import set_seed
 from utils.joint_angle_targets import (
     compute_optimized_joint_angle_targets_given_directions,
 )
+from utils.grasp_config import AllegroGraspConfig
+import pathlib
 
 
 class EvalGraspArgumentParser(Tap):
@@ -93,7 +95,7 @@ def main(args: EvalGraspArgumentParser):
 
     # Read in data
     # TODO: Figure out details of grasp_configs
-    grasp_configs = AllegroGraspConfig.from_path(args.grasp_path)
+    grasp_configs = AllegroGraspConfig.from_grasp_data(pathlib.Path(args.grasp_path))
     batch_size = grasp_configs.batch_size
     translation_array = []
     quaternion_array = []
@@ -102,7 +104,17 @@ def main(args: EvalGraspArgumentParser):
     hand_pose_array = []
     grasp_dirs_array = []
     for i in range(batch_size):
-        qpos = grasp_configs.qpos_array[i]  # TODO make this conversion
+        # This is not efficient way to do this, but simple way to verify that config matches data
+        qpos = grasp_configs.get_qpos(i)
+
+        # Verify that qpos is set up correctly
+        data_dict = np.load(args.grasp_path, allow_pickle=True)[i]
+        qpos_from_data_dict = data_dict["qpos"]
+        qpos_keys = list(qpos.keys())
+        assert qpos_keys == list(qpos_from_data_dict.keys())
+        for key in qpos_keys:
+            assert np.allclose(qpos[key], qpos_from_data_dict[key]), f"{key}: {qpos[key]} != {qpos_from_data_dict[key]}"
+
         (
             translation,
             quaternion,
