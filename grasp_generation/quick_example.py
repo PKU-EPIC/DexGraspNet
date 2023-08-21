@@ -29,6 +29,7 @@ import plotly.graph_objects as go
 from utils.joint_angle_targets import (
     OptimizationMethod,
     compute_optimized_joint_angle_targets,
+    compute_optimized_joint_angle_targets_given_directions,
     compute_optimized_canonicalized_hand_pose,
 )
 
@@ -361,3 +362,132 @@ fig.update_layout(
     title_text=f"Optimization Method: {joint_angle_targets_optimization_method.name}",
 )
 fig.show()
+
+# %% [markdown]
+# ## Compute optimized joint angle targets given directions
+
+# %%
+hand_model.set_parameters(original_hand_pose)
+print(f"original_hand_pose[:, 9:] = {original_hand_pose[:, 9:]}")
+
+# %%
+batch_size = hand_model.batch_size
+num_fingers = hand_model.num_fingers
+num_xyz = 3
+GRASP_DIRS_ARRAY = torch.stack([
+    2 * torch.rand(num_fingers, num_xyz, device=device) - 1
+    for _ in range(batch_size)
+], dim=0)
+
+# %%
+(
+    joint_angle_targets_to_optimize,
+    losses,
+    debug_infos,
+) = compute_optimized_joint_angle_targets_given_directions(
+    hand_model=hand_model,
+    grasp_dirs_array=GRASP_DIRS_ARRAY,
+    dist_move_link=0.02,
+)
+old_debug_info = debug_infos[0]
+debug_info = debug_infos[-1]
+
+# %%
+fig = px.line(y=losses)
+fig.update_layout(
+    title=f"{joint_angle_targets_optimization_method} Loss vs. Iterations", xaxis_title="Iterations", yaxis_title="Loss"
+)
+fig.show()
+
+# %%
+print(f"joint_angle_targets_to_optimize = {joint_angle_targets_to_optimize}")
+
+
+# %% [markdown]
+# ## Visualize hand pose before and after optimization
+
+# %%
+# Plotly fig
+hand_model.set_parameters(original_hand_pose)
+old_hand_model_plotly = hand_model.get_plotly_data(
+    i=idx_to_visualize, opacity=1.0, with_contact_candidates=True
+)
+
+fig = make_subplots(
+    rows=1,
+    cols=2,
+    specs=[[{"type": "scene"}, {"type": "scene"}]],
+    subplot_titles=("Original", "Optimized"),
+)
+old_target_points = old_debug_info["target_points"]
+old_contact_points_hand = old_debug_info["contact_points_hand"]
+
+plots = [
+    *old_hand_model_plotly,
+    *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
+    go.Scatter3d(
+        x=old_target_points[batch_idx, :, 0].detach().cpu().numpy(),
+        y=old_target_points[batch_idx, :, 1].detach().cpu().numpy(),
+        z=old_target_points[batch_idx, :, 2].detach().cpu().numpy(),
+        mode="markers",
+        marker=dict(size=10, color="red"),
+        name="target_points",
+    ),
+    go.Scatter3d(
+        x=old_contact_points_hand[batch_idx, :, 0].detach().cpu().numpy(),
+        y=old_contact_points_hand[batch_idx, :, 1].detach().cpu().numpy(),
+        z=old_contact_points_hand[batch_idx, :, 2].detach().cpu().numpy(),
+        mode="markers",
+        marker=dict(size=10, color="green"),
+        name="contact_points_hand",
+    ),
+]
+
+for plot in plots:
+    fig.append_trace(plot, row=1, col=1)
+
+# %%
+
+new_hand_pose = original_hand_pose.detach().clone()
+new_hand_pose[:, 9:] = joint_angle_targets_to_optimize
+hand_model.set_parameters(new_hand_pose)
+new_hand_model_plotly = hand_model.get_plotly_data(
+    i=idx_to_visualize, opacity=1.0, with_contact_candidates=True
+)
+
+new_target_points = debug_info["target_points"]
+new_contact_points_hand = debug_info["contact_points_hand"]
+
+plots = [
+    *new_hand_model_plotly,
+    *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
+    go.Scatter3d(
+        x=new_target_points[batch_idx, :, 0].detach().cpu().numpy(),
+        y=new_target_points[batch_idx, :, 1].detach().cpu().numpy(),
+        z=new_target_points[batch_idx, :, 2].detach().cpu().numpy(),
+        mode="markers",
+        marker=dict(size=10, color="red"),
+        name="new_target_points",
+    ),
+    go.Scatter3d(
+        x=new_contact_points_hand[batch_idx, :, 0].detach().cpu().numpy(),
+        y=new_contact_points_hand[batch_idx, :, 1].detach().cpu().numpy(),
+        z=new_contact_points_hand[batch_idx, :, 2].detach().cpu().numpy(),
+        mode="markers",
+        marker=dict(size=10, color="green"),
+        name="contact_points_hand",
+    ),
+]
+
+for plot in plots:
+    fig.append_trace(plot, row=1, col=2)
+
+fig.update_layout(
+    autosize=False,
+    width=1600,
+    height=800,
+    title_text=f"Optimization Method: {joint_angle_targets_optimization_method.name}",
+)
+fig.show()
+
+# %%
