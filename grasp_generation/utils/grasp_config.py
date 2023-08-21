@@ -7,7 +7,7 @@ import torch
 import nerf_grasping
 
 # from nerf_grasping import grasp_utils
-import grasp_generation.utils.grasp_utils as grasp_utils
+from utils import grasp_utils
 
 from typing import List
 
