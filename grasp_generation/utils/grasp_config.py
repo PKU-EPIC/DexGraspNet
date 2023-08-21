@@ -7,7 +7,7 @@ import torch
 import nerf_grasping
 
 # from nerf_grasping import grasp_utils
-import grasp_utils2
+import grasp_generation.utils.grasp_utils as grasp_utils
 
 from typing import List
 
@@ -99,7 +99,7 @@ class AllegroGraspConfig(torch.nn.Module):
         super().__init__()
         self.hand_config = AllegroHandConfig(batch_size, chain, requires_grad)
         self.grasp_orientations = pp.Parameter(
-            pp.identity_SO3(batch_size, grasp_utils2.NUM_FINGERS),
+            pp.identity_SO3(batch_size, grasp_utils.NUM_FINGERS),
             requires_grad=requires_grad,
         )
 
@@ -126,7 +126,7 @@ class AllegroGraspConfig(torch.nn.Module):
             std_orientation
             * torch.randn(
                 batch_size,
-                grasp_utils2.NUM_FINGERS,
+                grasp_utils.NUM_FINGERS,
                 3,
                 device=grasp_config.grasp_orientations.device,
                 dtype=grasp_config.grasp_orientations.dtype,
@@ -166,7 +166,7 @@ class AllegroGraspConfig(torch.nn.Module):
 
         # Assemble these samples into the data we need for the grasp config.
         grasp_data_tuples = [
-            grasp_utils2.get_grasp_config_from_grasp_data(gd) for gd in grasp_data
+            grasp_utils.get_grasp_config_from_grasp_data(gd) for gd in grasp_data
         ]
 
         # List of tuples -> tuple of lists.
@@ -233,7 +233,7 @@ class AllegroGraspConfig(torch.nn.Module):
         )
 
     def get_qpos(self, i: int) -> dict:
-        from grasp_utils2 import DEXGRASPNET_TRANS_NAMES as translation_names, DEXGRASPNET_ROT_NAMES as rot_names, ALLEGRO_JOINT_NAMES as joint_names
+        from grasp_generation.utils.grasp_utils import DEXGRASPNET_TRANS_NAMES as translation_names, DEXGRASPNET_ROT_NAMES as rot_names, ALLEGRO_JOINT_NAMES as joint_names
         import transforms3d
         joint_angles = self.joint_angles[i].tolist()
         euler = transforms3d.euler.mat2euler(self.wrist_pose[i].rotation().matrix(), axes="sxyz").tolist()
