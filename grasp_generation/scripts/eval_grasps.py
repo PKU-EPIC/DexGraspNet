@@ -29,7 +29,6 @@ from utils.seed import set_seed
 from utils.joint_angle_targets import (
     compute_optimized_joint_angle_targets_given_directions,
 )
-from utils.grasp_config import AllegroGraspConfig
 import pathlib
 
 
@@ -41,7 +40,6 @@ class EvalGraspArgumentParser(Tap):
     mesh_path: str = "../data/meshdata"
     grasp_path: str = "../data/graspdata"
     result_path: str = "../data/dataset"
-    object_code: str = "sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2"
     # if debug_index is received, then the debug mode is on
     debug_index: Optional[int] = None
     start_with_step_mode: bool = False
@@ -54,13 +52,14 @@ def compute_joint_angle_targets(
     grasp_dirs_array: List[torch.Tensor],
 ) -> torch.Tensor:
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
-    grasp_dirs_array = torch.cat(grasp_dirs_array, dim=0)
+    grasp_dirs_array = torch.stack(grasp_dirs_array, dim=0).to(device)
 
     # hand model
     hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
     hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
 
     # Optimization
+    breakpoint()
     (
         optimized_joint_angle_targets,
         losses,
@@ -95,8 +94,8 @@ def main(args: EvalGraspArgumentParser):
 
     # Read in data
     # TODO: Figure out details of grasp_configs
-    grasp_configs = AllegroGraspConfig.from_grasp_data(pathlib.Path(args.grasp_path))
-    batch_size = grasp_configs.batch_size
+    data_dicts = np.load("/afs/cs.stanford.edu/u/tylerlum/github_repos/nerf_grasping/MY_PATH.npy", allow_pickle=True)
+    batch_size = len(data_dicts)
     translation_array = []
     quaternion_array = []
     joint_angles_array = []
@@ -104,16 +103,17 @@ def main(args: EvalGraspArgumentParser):
     hand_pose_array = []
     grasp_dirs_array = []
     for i in range(batch_size):
-        # This is not efficient way to do this, but simple way to verify that config matches data
-        qpos = grasp_configs.get_qpos(i)
+        data_dict = data_dicts[i]
+        qpos = data_dict["qpos"]
 
         # Verify that qpos is set up correctly
-        data_dict = np.load(args.grasp_path, allow_pickle=True)[i]
-        qpos_from_data_dict = data_dict["qpos"]
+        orig_data_dict = np.load("/afs/cs.stanford.edu/u/tylerlum/github_repos/nerf_grasping/graspdata/sem-Wii-effdc659515ff747eb2c6725049f8f.npy", allow_pickle=True)[i]
+        orig_qpos = orig_data_dict["qpos"]
         qpos_keys = list(qpos.keys())
-        assert qpos_keys == list(qpos_from_data_dict.keys())
-        for key in qpos_keys:
-            assert np.allclose(qpos[key], qpos_from_data_dict[key]), f"{key}: {qpos[key]} != {qpos_from_data_dict[key]}"
+        for key in set([*qpos_keys, *orig_qpos.keys()]):
+            if key not in qpos_keys or key not in orig_qpos.keys():
+                continue
+            assert np.allclose(qpos[key], orig_qpos[key]), f"{key}: {qpos[key]} != {orig_qpos[key]}"
 
         (
             translation,
@@ -128,11 +128,12 @@ def main(args: EvalGraspArgumentParser):
         hand_pose_array.append(
             qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
         )
+        grasp_dirs_array.append(torch.tensor(data_dict["grasp_dirs"], dtype=torch.float))
 
         # TODO: Figure out how we interface the scale and object with the config
-        scale = grasp_configs.scale_array[i]
+        scale = data_dict['scale']
         scale_array.append(scale)
-
+    object_code = "sem-Wii-effdc659515ff747eb2c6725049f8f"
     # Compute joint angle targets
     joint_angle_targets_array = compute_joint_angle_targets(
         args=args,
@@ -143,7 +144,7 @@ def main(args: EvalGraspArgumentParser):
     # Debug with single grasp
     if args.debug_index is not None:
         sim.set_obj_asset(
-            obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
+            obj_root=os.path.join(args.mesh_path, object_code, "coacd"),
             obj_file="coacd.urdf",
         )
         index = args.debug_index
@@ -171,7 +172,7 @@ def main(args: EvalGraspArgumentParser):
             end_offset = min(start_offset + args.val_batch, batch_size)
 
             sim.set_obj_asset(
-                obj_root=os.path.join(args.mesh_path, args.object_code, "coacd"),
+                obj_root=os.path.join(args.mesh_path, object_code, "coacd"),
                 obj_file="coacd.urdf",
             )
             for index in range(start_offset, end_offset):
@@ -224,7 +225,7 @@ def main(args: EvalGraspArgumentParser):
 
         os.makedirs(args.result_path, exist_ok=True)
         np.save(
-            os.path.join(args.result_path, args.object_code + ".npy"),
+            os.path.join(args.result_path, object_code + ".npy"),
             success_data_dicts,
             allow_pickle=True,
         )
