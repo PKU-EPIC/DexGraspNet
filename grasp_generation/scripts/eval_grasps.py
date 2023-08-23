@@ -59,7 +59,6 @@ def compute_joint_angle_targets(
     hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
 
     # Optimization
-    breakpoint()
     (
         optimized_joint_angle_targets,
         losses,
