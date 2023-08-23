@@ -38,7 +38,9 @@ class EvalGraspArgumentParser(Tap):
     gpu: int = 0
     val_batch: int = 500
     mesh_path: str = "../data/meshdata"
-    grasp_path: str = "../data/graspdata"
+    orig_grasp_path: str = "../data/graspdata"
+    grasp_path: str = "/afs/cs.stanford.edu/u/tylerlum/github_repos/nerf_grasping/dexgraspnet_dicts"  # HACK
+    filename: str = "sem-Wii-effdc659515ff747eb2c6725049f8f_0_15000000596046448.npy"
     result_path: str = "../data/dataset"
     # if debug_index is received, then the debug mode is on
     debug_index: Optional[int] = None
@@ -92,8 +94,18 @@ def main(args: EvalGraspArgumentParser):
         )
 
     # Read in data
-    # TODO: Figure out details of grasp_configs
-    data_dicts = np.load("/afs/cs.stanford.edu/u/tylerlum/github_repos/nerf_grasping/MY_PATH.npy", allow_pickle=True)
+    data_dicts = np.load(
+        pathlib.Path(args.grasp_path) / args.filename, allow_pickle=True
+    )
+    # HACK: assume same scale for all grasps
+    object_code_and_scale, _ = os.path.splitext(args.filename)
+    tmp_idx = object_code_and_scale.rfind("_0_")
+    object_code = object_code_and_scale[:tmp_idx]
+    object_scale = float(object_code_and_scale[tmp_idx + 1 :].replace("_", "."))
+
+    orig_data_dicts = np.load(
+        pathlib.Path(args.orig_grasp_path) / f"{object_code}.npy", allow_pickle=True
+    )
     batch_size = len(data_dicts)
     translation_array = []
     quaternion_array = []
@@ -106,13 +118,14 @@ def main(args: EvalGraspArgumentParser):
         qpos = data_dict["qpos"]
 
         # Verify that qpos is set up correctly
-        orig_data_dict = np.load("/afs/cs.stanford.edu/u/tylerlum/github_repos/nerf_grasping/graspdata/sem-Wii-effdc659515ff747eb2c6725049f8f.npy", allow_pickle=True)[i]
-        orig_qpos = orig_data_dict["qpos"]
+        orig_qpos = orig_data_dicts[i]["qpos"]
         qpos_keys = list(qpos.keys())
         for key in set([*qpos_keys, *orig_qpos.keys()]):
             if key not in qpos_keys or key not in orig_qpos.keys():
                 continue
-            assert np.allclose(qpos[key], orig_qpos[key]), f"{key}: {qpos[key]} != {orig_qpos[key]}"
+            assert np.allclose(
+                qpos[key], orig_qpos[key]
+            ), f"{key}: {qpos[key]} != {orig_qpos[key]}"
 
         (
             translation,
@@ -127,12 +140,13 @@ def main(args: EvalGraspArgumentParser):
         hand_pose_array.append(
             qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
         )
-        grasp_dirs_array.append(torch.tensor(data_dict["grasp_dirs"], dtype=torch.float))
+        grasp_dirs_array.append(
+            torch.tensor(data_dict["grasp_dirs"], dtype=torch.float)
+        )
 
         # TODO: Figure out how we interface the scale and object with the config
-        scale = data_dict['scale']
-        scale_array.append(scale)
-    object_code = "sem-Wii-effdc659515ff747eb2c6725049f8f"
+        scale_array.append(object_scale)
+
     # Compute joint angle targets
     joint_angle_targets_array = compute_joint_angle_targets(
         args=args,
@@ -234,4 +248,3 @@ def main(args: EvalGraspArgumentParser):
 if __name__ == "__main__":
     args = EvalGraspArgumentParser().parse_args()
     main(args)
-
