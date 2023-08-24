@@ -337,7 +337,7 @@ def generate(
             new_output_folder = pathlib.Path(
                 f"{args.output_hand_config_dicts_path.name}_mid_optimization"
             ) / str(step)
-            os.makedirs(new_output_folder, exist_ok=True)
+            new_output_folder.mkdir(parents=True, exist_ok=True)
             save_hand_config_dicts(
                 hand_model=hand_model,
                 object_model=object_model,
@@ -406,7 +406,7 @@ def main(args: GenerateHandConfigDictsArgumentParser) -> None:
 
     # check whether arguments are valid and process arguments
     set_seed(args.seed)
-    os.makedirs(args.output_hand_config_dicts_path, exist_ok=True)
+    args.output_hand_config_dicts_path.mkdir(parents=True, exist_ok=True)
 
     if not args.meshdata_root_path.exists():
         raise ValueError(f"meshdata_root_path {args.meshdata_root_path} doesn't exist")

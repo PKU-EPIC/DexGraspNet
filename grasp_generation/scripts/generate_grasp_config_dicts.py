@@ -27,7 +27,7 @@ from utils.qpos_pose_conversion import (
     qpos_to_translation_quaternion_jointangles,
     pose_to_qpos,
 )
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any, Tuple
 import math
 from utils.seed import set_seed
 from utils.joint_angle_targets import (
@@ -123,11 +123,13 @@ def compute_link_name_to_all_contact_candidates(
     return link_name_to_contact_candidates
 
 
-def split_object_code_and_scale(object_code_and_scale: str) -> (str, float):
+def split_object_code_and_scale(object_code_and_scale_str: str) -> Tuple[str, float]:
     keyword = "_0_"
-    idx = object_code_and_scale.rfind(keyword)
-    object_code = object_code_and_scale[:idx]
-    object_scale = float(object_code_and_scale[idx + len(keyword) :].replace("_", "."))
+    idx = object_code_and_scale_str.rfind(keyword)
+    object_code = object_code_and_scale_str[:idx]
+    object_scale = float(
+        object_code_and_scale_str[idx + len(keyword) :].replace("_", ".")
+    )
     return object_code, object_scale
 
 
@@ -135,7 +137,9 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
-    hand_config_dict_paths = [path for path in args.input_hand_config_dicts_path.iterdir()]
+    hand_config_dict_paths = [
+        path for path in args.input_hand_config_dicts_path.iterdir()
+    ]
     print(f"len(hand_config_dict_paths): {len(hand_config_dict_paths)}")
     print(f"First 10: {[path.name for path in hand_config_dict_paths[:10]]}")
     random.Random(args.seed).shuffle(hand_config_dict_paths)
@@ -147,8 +151,10 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
         dynamic_ncols=True,
     )
     for hand_config_dict_path in pbar:
-        object_code_and_scale = hand_config_dict_path.name
-        object_code, object_scale = split_object_code_and_scale(object_code_and_scale)
+        object_code_and_scale_str = hand_config_dict_path.stem
+        object_code, object_scale = split_object_code_and_scale(
+            object_code_and_scale_str
+        )
 
         # Read in data
         data_dicts: List[Dict[str, Any]] = np.load(
@@ -185,7 +191,7 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
             .cpu()
             .numpy()
         )
-        success_data_dicts = []
+        grasp_config_dicts = []
         link_name_to_all_contact_candidates = (
             compute_link_name_to_all_contact_candidates(
                 args=args,
@@ -203,13 +209,11 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
             )
         )
         for i in range(batch_size):
-            success_data_dicts.append(
+            grasp_config_dicts.append(
                 {
                     "qpos": pose_to_qpos(
                         hand_pose=hand_pose_array[i], joint_names=joint_names
                     ),
-                    "scale": object_scale,
-                    "valid": valid[i],
                     "link_name_to_contact_candidates": {
                         link_name: all_contact_candidates[i].cpu().numpy()
                         for link_name, all_contact_candidates in link_name_to_all_contact_candidates.items()
@@ -222,10 +226,10 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
                 }
             )
 
-        os.makedirs(args.output_grasp_config_dicts_path, exist_ok=True)
+        args.output_grasp_config_dicts_path.mkdir(parents=True, exist_ok=True)
         np.save(
-            os.path.join(args.output_grasp_config_dicts_path, object_code + ".npy"),
-            success_data_dicts,
+            args.output_grasp_config_dicts_path / f"{object_code_and_scale_str}.npy",
+            grasp_config_dicts,
             allow_pickle=True,
         )
 
