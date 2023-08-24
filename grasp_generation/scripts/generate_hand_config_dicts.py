@@ -48,7 +48,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     # experiment settings
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
-    output_hand_config_dicts_path: pathlib.Path = pathlib.Path("../data/graspdata")
+    output_hand_config_dicts_path: pathlib.Path = pathlib.Path("../data/hand_config_dicts")
     object_scale: float = 0.1
     seed: int = 1
     batch_size_each_object: int = 500
@@ -157,6 +157,7 @@ def save_hand_config_dicts(
     hand_model: HandModel,
     object_model: ObjectModel,
     object_code_list: List[str],
+    object_scale: float,
     hand_pose_start: torch.Tensor,
     energy: torch.Tensor,
     unweighted_energy_matrix: torch.Tensor,
@@ -164,7 +165,7 @@ def save_hand_config_dicts(
 ) -> None:
     """
     Save results to output_folder_path
-        * <output_folder_path>/<object_code>.npy
+        * <output_folder_path>/<object_code>_<object_scale>.npy
 
     Each file is a list of hand_config_dict, where each hand_config_dict is a dict with keys:
         * qpos: {<joint_1.0>: x, <joint_1.1>: y, ...,
@@ -177,6 +178,7 @@ def save_hand_config_dicts(
     num_objects, num_grasps_per_object = object_model.object_scale_tensor.shape
     assert len(object_code_list) == num_objects
     assert hand_pose_start.shape[0] == num_objects * num_grasps_per_object
+    assert (object_model.object_scale_tensor == object_scale).all()
 
     joint_names = handmodeltype_to_joint_names[hand_model.hand_model_type]
     for object_i, object_code in enumerate(object_code_list):
@@ -210,7 +212,7 @@ def save_hand_config_dicts(
             hand_config_dicts.append(hand_config_dict)
 
         np.save(
-            output_folder_path / (object_code + ".npy"),
+            output_folder_path / f"{object_code}_{object_scale}.npy",
             hand_config_dicts,
             allow_pickle=True,
         )
@@ -336,6 +338,7 @@ def generate(
                 hand_model=hand_model,
                 object_model=object_model,
                 object_code_list=object_code_list,
+                object_scale=args.object_scale,
                 hand_pose_start=hand_pose_start,
                 energy=energy,
                 unweighted_energy_matrix=unweighted_energy_matrix,
@@ -379,6 +382,7 @@ def generate(
         hand_model=hand_model,
         object_model=object_model,
         object_code_list=object_code_list,
+        object_scale=args.object_scale,
         hand_pose_start=hand_pose_start,
         energy=energy,
         unweighted_energy_matrix=unweighted_energy_matrix,
