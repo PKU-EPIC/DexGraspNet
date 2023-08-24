@@ -17,7 +17,7 @@ from torchsdf import index_vertices_by_faces, compute_sdf
 
 class ObjectModel:
 
-    def __init__(self, meshdata_root_path: str, batch_size_each: int, num_samples: int = 2000, device: str = "cuda"):
+    def __init__(self, meshdata_root_path: str, batch_size_each: int, scale: float = 0.1, num_samples: int = 2000, device: str = "cuda"):
         """
         Create a Object Model
         
@@ -27,6 +27,8 @@ class ObjectModel:
             directory to object meshes
         batch_size_each: int
             batch size for each objects
+        scale: float
+            scale of object meshes
         num_samples: int
             numbers of object surface points, sampled with fps
         device: str | torch.Device
@@ -42,7 +44,7 @@ class ObjectModel:
         self.object_scale_tensor = None
         self.object_mesh_list = None
         self.object_face_verts_list = None
-        self.scale_choice = torch.tensor([0.06, 0.08, 0.1, 0.12, 0.15], dtype=torch.float, device=self.device)
+        self.scale_choice = torch.tensor([scale], dtype=torch.float, device=self.device)  # Stick with just 1 scale for all
 
     def initialize(self, object_code_list):
         """

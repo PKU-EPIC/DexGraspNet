@@ -44,24 +44,25 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 np.seterr(all="raise")
 
 
-class GenerateGraspsArgumentParser(Tap):
+class GenerateHandConfigDictsArgumentParser(Tap):
     # experiment settings
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
-    use_wandb: bool = False
-    wandb_name: str = ""
-    wandb_entity: str = "tylerlum"
-    wandb_project: str = "DexGraspNet_v1"
-    wandb_visualization_freq: Optional[int] = 2000
-    output_hand_config_dicts_path: pathlib.Path = pathlib.Path("../data/graspdata")
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
-    object_code_list: Optional[List[str]] = None
-    all: bool = False
+    output_hand_config_dicts_path: pathlib.Path = pathlib.Path("../data/graspdata")
+    object_scale: float = 0.1
     seed: int = 1
     batch_size_each_object: int = 500
     n_objects_per_batch: int = (
         2  # Runs batch_size_each_object * n_objects_per_batch grasps per GPU
     )
     n_iter: int = 4000
+
+    # Logging
+    use_wandb: bool = False
+    wandb_name: str = ""
+    wandb_entity: str = "tylerlum"
+    wandb_project: str = "DexGraspNet_v1"
+    wandb_visualization_freq: Optional[int] = 2000
 
     # hyper parameters
     switch_possibility: float = 0.5
@@ -156,14 +157,14 @@ def save_results(
     hand_model: HandModel,
     object_model: ObjectModel,
     object_code_list: List[str],
-    hand_pose_st: torch.Tensor,
+    hand_pose_start: torch.Tensor,
     energy: torch.Tensor,
     unweighted_energy_matrix: torch.Tensor,
     output_folder_path: pathlib.Path,
 ) -> None:
     num_objects, num_grasps_per_object = object_model.object_scale_tensor.shape
     assert len(object_code_list) == num_objects
-    assert hand_pose_st.shape[0] == num_objects * num_grasps_per_object
+    assert hand_pose_start.shape[0] == num_objects * num_grasps_per_object
 
     joint_names = handmodeltype_to_joint_names[hand_model.hand_model_type]
     for object_i, object_code in enumerate(object_code_list):
@@ -176,14 +177,14 @@ def save_results(
                 hand_pose=hand_model.hand_pose[grasp_idx].detach().cpu(),
                 joint_names=joint_names,
             )
-            qpos_st = pose_to_qpos(
-                hand_pose=hand_pose_st[grasp_idx].detach().cpu(),
+            qpos_start = pose_to_qpos(
+                hand_pose=hand_pose_start[grasp_idx].detach().cpu(),
                 joint_names=joint_names,
             )
             object_grasp_data = dict(
                 scale=scale,
                 qpos=qpos,
-                qpos_st=qpos_st,
+                qpos_start=qpos_start,
                 energy=energy[grasp_idx].item(),
             )
 
@@ -206,7 +207,7 @@ def save_results(
 
 
 def generate(
-    args_tuple: Tuple[GenerateGraspsArgumentParser, List[str], int, List[str]]
+    args_tuple: Tuple[GenerateHandConfigDictsArgumentParser, List[str], int, List[str]]
 ) -> None:
     args, object_code_list, id, gpu_list = args_tuple
 
@@ -253,7 +254,7 @@ def generate(
         n_contacts_per_finger=args.n_contacts_per_finger,
     )
 
-    hand_pose_st = hand_model.hand_pose.detach()
+    hand_pose_start = hand_model.hand_pose.detach()
 
     optim_config = {
         "switch_possibility": args.switch_possibility,
@@ -325,7 +326,7 @@ def generate(
                 hand_model=hand_model,
                 object_model=object_model,
                 object_code_list=object_code_list,
-                hand_pose_st=hand_pose_st,
+                hand_pose_start=hand_pose_start,
                 energy=energy,
                 unweighted_energy_matrix=unweighted_energy_matrix,
                 output_folder_path=new_output_folder,
@@ -368,14 +369,14 @@ def generate(
         hand_model=hand_model,
         object_model=object_model,
         object_code_list=object_code_list,
-        hand_pose_st=hand_pose_st,
+        hand_pose_start=hand_pose_start,
         energy=energy,
         unweighted_energy_matrix=unweighted_energy_matrix,
         output_folder_path=args.output_hand_config_dicts_path,
     )
 
 
-def main(args: GenerateGraspsArgumentParser) -> None:
+def main(args: GenerateHandConfigDictsArgumentParser) -> None:
     print("=" * 80)
     print(f"args = {args}")
     print("=" * 80 + "\n")
@@ -389,11 +390,6 @@ def main(args: GenerateGraspsArgumentParser) -> None:
 
     if not args.meshdata_root_path.exists():
         raise ValueError(f"meshdata_root_path {args.meshdata_root_path} doesn't exist")
-
-    if (args.object_code_list is not None) + args.all != 1:
-        raise ValueError(
-            "exactly one among 'object_code_list' 'all' should be specified"
-        )
 
     object_code_list = list(args.meshdata_root_path.iterdir())
     print(f"First 10 in object_code_list_all: {object_code_list[:10]}")
@@ -422,5 +418,5 @@ def main(args: GenerateGraspsArgumentParser) -> None:
 
 
 if __name__ == "__main__":
-    args = GenerateGraspsArgumentParser().parse_args()
+    args = GenerateHandConfigDictsArgumentParser().parse_args()
     main(args)
