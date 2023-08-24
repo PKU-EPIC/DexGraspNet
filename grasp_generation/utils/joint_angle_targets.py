@@ -3,6 +3,7 @@ from utils.object_model import ObjectModel
 import torch
 from typing import Union, Dict, Any, Tuple, Optional, List
 import numpy as np
+from collections import defaultdict
 
 from enum import Enum, auto
 
@@ -15,238 +16,21 @@ class AutoName(Enum):
 
 class OptimizationMethod(AutoName):
     DESIRED_PENETRATION_DEPTH = auto()
-    DESIRED_DIST_TOWARDS_OBJECT_SURFACE_ONE_STEP = auto()
     DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS = auto()
-    DESIRED_DIST_TOWARDS_FINGERS_CENTER_ONE_STEP = auto()
     DESIRED_DIST_TOWARDS_FINGERS_CENTER_MULTIPLE_STEP = auto()
-
-
-def compute_fingertip_positions(
-    hand_model: HandModel,
-    device: torch.device,
-) -> torch.Tensor:
-    current_status = hand_model.chain.forward_kinematics(hand_model.hand_pose[:, 9:])
-    batch_size = hand_model.hand_pose.shape[0]
-
-    link_name_to_positions = {}
-    for i, link_name in enumerate(hand_model.mesh):
-        contact_candidates = hand_model.mesh[link_name]["contact_candidates"]
-        if len(contact_candidates) == 0:
-            continue
-
-        contact_candidates = (
-            current_status[link_name]
-            .transform_points(contact_candidates)
-            .expand(batch_size, -1, 3)
-        )
-        contact_candidates = contact_candidates @ hand_model.global_rotation.transpose(
-            1, 2
-        ) + hand_model.global_translation.unsqueeze(1)
-
-        fingertip_position = contact_candidates.mean(dim=1)
-
-        assert fingertip_position.shape == (batch_size, 3)
-        link_name_to_positions[link_name] = fingertip_position
-
-    fingertip_positions = []
-
-    return torch.stack(fingertip_positions, dim=1).to(device)
 
 
 def compute_fingers_center(
     hand_model: HandModel,
-    object_model: ObjectModel,
-    device: torch.device,
-    dist_thresh_close: float = 0.01,
 ) -> torch.Tensor:
     # (batch_size, num_fingers, 3)
-    fingertip_positions = compute_fingertip_positions(
-        hand_model=hand_model, device=device
-    )
-
-    # Interiors are positive dist, exteriors are negative dist
-    # (batch_size, num_fingers)
-    distances, _ = object_model.cal_distance(fingertip_positions)
-    admitted = -distances < dist_thresh_close
-
-    # (batch_size, num_fingers, 3)
-    admitted_fingertip_positions = torch.where(
-        admitted[..., None],
-        fingertip_positions,
-        torch.zeros_like(fingertip_positions, device=device),
+    fingertip_positions = compute_fingertip_mean_contact_positions(
+        joint_angles=hand_model.hand_pose[:, 9:], hand_model=hand_model
     )
 
     # (batch_size, 3)
-    fingers_center = admitted_fingertip_positions.sum(dim=1) / admitted.sum(
-        dim=1, keepdim=True
-    )
+    fingers_center = fingertip_positions.mean(dim=1)
     return fingers_center
-
-
-def compute_loss_desired_penetration_depth(
-    joint_angle_targets_to_optimize: torch.Tensor,
-    hand_model: HandModel,
-    object_model: ObjectModel,
-    device: torch.device,
-    cached_target_points: Optional[torch.Tensor] = None,
-    cached_contact_nearest_point_indexes: Optional[torch.Tensor] = None,
-    dist_thresh_to_move_finger: float = 0.01,
-    desired_penetration_depth: float = 0.003,
-    return_debug_info: bool = False,
-) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
-    num_links = len(hand_model.mesh)
-    batch_size = joint_angle_targets_to_optimize.shape[0]
-
-    contact_points_hand = torch.zeros((batch_size, num_links, 3)).to(device)
-    contact_normals = torch.zeros((batch_size, num_links, 3)).to(device)
-    contact_distances = torch.zeros((batch_size, num_links)).to(device)
-    contact_nearest_point_indexes = (
-        torch.zeros((batch_size, num_links)).long().to(device)
-    )
-
-    current_status = hand_model.chain.forward_kinematics(
-        joint_angle_targets_to_optimize
-    )
-    for i, link_name in enumerate(hand_model.mesh):
-        contact_candidates = hand_model.mesh[link_name]["contact_candidates"]
-        if len(contact_candidates) == 0:
-            continue
-
-        contact_candidates = (
-            current_status[link_name]
-            .transform_points(contact_candidates)
-            .expand(batch_size, -1, 3)
-        )
-        contact_candidates = contact_candidates @ hand_model.global_rotation.transpose(
-            1, 2
-        ) + hand_model.global_translation.unsqueeze(1)
-
-        # Interiors are positive dist, exteriors are negative dist
-        # Normals point from object to hand
-        distances, normals = object_model.cal_distance(contact_candidates)
-        if cached_contact_nearest_point_indexes is None:
-            nearest_point_index = distances.argmax(dim=1)
-        else:
-            nearest_point_index = cached_contact_nearest_point_indexes[:, i]
-        nearest_distances = torch.gather(distances, 1, nearest_point_index.unsqueeze(1))
-        nearest_points_hand = torch.gather(
-            contact_candidates,
-            1,
-            nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3),
-        )
-        nearest_normals = torch.gather(
-            normals, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
-        )
-        admitted = -nearest_distances < dist_thresh_to_move_finger
-        contact_distances[:, i : i + 1] = torch.where(
-            admitted, -nearest_distances, contact_distances[:, i : i + 1]
-        )
-        admitted = admitted.reshape(-1, 1, 1).expand(-1, 1, 3)
-        contact_points_hand[:, i : i + 1, :] = torch.where(
-            admitted, nearest_points_hand, contact_points_hand[:, i : i + 1, :]
-        )
-        contact_normals[:, i : i + 1, :] = torch.where(
-            admitted, nearest_normals, contact_normals[:, i : i + 1, :]
-        )
-        contact_nearest_point_indexes[:, i] = nearest_point_index
-
-    if cached_target_points is None:
-        target_points = contact_points_hand - contact_normals * (
-            contact_distances[..., None] + desired_penetration_depth
-        )
-    else:
-        target_points = cached_target_points
-    loss = (target_points.detach().clone() - contact_points_hand).square().sum()
-
-    if not return_debug_info:
-        return loss
-
-    return loss, {
-        "target_points": target_points,
-        "contact_points_hand": contact_points_hand,
-        "contact_normals": contact_normals,
-        "contact_distances": contact_distances,
-        "contact_nearest_point_indexes": contact_nearest_point_indexes,
-    }
-
-
-def compute_loss_desired_dist_move(
-    joint_angle_targets_to_optimize: torch.Tensor,
-    hand_model: HandModel,
-    object_model: ObjectModel,
-    device: torch.device,
-    cached_target_points: Optional[torch.Tensor] = None,
-    cached_contact_nearest_point_indexes: Optional[torch.Tensor] = None,
-    dist_thresh_to_move_finger: float = 0.001,
-    dist_move_link: float = 0.001,
-    return_debug_info: bool = False,
-) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
-    num_links = len(hand_model.mesh)
-    batch_size = joint_angle_targets_to_optimize.shape[0]
-
-    contact_points_hand = torch.zeros((batch_size, num_links, 3)).to(device)
-    contact_normals = torch.zeros((batch_size, num_links, 3)).to(device)
-    contact_nearest_point_indexes = (
-        torch.zeros((batch_size, num_links)).long().to(device)
-    )
-
-    current_status = hand_model.chain.forward_kinematics(
-        joint_angle_targets_to_optimize
-    )
-    for i, link_name in enumerate(hand_model.mesh):
-        contact_candidates = hand_model.mesh[link_name]["contact_candidates"]
-        if len(contact_candidates) == 0:
-            continue
-
-        contact_candidates = (
-            current_status[link_name]
-            .transform_points(contact_candidates)
-            .expand(batch_size, -1, 3)
-        )
-        contact_candidates = contact_candidates @ hand_model.global_rotation.transpose(
-            1, 2
-        ) + hand_model.global_translation.unsqueeze(1)
-
-        # Interiors are positive dist, exteriors are negative dist
-        # Normals point from object to hand
-        distances, normals = object_model.cal_distance(contact_candidates)
-        if cached_contact_nearest_point_indexes is None:
-            nearest_point_index = distances.argmax(dim=1)
-        else:
-            nearest_point_index = cached_contact_nearest_point_indexes[:, i]
-        nearest_distances = torch.gather(distances, 1, nearest_point_index.unsqueeze(1))
-        nearest_points_hand = torch.gather(
-            contact_candidates,
-            1,
-            nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3),
-        )
-        nearest_normals = torch.gather(
-            normals, 1, nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
-        )
-        admitted = -nearest_distances < dist_thresh_to_move_finger
-        admitted = admitted.reshape(-1, 1, 1).expand(-1, 1, 3)
-        contact_points_hand[:, i : i + 1, :] = torch.where(
-            admitted, nearest_points_hand, contact_points_hand[:, i : i + 1, :]
-        )
-        contact_normals[:, i : i + 1, :] = torch.where(
-            admitted, nearest_normals, contact_normals[:, i : i + 1, :]
-        )
-        contact_nearest_point_indexes[:, i] = nearest_point_index
-
-    if cached_target_points is None:
-        target_points = contact_points_hand - contact_normals * dist_move_link
-    else:
-        target_points = cached_target_points
-    loss = (target_points.detach().clone() - contact_points_hand).square().sum()
-    if not return_debug_info:
-        return loss
-
-    return loss, {
-        "target_points": target_points,
-        "contact_points_hand": contact_points_hand,
-        "contact_normals": contact_normals,
-        "contact_nearest_point_indexes": contact_nearest_point_indexes,
-    }
 
 
 def compute_optimized_joint_angle_targets(
@@ -451,87 +235,35 @@ def compute_optimized_joint_angle_targets(
 
     return joint_angle_targets_to_optimize, losses, debug_infos
 
-
-def compute_optimized_canonicalized_hand_pose(
+def compute_fingertip_mean_contact_positions(
+    joint_angles: torch.Tensor,
     hand_model: HandModel,
-    object_model: ObjectModel,
-    device: torch.device,
-    dist_thresh_to_move_finger: float = 0.01,
-    desired_dist_from_object: float = 0.005,
-) -> Tuple[torch.Tensor, List[float], List[Dict[str, Any]]]:
-    # Canonicalized hand pose = hand pose modified so that the fingers are desired_dist_from_object away from the object
-    # TODO: Consider optimization T and R as well (not just joint angles)
-    desired_penetration_depth = -desired_dist_from_object
-    original_hand_pose = hand_model.hand_pose.detach().clone()
-    joint_angle_targets_to_optimize = (
-        original_hand_pose.detach().clone()[:, 9:].requires_grad_(True)
-    )
-
-    losses = []
-    debug_infos = []
-    N_ITERS = 100
-    cached_target_points = None
-    cached_contact_nearest_point_indexes = None
-    for i in range(N_ITERS):
-        desired_penetration_depth = -desired_dist_from_object
-        loss, debug_info = compute_loss_desired_penetration_depth(
-            joint_angle_targets_to_optimize=joint_angle_targets_to_optimize,
-            hand_model=hand_model,
-            object_model=object_model,
-            device=device,
-            cached_target_points=cached_target_points,
-            cached_contact_nearest_point_indexes=cached_contact_nearest_point_indexes,
-            dist_thresh_to_move_finger=dist_thresh_to_move_finger,
-            desired_penetration_depth=desired_penetration_depth,
-            return_debug_info=True,
-        )
-        if cached_target_points is None:
-            cached_target_points = debug_info["target_points"]
-        if cached_contact_nearest_point_indexes is None:
-            cached_contact_nearest_point_indexes = debug_info[
-                "contact_nearest_point_indexes"
-            ]
-        grad_step_size = 5
-        loss.backward(retain_graph=True)
-
-        with torch.no_grad():
-            joint_angle_targets_to_optimize -= (
-                joint_angle_targets_to_optimize.grad * grad_step_size
-            )
-            joint_angle_targets_to_optimize.grad.zero_()
-        losses.append(loss.item())
-        debug_infos.append(debug_info)
-
-    # Update hand pose parameters
-    new_hand_pose = original_hand_pose.detach().clone()
-    new_hand_pose[:, 9:] = joint_angle_targets_to_optimize.detach().clone()
-    hand_model.set_parameters(new_hand_pose)
-
-    return new_hand_pose, losses, debug_infos
-
-
-def get_contact_points_hand(
-    hand_model: HandModel, joint_angles: torch.Tensor
 ) -> torch.Tensor:
     batch_size = joint_angles.shape[0]
+    num_fingers = hand_model.num_fingers
 
+    # Each link has a set of contact candidates
     link_name_to_contact_candidates = compute_link_name_to_contact_candidates(
         joint_angles=joint_angles,
         hand_model=hand_model,
     )
+    # Merge contact candidates for links associated with same fingertip
     fingertip_name_to_contact_candidates = compute_fingertip_name_to_contact_candidates(
         link_name_to_contact_candidates=link_name_to_contact_candidates,
     )
-    n_fingers = len(fingertip_name_to_contact_candidates)
+
+    # Iterate in deterministic order
     fingertip_names = sorted(list(fingertip_name_to_contact_candidates.keys()))
     fingertip_mean_positions = []
     for i, fingertip_name in enumerate(fingertip_names):
         contact_candidates = fingertip_name_to_contact_candidates[fingertip_name]
         num_contact_candidates_this_link = contact_candidates.shape[1]
         assert contact_candidates.shape == (batch_size, num_contact_candidates_this_link, 3)
+
         fingertip_mean_positions.append(contact_candidates.mean(dim=1))
+
     fingertip_mean_positions = torch.stack(fingertip_mean_positions, dim=1)
-    assert fingertip_mean_positions.shape == (batch_size, n_fingers, 3)
+    assert fingertip_mean_positions.shape == (batch_size, num_fingers, 3)
     return fingertip_mean_positions
 
 
@@ -637,7 +369,7 @@ def compute_closest_contact_point_info(
         ) = object_model.cal_distance(contact_candidates)
         distances_interior_negative = (
             -distances_interior_positive
-        )  # Negative, so large distance => far away
+        )  # Large positive distance => far away
         nearest_point_index = distances_interior_negative.argmin(dim=1)
         nearest_distances = torch.gather(
             input=distances_interior_positive,
@@ -750,7 +482,6 @@ def computer_fingertip_targets(
     joint_angles_start: torch.Tensor,
     hand_model: HandModel,
     grasp_orientations: torch.Tensor,
-    device: torch.device,
 ) -> torch.Tensor:
     batch_size = joint_angles_start.shape[0]
     num_fingers = hand_model.num_fingers
@@ -759,23 +490,10 @@ def computer_fingertip_targets(
     grasp_directions = grasp_orientations[:, :, :, 2]
     assert grasp_directions.shape == (batch_size, num_fingers, 3)
 
-    # Replace
-    link_name_to_contact_candidates = compute_link_name_to_contact_candidates(
+    fingertip_mean_positions = compute_fingertip_mean_contact_positions(
         joint_angles=joint_angles_start,
         hand_model=hand_model,
     )
-    fingertip_name_to_contact_candidates = compute_fingertip_name_to_contact_candidates(
-        link_name_to_contact_candidates=link_name_to_contact_candidates,
-    )
-    fingertip_names = sorted(list(fingertip_name_to_contact_candidates.keys()))
-    fingertip_mean_positions = []
-    for i, fingertip_name in enumerate(fingertip_names):
-        contact_candidates = fingertip_name_to_contact_candidates[fingertip_name]
-        num_contact_candidates_this_link = contact_candidates.shape[1]
-        assert contact_candidates.shape == (batch_size, num_contact_candidates_this_link, 3)
-        fingertip_mean_positions.append(contact_candidates.mean(dim=1))
-
-    fingertip_mean_positions = torch.stack(fingertip_mean_positions, dim=1)
     assert fingertip_mean_positions.shape == (batch_size, num_fingers, 3)
 
     fingertip_targets = fingertip_mean_positions + grasp_directions * 0.01
@@ -783,28 +501,28 @@ def computer_fingertip_targets(
 
 
 def compute_optimized_joint_angle_targets_given_fingertip_targets(
+    joint_angles_start: torch.Tensor,
     hand_model: HandModel,
     fingertip_targets: torch.Tensor,
-) -> Tuple[torch.Tensor, List[float], List[Dict[str, Any]]]:
+) -> Tuple[torch.Tensor, defaultdict]:
     # Sanity check
     batch_size = hand_model.batch_size
     num_fingers = hand_model.num_fingers
     num_xyz = 3
     assert fingertip_targets.shape == (batch_size, num_fingers, num_xyz)
 
-    # Compute current joint_angles
+    # Store original hand pose for later
     original_hand_pose = hand_model.hand_pose.detach().clone()
-    original_joint_angles = original_hand_pose[:, 9:]
 
+    # Optimize joint angles
     joint_angle_targets_to_optimize = (
-        original_joint_angles.detach().clone().requires_grad_(True)
+        joint_angles_start.detach().clone().requires_grad_(True)
     )
-    losses = []
-    debug_infos = []
+    debug_info = defaultdict(list)
     N_ITERS = 100
     for i in range(N_ITERS):
-        contact_points_hand_to_optimize = get_contact_points_hand(
-            hand_model, joint_angle_targets_to_optimize
+        contact_points_hand_to_optimize = compute_fingertip_mean_contact_positions(
+            joint_angles=joint_angle_targets_to_optimize, hand_model=hand_model
         )
         loss = (
             (fingertip_targets.detach().clone() - contact_points_hand_to_optimize)
@@ -820,12 +538,10 @@ def compute_optimized_joint_angle_targets_given_fingertip_targets(
                 joint_angle_targets_to_optimize.grad * GRAD_STEP_SIZE
             )
             joint_angle_targets_to_optimize.grad.zero_()
-        losses.append(loss.item())
-        debug_infos.append(
-            {
-                "fingertip_targets": fingertip_targets.detach().clone(),
-                "contact_points_hand": contact_points_hand_to_optimize.detach().clone(),
-            }
+        debug_info["loss"].append(loss.item())
+        debug_info["fingertip_targets"].append(fingertip_targets.detach().clone())
+        debug_info["contact_points_hand"].append(
+            contact_points_hand_to_optimize.detach().clone()
         )
 
     # Update hand pose parameters
@@ -833,23 +549,36 @@ def compute_optimized_joint_angle_targets_given_fingertip_targets(
     new_hand_pose[:, 9:] = joint_angle_targets_to_optimize
     hand_model.set_parameters(new_hand_pose)
 
-    return joint_angle_targets_to_optimize, losses, debug_infos
+    return joint_angle_targets_to_optimize, debug_info
 
 
 def compute_optimized_joint_angle_targets_given_grasp_orientations(
     joint_angles_start: torch.Tensor,
     hand_model: HandModel,
     grasp_orientations: torch.Tensor,
-    device: torch.device,   
 ) -> torch.Tensor:
-    fingertip_targets = computer_fingertip_targets(
-        joint_angles_start=joint_angles_start,
-        hand_model=hand_model,
-        grasp_orientations=grasp_orientations,
-        device=device,
-    )
+    # Sanity check
+    batch_size = joint_angles_start.shape[0]
+    num_fingers = hand_model.num_fingers
+    assert grasp_orientations.shape == (batch_size, num_fingers, 3, 3)
 
-    joint_angle_targets, _, _ = compute_optimized_joint_angle_targets_given_fingertip_targets(
+    # Get current positions
+    fingertip_mean_positions = compute_fingertip_mean_contact_positions(
+        joint_angles=joint_angles_start,
+        hand_model=hand_model,
+    )
+    assert fingertip_mean_positions.shape == (batch_size, num_fingers, 3)
+
+    # Get grasp directions
+    grasp_directions = grasp_orientations[:, :, :, 2]
+    assert grasp_directions.shape == (batch_size, num_fingers, 3)
+
+    # Get fingertip targets
+    DIST_MOVE_FINGER = 0.01
+    fingertip_targets = fingertip_mean_positions + grasp_directions * DIST_MOVE_FINGER
+
+    joint_angle_targets, _ = compute_optimized_joint_angle_targets_given_fingertip_targets(
+        joint_angles_start=joint_angles_start,
         hand_model=hand_model,
         fingertip_targets=fingertip_targets,
     )
