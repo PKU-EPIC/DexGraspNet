@@ -192,37 +192,13 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
             .numpy()
         )
         grasp_config_dicts = []
-        link_name_to_all_contact_candidates = (
-            compute_link_name_to_all_contact_candidates(
-                args=args,
-                hand_pose_array=hand_pose_array,
-                joint_angles=torch.from_numpy(np.stack(joint_angles_array, axis=0)),
-            )
-        )
-        link_name_to_all_target_contact_candidates = (
-            compute_link_name_to_all_contact_candidates(
-                args=args,
-                hand_pose_array=hand_pose_array,
-                joint_angles=torch.from_numpy(
-                    np.stack(joint_angle_targets_array, axis=0)
-                ),
-            )
-        )
         for i in range(batch_size):
             grasp_config_dicts.append(
                 {
                     "qpos": pose_to_qpos(
                         hand_pose=hand_pose_array[i], joint_names=joint_names
                     ),
-                    "link_name_to_contact_candidates": {
-                        link_name: all_contact_candidates[i].cpu().numpy()
-                        for link_name, all_contact_candidates in link_name_to_all_contact_candidates.items()
-                    },
-                    "link_name_to_target_contact_candidates": {
-                        link_name: all_target_contact_candidates[i].cpu().numpy()
-                        for link_name, all_target_contact_candidates in link_name_to_all_target_contact_candidates.items()
-                    },
-                    "joint_angles": joint_angles_array[i],
+                    "grasp_orientations": grasp_orientations[i],
                 }
             )
 

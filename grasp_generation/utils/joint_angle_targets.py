@@ -28,7 +28,7 @@ def compute_fingertip_positions(
     current_status = hand_model.chain.forward_kinematics(hand_model.hand_pose[:, 9:])
     batch_size = hand_model.hand_pose.shape[0]
 
-    fingertip_positions = []
+    link_name_to_positions = {}
     for i, link_name in enumerate(hand_model.mesh):
         contact_candidates = hand_model.mesh[link_name]["contact_candidates"]
         if len(contact_candidates) == 0:
@@ -44,7 +44,12 @@ def compute_fingertip_positions(
         ) + hand_model.global_translation.unsqueeze(1)
 
         fingertip_position = contact_candidates.mean(dim=1)
-        fingertip_positions.append(fingertip_position)
+
+        assert fingertip_position.shape == (batch_size, 3)
+        link_name_to_positions[link_name] = fingertip_position
+
+    fingertip_positions = []
+
 
     return torch.stack(fingertip_positions, dim=1).to(device)
 
@@ -606,3 +611,150 @@ def get_contact_points_hand(
     contact_points_hand = all_contact_candidates.mean(dim=2)
     assert contact_points_hand.shape == (batch_size, num_fingers, num_xyz)
     return contact_points_hand
+
+def compute_link_name_to_contact_candidates(
+    joint_angles: torch.Tensor,
+    hand_model: HandModel,
+) -> Dict[str, torch.Tensor]:
+    batch_size = joint_angles.shape[0]
+
+    current_status = hand_model.chain.forward_kinematics(
+        joint_angles
+    )
+    link_name_to_contact_candidates = {}
+    for i, link_name in enumerate(hand_model.mesh):
+        # Compute contact candidates
+        untransformed_contact_candidates = hand_model.mesh[link_name]["contact_candidates"]
+        if len(untransformed_contact_candidates) == 0:
+            continue
+
+        contact_candidates = (
+            current_status[link_name]
+            .transform_points(untransformed_contact_candidates)
+            .expand(batch_size, -1, 3)
+        )
+        contact_candidates = contact_candidates @ hand_model.global_rotation.transpose(
+            1, 2
+        ) + hand_model.global_translation.unsqueeze(1)
+
+        assert contact_candidates.shape == (batch_size, len(untransformed_contact_candidates), 3)
+        link_name_to_contact_candidates[link_name] = contact_candidates
+
+    return link_name_to_contact_candidates
+
+
+def compute_fingertip_name_to_contact_candidates(
+    link_name_to_contact_candidates: Dict[str, torch.Tensor],
+) -> Dict[str, torch.Tensor]:
+    # HACK: hardcoded
+    # Merge links associated with same fingertip
+    fingertip_keywords = ["link_3.0", "link_7.0", "link_11.0", "link_15.0"]
+    fingertip_name_to_contact_candidates = {}
+    for fingertip_keyword in fingertip_keywords:
+
+        merged_contact_candidates = []
+        for link_name, contact_candidates in link_name_to_contact_candidates.items():
+            batch_size, n_contact_candidates, _ = contact_candidates.shape
+            assert contact_candidates.shape == (batch_size, n_contact_candidates, 3)
+
+            if fingertip_keyword in link_name:
+                merged_contact_candidates.append(contact_candidates)
+
+        fingertip_name_to_contact_candidates[fingertip_keyword] = torch.cat(merged_contact_candidates, dim=1)
+    return fingertip_name_to_contact_candidates
+
+
+def compute_closest_contact_point_info(
+    joint_angles: torch.Tensor,
+    hand_model: HandModel,
+    object_model: ObjectModel,
+    device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    # For each link, find the closest point on the object
+    link_name_to_contact_candidates = compute_link_name_to_contact_candidates(
+        joint_angles=joint_angles,
+        hand_model=hand_model,
+    )
+
+    # Merge links associated with same fingertip
+    fingertip_name_to_contact_candidates = compute_fingertip_name_to_contact_candidates(
+        link_name_to_contact_candidates=link_name_to_contact_candidates,
+    )
+
+    # To be populated
+    num_fingers = len(fingertip_name_to_contact_candidates)
+    batch_size = joint_angles.shape[0]
+    all_hand_contact_nearest_points = torch.zeros((batch_size, num_fingers, 3)).to(device)
+    all_nearest_object_to_hand_directions = torch.zeros((batch_size, num_fingers, 3)).to(device)
+    all_nearest_distances = torch.zeros((batch_size, num_fingers)).to(device)
+    all_hand_contact_nearest_point_indices = (
+        torch.zeros((batch_size, num_fingers)).long().to(device)
+    )
+
+    for i, (fingertip_name, contact_candidates) in enumerate(fingertip_name_to_contact_candidates.items()):
+        n_contact_candidates = contact_candidates.shape[1]
+        assert contact_candidates.shape == (batch_size, n_contact_candidates, 3)
+
+        # From cal_distance, interiors are positive dist, exteriors are negative dist
+        # Normals point from object to hand
+        distances_interior_positive, object_to_hand_directions = object_model.cal_distance(contact_candidates)
+        distances_interior_negative = -distances_interior_positive  # Negative, so large distance => far away
+        nearest_point_index = distances_interior_negative.argmin(dim=1)
+        nearest_distances = torch.gather(input=distances_interior_positive, dim=1, index=nearest_point_index.unsqueeze(1))
+        hand_contact_nearest_points = torch.gather(
+            inputs=contact_candidates,
+            dim=1,
+            index=nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3),
+        )
+        nearest_object_to_hand_directions = torch.gather(
+            inputs=object_to_hand_directions, dim=1, index=nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3)
+        )
+
+        assert hand_contact_nearest_points.shape == (batch_size, 1, 3)
+        assert nearest_object_to_hand_directions.shape == (batch_size, 1, 3)
+        assert nearest_distances.shape == (batch_size, 1)
+        assert nearest_point_index.shape == (batch_size,)
+
+        # Update tensors
+        all_hand_contact_nearest_points[:, i : i + 1, :] = hand_contact_nearest_points
+        all_nearest_object_to_hand_directions[:, i : i + 1, :] = nearest_object_to_hand_directions
+        all_nearest_distances[:, i : i + 1] = nearest_distances
+        all_hand_contact_nearest_point_indices[:, i] = nearest_point_index
+
+    return all_hand_contact_nearest_points, all_nearest_object_to_hand_directions, all_nearest_distances, all_hand_contact_nearest_point_indices
+
+def compute_fingertip_targets_and_hand_contact_nearest_point_indices(
+    joint_angles_start: torch.Tensor,
+    hand_model: HandModel,
+    object_model: ObjectModel,
+    device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+
+    hand_contact_nearest_points, nearest_object_to_hand_directions, nearest_distances, hand_contact_nearest_point_indices = compute_closest_contact_point_info(
+        joint_angles=joint_angles_start,
+        hand_model=hand_model,
+        object_model=object_model,
+        device=device,
+    )
+
+    optimization_method = OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
+    if optimization_method == OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS:
+        fingertip_targets = hand_contact_nearest_points - nearest_object_to_hand_directions * 0.01
+    elif optimization_method == OptimizationMethod.DESIRED_PENETRATION_DEPTH:
+        fingertip_targets = hand_contact_nearest_points - nearest_object_to_hand_directions * (nearest_distances[..., None] + 0.05)
+    else:
+        raise NotImplementedError
+
+    return fingertip_targets, hand_contact_nearest_point_indices
+
+def compute_grasp_orientations() -> torch.Tensor:
+    # Can't just compute_grasp_dirs because we need to know the orientation of the fingers
+    # Each finger has a rotation matrix [x, y, z] where x y z are column vectors
+    #    * z is direction the fingertip moves
+    #    * y is direction "up" along finger (from finger center to fingertip), modified to be perpendicular to z
+    #    * x is direction "right" along finger (from finger center to fingertip), modified to be perpendicular to z and y
+    # if y.cross(z) == 0, then need backup
+
+
+    assert grasp_orientations.shape == (batch_size, num_fingers, 3, 3)
+    return grasp_orientations
