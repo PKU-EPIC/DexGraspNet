@@ -214,7 +214,7 @@ def save_hand_config_dicts(
             hand_config_dicts.append(hand_config_dict)
 
         np.save(
-            output_folder_path / f"{object_code}_{object_scale}.npy",
+            output_folder_path / f"{object_code}_{object_scale:.2f}.npy",
             hand_config_dicts,
             allow_pickle=True,
         )
@@ -301,7 +301,8 @@ def generate(
     energy.sum().backward(retain_graph=True)
 
     idx_to_visualize = 0
-    for step in tqdm(range(args.n_iter), desc=f"optimizing {id}"):
+    pbar = tqdm(range(args.n_iter), desc="optimizing", dynamic_ncols=True)
+    for step in pbar:
         wandb_log_dict = {}
         wandb_log_dict["optimization_step"] = step
 
@@ -379,6 +380,8 @@ def generate(
 
         if args.use_wandb:
             wandb.log(wandb_log_dict)
+
+        pbar.set_description(f"optimizing, mean energy: {energy.mean().item():.4f}")
 
     save_hand_config_dicts(
         hand_model=hand_model,
