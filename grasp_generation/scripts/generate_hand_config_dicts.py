@@ -48,7 +48,9 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     # experiment settings
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
-    output_hand_config_dicts_path: pathlib.Path = pathlib.Path("../data/hand_config_dicts")
+    output_hand_config_dicts_path: pathlib.Path = pathlib.Path(
+        "../data/hand_config_dicts"
+    )
     object_scale: float = 0.1
     seed: int = 1
     batch_size_each_object: int = 500
@@ -405,7 +407,7 @@ def main(args: GenerateHandConfigDictsArgumentParser) -> None:
     if not args.meshdata_root_path.exists():
         raise ValueError(f"meshdata_root_path {args.meshdata_root_path} doesn't exist")
 
-    object_code_list = list(args.meshdata_root_path.iterdir())
+    object_code_list = [path.name for path in args.meshdata_root_path.iterdir()]
     print(f"First 10 in object_code_list_all: {object_code_list[:10]}")
     print(f"len(object_code_list): {len(object_code_list)}")
 
