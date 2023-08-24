@@ -87,7 +87,7 @@ def main(args: VisualizeResultArgumentParser):
 
     # object model
     object_model = ObjectModel(
-        data_root_path="../data/meshdata",
+        meshdata_root_path="../data/meshdata",
         batch_size_each=1,
         num_samples=2000,
         device=device,

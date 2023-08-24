@@ -162,7 +162,7 @@ def get_hand_and_object_model_from_data_dicts(
 
     # object model
     object_model = ObjectModel(
-        data_root_path=MESH_PATH,
+        meshdata_root_path=MESH_PATH,
         batch_size_each=batch_size,
         num_samples=0,
         device=device,

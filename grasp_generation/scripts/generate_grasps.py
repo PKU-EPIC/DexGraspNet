@@ -32,6 +32,7 @@ import plotly.graph_objects as go
 import wandb
 from datetime import datetime
 from tap import Tap
+import pathlib
 
 try:
     set_start_method("spawn")
@@ -46,19 +47,20 @@ np.seterr(all="raise")
 class GenerateGraspsArgumentParser(Tap):
     # experiment settings
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
+    use_wandb: bool = False
     wandb_name: str = ""
     wandb_entity: str = "tylerlum"
     wandb_project: str = "DexGraspNet_v1"
     wandb_visualization_freq: Optional[int] = 2000
-    result_path: str = "../data/graspdata"
-    data_root_path: str = "../data/meshdata"
+    output_hand_config_dicts_path: pathlib.Path = pathlib.Path("../data/graspdata")
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     object_code_list: Optional[List[str]] = None
     all: bool = False
-    overwrite: bool = False
-    todo: bool = False
     seed: int = 1
-    batch_size_each: int = 500
-    max_total_batch_size: int = 1000
+    batch_size_each_object: int = 500
+    n_objects_per_batch: int = (
+        2  # Runs batch_size_each_object * n_objects_per_batch grasps per GPU
+    )
     n_iter: int = 4000
 
     # hyper parameters
@@ -157,7 +159,7 @@ def save_results(
     hand_pose_st: torch.Tensor,
     energy: torch.Tensor,
     unweighted_energy_matrix: torch.Tensor,
-    output_folder: str,
+    output_folder_path: pathlib.Path,
 ) -> None:
     num_objects, num_grasps_per_object = object_model.object_scale_tensor.shape
     assert len(object_code_list) == num_objects
@@ -197,7 +199,7 @@ def save_results(
             object_grasp_data_list.append(object_grasp_data)
 
         np.save(
-            os.path.join(output_folder, object_code + ".npy"),
+            output_folder_path / (object_code + ".npy"),
             object_grasp_data_list,
             allow_pickle=True,
         )
@@ -211,17 +213,17 @@ def generate(
     # Log to wandb
     time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     name = f"{args.wandb_name}_{time_str}" if len(args.wandb_name) > 0 else time_str
-    # wandb.init(
-    #     entity=args.wandb_entity,
-    #     project=args.wandb_project,
-    #     name=name,
-    #     config=args,
-    # )
+    if args.use_wandb:
+        wandb.init(
+            entity=args.wandb_entity,
+            project=args.wandb_project,
+            name=name,
+            config=args,
+        )
 
     set_seed(args.seed)
 
     # prepare models
-
     worker = multiprocessing.current_process()._identity[0]
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_list[worker - 1]
     device = torch.device("cuda")
@@ -232,8 +234,8 @@ def generate(
     )
 
     object_model = ObjectModel(
-        data_root_path=args.data_root_path,
-        batch_size_each=args.batch_size_each,
+        meshdata_root_path=str(args.meshdata_root_path),
+        batch_size_each=args.batch_size_each_object,
         num_samples=2000,
         device=device,
     )
@@ -315,8 +317,8 @@ def generate(
             args.store_grasps_mid_optimization_freq is not None
             and step % args.store_grasps_mid_optimization_freq == 0
         ):
-            new_output_folder = os.path.join(
-                args.result_path + "_mid_optimization", str(step)
+            new_output_folder = (
+                args.output_hand_config_dicts_path / "mid_optimization" / str(step)
             )
             os.makedirs(new_output_folder, exist_ok=True)
             save_results(
@@ -326,7 +328,7 @@ def generate(
                 hand_pose_st=hand_pose_st,
                 energy=energy,
                 unweighted_energy_matrix=unweighted_energy_matrix,
-                output_folder=new_output_folder,
+                output_folder_path=new_output_folder,
             )
 
         # Log
@@ -359,9 +361,9 @@ def generate(
             )
             wandb_log_dict[fig_title] = fig
 
-        # wandb.log(wandb_log_dict)
+        if args.use_wandb:
+            wandb.log(wandb_log_dict)
 
-    # save results
     save_results(
         hand_model=hand_model,
         object_model=object_model,
@@ -369,66 +371,40 @@ def generate(
         hand_pose_st=hand_pose_st,
         energy=energy,
         unweighted_energy_matrix=unweighted_energy_matrix,
-        output_folder=args.result_path,
+        output_folder_path=args.output_hand_config_dicts_path,
     )
 
 
-if __name__ == "__main__":
-    args = GenerateGraspsArgumentParser().parse_args()
+def main(args: GenerateGraspsArgumentParser) -> None:
+    print("=" * 80)
+    print(f"args = {args}")
+    print("=" * 80 + "\n")
 
     gpu_list = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
     print(f"gpu_list: {gpu_list}")
 
     # check whether arguments are valid and process arguments
     set_seed(args.seed)
-    if not os.path.exists(args.result_path):
-        os.makedirs(args.result_path)
+    os.makedirs(args.output_hand_config_dicts_path, exist_ok=True)
 
-    if not os.path.exists(args.data_root_path):
-        raise ValueError(f"data_root_path {args.data_root_path} doesn't exist")
+    if not args.meshdata_root_path.exists():
+        raise ValueError(f"meshdata_root_path {args.meshdata_root_path} doesn't exist")
 
     if (args.object_code_list is not None) + args.all != 1:
         raise ValueError(
             "exactly one among 'object_code_list' 'all' should be specified"
         )
 
-    if args.todo:
-        with open("todo.txt", "r") as f:
-            lines = f.readlines()
-            object_code_list_all = [line[:-1] for line in lines]
-    else:
-        object_code_list_all = os.listdir(args.data_root_path)
-        print(f"First 10 in object_code_list_all: {object_code_list_all[:10]}")
-
-    if args.object_code_list is not None:
-        object_code_list = args.object_code_list
-        if not set(object_code_list).issubset(set(object_code_list_all)):
-            raise ValueError(
-                "object_code_list isn't a subset of dirs in data_root_path"
-            )
-    else:
-        object_code_list = object_code_list_all
-
-    if not args.overwrite:
-        for object_code in object_code_list.copy():
-            if os.path.exists(os.path.join(args.result_path, object_code + ".npy")):
-                object_code_list.remove(object_code)
-
-    if args.batch_size_each > args.max_total_batch_size:
-        raise ValueError(
-            f"batch_size_each {args.batch_size_each} should be smaller than max_total_batch_size {args.max_total_batch_size}"
-        )
-
-    print(f"n_objects: {len(object_code_list)}")
+    object_code_list = list(args.meshdata_root_path.iterdir())
+    print(f"First 10 in object_code_list_all: {object_code_list[:10]}")
+    print(f"len(object_code_list): {len(object_code_list)}")
 
     # generate
-
     set_seed(args.seed)
     random.shuffle(object_code_list)
-    objects_each = args.max_total_batch_size // args.batch_size_each
     object_code_groups = [
-        object_code_list[i : i + objects_each]
-        for i in range(0, len(object_code_list), objects_each)
+        object_code_list[i : i + args.n_objects_per_batch]
+        for i in range(0, len(object_code_list), args.n_objects_per_batch)
     ]
 
     process_args = []
@@ -443,3 +419,8 @@ if __name__ == "__main__":
             maxinterval=1000,
         )
         list(it)
+
+
+if __name__ == "__main__":
+    args = GenerateGraspsArgumentParser().parse_args()
+    main(args)

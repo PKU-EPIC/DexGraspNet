@@ -17,13 +17,13 @@ from torchsdf import index_vertices_by_faces, compute_sdf
 
 class ObjectModel:
 
-    def __init__(self, data_root_path, batch_size_each, num_samples=2000, device="cuda"):
+    def __init__(self, meshdata_root_path: str, batch_size_each: int, num_samples: int = 2000, device: str = "cuda"):
         """
         Create a Object Model
         
         Parameters
         ----------
-        data_root_path: str
+        meshdata_root_path: str
             directory to object meshes
         batch_size_each: int
             batch size for each objects
@@ -35,7 +35,7 @@ class ObjectModel:
 
         self.device = device
         self.batch_size_each = batch_size_each
-        self.data_root_path = data_root_path
+        self.meshdata_root_path = meshdata_root_path
         self.num_samples = num_samples
 
         self.object_code_list = None
@@ -64,7 +64,7 @@ class ObjectModel:
         self.surface_points_tensor = []
         for object_code in object_code_list:
             self.object_scale_tensor.append(self.scale_choice[torch.randint(0, self.scale_choice.shape[0], (self.batch_size_each, ), device=self.device)])
-            self.object_mesh_list.append(tm.load(os.path.join(self.data_root_path, object_code, "coacd", "decomposed.obj"), force="mesh", process=False))
+            self.object_mesh_list.append(tm.load(os.path.join(self.meshdata_root_path, object_code, "coacd", "decomposed.obj"), force="mesh", process=False))
             object_verts = torch.Tensor(self.object_mesh_list[-1].vertices).to(self.device)
             object_faces = torch.Tensor(self.object_mesh_list[-1].faces).long().to(self.device)
             self.object_face_verts_list.append(index_vertices_by_faces(object_verts, object_faces))

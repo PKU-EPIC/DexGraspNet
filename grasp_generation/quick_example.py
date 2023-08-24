@@ -82,7 +82,7 @@ print(f"scale = {scale}")
 
 # %%
 object_model = ObjectModel(
-    data_root_path=mesh_path,
+    meshdata_root_path=mesh_path,
     batch_size_each=1,
     device=device,
 )

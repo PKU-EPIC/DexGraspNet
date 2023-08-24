@@ -103,6 +103,41 @@ def main(args: EvalGraspArgumentParser):
     object_code = object_code_and_scale[:tmp_idx]
     object_scale = float(object_code_and_scale[tmp_idx + 1 :].replace("_", "."))
 
+    # CURRENT
+    # grasp_generation  qpos (HandConfig)
+    # grasp_validation (input: qpos) (compute closets points => fingertip targets => joint angle targets => start and end fingertips were)
+    # later (convert start and end fingertips => grasp directions => sample nerfs with this dir)
+    # eval_grasps (input: qpos, grasp_dirs) => fingertip targets => joint angle targets => start and end fingertips were
+
+    # hand_config_dicts (keys: qpos, maybe random other if needed only)
+    # np.save("hand_config_dicts/sem-Wii-1232111_0_05.npy")  # grasp_config_dict
+
+    # NEW
+    # grasp_generation (output: qpos (HandConfig)) hand_config_dicts
+    # grasp_directions (input: [qpos, mesh], output: GraspConfig [qpos, directions]) (compute closets points => fingertip targets)  grasp_config_dicts
+    # eval_grasp (input: GraspConfig [qpos, direction]): (fingertip targets => joint angle targets) use this both for validation to label and evaluation to see how good GaG and baselines are in sim (grasp_config_dicts)
+
+    # config =AllegroGraspConfig()
+    # grasp_config_dicts (keys: qpos, grasp_dirs)
+    # qpos = dict("joint_1.0": 1.0, "TRx": 1.0, )  # joint_angles, wrist_eulers, wrist_translations
+    # grasp_dirs: list[list[]] torch.tensor(grasp_dirs).shape == (4, 3)
+    # np.save("grasp_config_dicts/sem-Wii-1232111_0_05.npy")  # grasp_config_dict
+
+    # Baselines:
+    #  * FC CEM
+    #  * Classifier from depth images from mesh
+
+    # convert_qpos+dirs_to_joint_angle_targets
+    # IK impl
+
+    # CRITICAL PATH: Get full pipeline to work on 1 object and 1 scale
+    # 1. Generate large amount of data (10k - 100k) grasps for 1 object and 1 scale: inputs: (mesh, compute, DGN)  outputs: grasp_config_dicts
+    # 2. Train a NeRF on this object: inputs: (nerf data, compute to train) => outputs (nerf checkpoints)
+    # 3. Generate metric data with this dataset (sampling nerf): inputs: (nerf checkpoints, grasp_config_dicts) => outputs (classifier data)
+    # 4. Training classifier inputs: classifier data, compute, => outputs: nn weights, config with nn shape
+    # 5. Run Optimizer: input: nerf checkpoint, nn weights => outputs: grasp_config_dicts
+    # 6. Run eval: input: grasp_config_dicts => success rate
+
     orig_data_dicts = np.load(
         pathlib.Path(args.orig_grasp_path) / f"{object_code}.npy", allow_pickle=True
     )

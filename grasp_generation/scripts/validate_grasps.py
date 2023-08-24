@@ -70,7 +70,7 @@ def compute_joint_angle_targets(
 
     # object model
     object_model = ObjectModel(
-        data_root_path=args.mesh_path,
+        meshdata_root_path=args.mesh_path,
         batch_size_each=batch_size,
         num_samples=0,
         device=device,
@@ -111,7 +111,7 @@ def compute_E_pen(
 
     # object model
     object_model = ObjectModel(
-        data_root_path=args.mesh_path,
+        meshdata_root_path=args.mesh_path,
         batch_size_each=batch_size,
         num_samples=2000,
         device=device,
@@ -344,6 +344,7 @@ def main(args: ValidateGraspArgumentParser):
                     "valid": valid[i],
                     "link_name_to_contact_candidates": {link_name: all_contact_candidates[i].cpu().numpy() for link_name, all_contact_candidates in link_name_to_all_contact_candidates.items()},
                     "link_name_to_target_contact_candidates": {link_name: all_target_contact_candidates[i].cpu().numpy() for link_name, all_target_contact_candidates in link_name_to_all_target_contact_candidates.items()},
+                    "joint_angles": joint_angles_array[i],
                 }
             )
 

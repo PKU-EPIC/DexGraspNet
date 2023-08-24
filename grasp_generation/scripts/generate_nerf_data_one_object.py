@@ -28,7 +28,7 @@ def main(args: GenerateNerfDataOneObjectArgumentParser):
     assert os.path.exists(script_to_run)
 
     object_model = ObjectModel(
-        data_root_path=args.mesh_path,
+        meshdata_root_path=args.mesh_path,
         batch_size_each=1,
     )
     object_scales = object_model.scale_choice.tolist()
