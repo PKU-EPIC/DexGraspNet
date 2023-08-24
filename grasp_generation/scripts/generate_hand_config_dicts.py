@@ -213,8 +213,9 @@ def save_hand_config_dicts(
 
             hand_config_dicts.append(hand_config_dict)
 
+        object_code_and_scale_str = f"{object_code}_{object_scale:.2f}".replace(".", "_")
         np.save(
-            output_folder_path / f"{object_code}_{object_scale:.2f}.npy",
+            output_folder_path / f"{object_code_and_scale_str}.npy",
             hand_config_dicts,
             allow_pickle=True,
         )
