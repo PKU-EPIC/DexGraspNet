@@ -153,7 +153,7 @@ def get_energy_term_log_dict(
     return log_dict
 
 
-def save_results(
+def save_hand_config_dicts(
     hand_model: HandModel,
     object_model: ObjectModel,
     object_code_list: List[str],
@@ -162,17 +162,28 @@ def save_results(
     unweighted_energy_matrix: torch.Tensor,
     output_folder_path: pathlib.Path,
 ) -> None:
+    """
+    Save results to output_folder_path
+        * <output_folder_path>/<object_code>.npy
+
+    Each file is a list of hand_config_dict, where each hand_config_dict is a dict with keys:
+        * qpos: {<joint_1.0>: x, <joint_1.1>: y, ...,
+                 <translation_x>: x, <translation_y>: y, <translation_z>: z,
+                 <rotation_x>: x, <rotation_y>: y, <rotation_z>: z}
+        * qpos_start: ^ but for the starting pose
+        * energy: float
+        * E_{name}: float for each energy name
+    """
     num_objects, num_grasps_per_object = object_model.object_scale_tensor.shape
     assert len(object_code_list) == num_objects
     assert hand_pose_start.shape[0] == num_objects * num_grasps_per_object
 
     joint_names = handmodeltype_to_joint_names[hand_model.hand_model_type]
     for object_i, object_code in enumerate(object_code_list):
-        object_grasp_data_list = []
+        hand_config_dicts = []
         for object_grasp_j in range(num_grasps_per_object):
             grasp_idx = object_i * num_grasps_per_object + object_grasp_j
 
-            scale = object_model.object_scale_tensor[object_i, object_grasp_j].item()
             qpos = pose_to_qpos(
                 hand_pose=hand_model.hand_pose[grasp_idx].detach().cpu(),
                 joint_names=joint_names,
@@ -181,14 +192,13 @@ def save_results(
                 hand_pose=hand_pose_start[grasp_idx].detach().cpu(),
                 joint_names=joint_names,
             )
-            object_grasp_data = dict(
-                scale=scale,
+            hand_config_dict = dict(
                 qpos=qpos,
                 qpos_start=qpos_start,
                 energy=energy[grasp_idx].item(),
             )
 
-            object_grasp_data.update(
+            hand_config_dict.update(
                 {
                     ENERGY_NAME_TO_SHORTHAND_DICT[
                         energy_name
@@ -197,11 +207,11 @@ def save_results(
                 }
             )
 
-            object_grasp_data_list.append(object_grasp_data)
+            hand_config_dicts.append(hand_config_dict)
 
         np.save(
             output_folder_path / (object_code + ".npy"),
-            object_grasp_data_list,
+            hand_config_dicts,
             allow_pickle=True,
         )
 
@@ -322,7 +332,7 @@ def generate(
                 args.output_hand_config_dicts_path / "mid_optimization" / str(step)
             )
             os.makedirs(new_output_folder, exist_ok=True)
-            save_results(
+            save_hand_config_dicts(
                 hand_model=hand_model,
                 object_model=object_model,
                 object_code_list=object_code_list,
@@ -365,7 +375,7 @@ def generate(
         if args.use_wandb:
             wandb.log(wandb_log_dict)
 
-    save_results(
+    save_hand_config_dicts(
         hand_model=hand_model,
         object_model=object_model,
         object_code_list=object_code_list,
