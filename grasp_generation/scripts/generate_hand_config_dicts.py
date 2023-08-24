@@ -24,7 +24,6 @@ from utils.optimizer import Annealing
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import pose_to_qpos
 from utils.seed import set_seed
-from utils.timers import LoopTimer
 
 from torch.multiprocessing import set_start_method
 from typing import Tuple, List, Optional, Dict, Any
@@ -301,7 +300,6 @@ def generate(
     )
 
     energy.sum().backward(retain_graph=True)
-    loop_timer = LoopTimer()
 
     idx_to_visualize = 0
     pbar = tqdm(range(args.n_iter), desc="optimizing", dynamic_ncols=True)
@@ -309,92 +307,82 @@ def generate(
         wandb_log_dict = {}
         wandb_log_dict["optimization_step"] = step
 
-        with loop_timer.add_section_timer("try step"):
-            s = optimizer.try_step()
+        s = optimizer.try_step()
 
-        with loop_timer.add_section_timer("zero grad"):
-            optimizer.zero_grad()
+        optimizer.zero_grad()
 
-        with loop_timer.add_section_timer("cal energy"):
-            (
-                new_energy,
-                new_unweighted_energy_matrix,
-                new_weighted_energy_matrix,
-            ) = cal_energy(
-                hand_model,
-                object_model,
-                energy_name_to_weight_dict=energy_name_to_weight_dict,
-            )
-        with loop_timer.add_section_timer("backward"):
-            new_energy.sum().backward(retain_graph=True)
+        (
+            new_energy,
+            new_unweighted_energy_matrix,
+            new_weighted_energy_matrix,
+        ) = cal_energy(
+            hand_model,
+            object_model,
+            energy_name_to_weight_dict=energy_name_to_weight_dict,
+        )
+        new_energy.sum().backward(retain_graph=True)
 
-        with loop_timer.add_section_timer("accept step"):
-            with torch.no_grad():
-                accept, temperature = optimizer.accept_step(energy, new_energy)
+        with torch.no_grad():
+            accept, temperature = optimizer.accept_step(energy, new_energy)
 
-                energy[accept] = new_energy[accept]
-                unweighted_energy_matrix[accept] = new_unweighted_energy_matrix[accept]
-                weighted_energy_matrix[accept] = new_weighted_energy_matrix[accept]
+            energy[accept] = new_energy[accept]
+            unweighted_energy_matrix[accept] = new_unweighted_energy_matrix[accept]
+            weighted_energy_matrix[accept] = new_weighted_energy_matrix[accept]
 
         # Store grasps mid optimization
-        with loop_timer.add_section_timer("mid opt store"):
-            if (
-                args.store_grasps_mid_optimization_freq is not None
-                and step % args.store_grasps_mid_optimization_freq == 0
-            ):
-                new_output_folder = pathlib.Path(
-                    f"{args.output_hand_config_dicts_path.name}_mid_optimization"
-                ) / str(step)
-                new_output_folder.mkdir(parents=True, exist_ok=True)
-                save_hand_config_dicts(
-                    hand_model=hand_model,
-                    object_model=object_model,
-                    object_code_list=object_code_list,
-                    object_scale=args.object_scale,
-                    hand_pose_start=hand_pose_start,
-                    energy=energy,
-                    unweighted_energy_matrix=unweighted_energy_matrix,
-                    output_folder_path=new_output_folder,
-                )
+        if (
+            args.store_grasps_mid_optimization_freq is not None
+            and step % args.store_grasps_mid_optimization_freq == 0
+        ):
+            new_output_folder = pathlib.Path(
+                f"{args.output_hand_config_dicts_path.name}_mid_optimization"
+            ) / str(step)
+            new_output_folder.mkdir(parents=True, exist_ok=True)
+            save_hand_config_dicts(
+                hand_model=hand_model,
+                object_model=object_model,
+                object_code_list=object_code_list,
+                object_scale=args.object_scale,
+                hand_pose_start=hand_pose_start,
+                energy=energy,
+                unweighted_energy_matrix=unweighted_energy_matrix,
+                output_folder_path=new_output_folder,
+            )
 
         # Log
-        with loop_timer.add_section_timer("Wandb log dict"):
-            wandb_log_dict.update(
-                {
-                    "accept": accept.sum().item(),
-                    "temperature": temperature.item(),
-                    "energy": energy.mean().item(),
-                    f"accept_{idx_to_visualize}": accept[idx_to_visualize].item(),
-                    f"energy_{idx_to_visualize}": energy[idx_to_visualize].item(),
-                }
+        wandb_log_dict.update(
+            {
+                "accept": accept.sum().item(),
+                "temperature": temperature.item(),
+                "energy": energy.mean().item(),
+                f"accept_{idx_to_visualize}": accept[idx_to_visualize].item(),
+                f"energy_{idx_to_visualize}": energy[idx_to_visualize].item(),
+            }
+        )
+        wandb_log_dict.update(
+            get_energy_term_log_dict(
+                unweighted_energy_matrix=unweighted_energy_matrix,
+                weighted_energy_matrix=weighted_energy_matrix,
+                idx_to_visualize=idx_to_visualize,
             )
-            wandb_log_dict.update(
-                get_energy_term_log_dict(
-                    unweighted_energy_matrix=unweighted_energy_matrix,
-                    weighted_energy_matrix=weighted_energy_matrix,
-                    idx_to_visualize=idx_to_visualize,
-                )
-            )
+        )
 
         # Visualize
-        with loop_timer.add_section_timer("visualize"):
-            if (
-                args.wandb_visualization_freq is not None
-                and step % args.wandb_visualization_freq == 0
-            ):
-                fig, fig_title = create_visualization_figure(
-                    hand_model=hand_model,
-                    object_model=object_model,
-                    idx_to_visualize=idx_to_visualize,
-                )
-                wandb_log_dict[fig_title] = fig
+        if (
+            args.wandb_visualization_freq is not None
+            and step % args.wandb_visualization_freq == 0
+        ):
+            fig, fig_title = create_visualization_figure(
+                hand_model=hand_model,
+                object_model=object_model,
+                idx_to_visualize=idx_to_visualize,
+            )
+            wandb_log_dict[fig_title] = fig
 
-        with loop_timer.add_section_timer("send logs"):
-            if args.use_wandb:
-                wandb.log(wandb_log_dict)
+        if args.use_wandb:
+            wandb.log(wandb_log_dict)
 
-            pbar.set_description(f"optimizing, mean energy: {energy.mean().item():.4f}")
-        loop_timer.pretty_print_section_times()
+        pbar.set_description(f"optimizing, mean energy: {energy.mean().item():.4f}")
 
     save_hand_config_dicts(
         hand_model=hand_model,
