@@ -58,6 +58,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
         2  # Runs batch_size_each_object * n_objects_per_batch grasps per GPU
     )
     n_iter: int = 4000
+    use_multiprocess: bool = False
 
     # Logging
     use_wandb: bool = False
@@ -240,8 +241,11 @@ def generate(
     set_seed(args.seed)
 
     # prepare models
-    worker = multiprocessing.current_process()._identity[0]
-    os.environ["CUDA_VISIBLE_DEVICES"] = gpu_list[worker - 1]
+    if args.use_multiprocess:
+        worker = multiprocessing.current_process()._identity[0]
+        os.environ["CUDA_VISIBLE_DEVICES"] = gpu_list[worker - 1]
+    else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     device = torch.device("cuda")
 
     hand_model = HandModel(
@@ -427,14 +431,18 @@ def main(args: GenerateHandConfigDictsArgumentParser) -> None:
     for id, object_code_group in enumerate(object_code_groups):
         process_args.append((args, object_code_group, id + 1, gpu_list))
 
-    with multiprocessing.Pool(len(gpu_list)) as p:
-        it = tqdm(
-            p.imap(generate, process_args),
-            total=len(process_args),
-            desc="generating",
-            maxinterval=1000,
-        )
-        list(it)
+    if args.use_multiprocess:
+        with multiprocessing.Pool(len(gpu_list)) as p:
+            it = tqdm(
+                p.imap(generate, process_args),
+                total=len(process_args),
+                desc="generating",
+                maxinterval=1000,
+            )
+            list(it)
+    else:
+        for process_arg in tqdm(process_args, desc="generating", maxinterval=1000):
+            generate(process_arg)
 
 
 if __name__ == "__main__":
