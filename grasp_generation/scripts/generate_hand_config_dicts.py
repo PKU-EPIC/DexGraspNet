@@ -333,9 +333,9 @@ def generate(
             args.store_grasps_mid_optimization_freq is not None
             and step % args.store_grasps_mid_optimization_freq == 0
         ):
-            new_output_folder = (
-                pathlib.Path(f"{args.output_hand_config_dicts_path.name}_mid_optimization") / str(step)
-            )
+            new_output_folder = pathlib.Path(
+                f"{args.output_hand_config_dicts_path.name}_mid_optimization"
+            ) / str(step)
             os.makedirs(new_output_folder, exist_ok=True)
             save_hand_config_dicts(
                 hand_model=hand_model,
