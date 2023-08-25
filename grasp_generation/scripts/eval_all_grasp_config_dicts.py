@@ -26,6 +26,7 @@ class EvalAllGraspConfigDictsArgumentParser(Tap):
     output_evaled_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/evaled_grasp_config_dicts"
     )
+    max_grasps_per_batch: int = 1000
     randomize_order_seed: Optional[int] = None
 
 
@@ -98,6 +99,7 @@ def main(args: EvalAllGraspConfigDictsArgumentParser):
                 f"--input_grasp_config_dicts_path {args.input_grasp_config_dicts_path}",
                 f"--output_evaled_grasp_config_dicts_path {args.output_evaled_grasp_config_dicts_path}",
                 f"--object_code_and_scale_str {object_code_and_scale_str}",
+                f"--max_grasps_per_batch {args.max_grasps_per_batch}",
             ]
         )
         print(f"Running command: {command}")
