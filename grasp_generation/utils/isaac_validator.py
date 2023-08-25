@@ -103,24 +103,20 @@ class ValidationType(AutoName):
 class IsaacValidator:
     def __init__(
         self,
-        hand_model_type=HandModelType.ALLEGRO_HAND,
-        mode="direct",
-        hand_friction=3.0,
-        obj_friction=3.0,
-        threshold_dis=0.1,
-        env_batch=1,
-        sim_step=100,
-        gpu=0,
-        debug_interval=0.05,
-        start_with_step_mode=False,
-        validation_type=ValidationType.NO_GRAVITY_SHAKING,
+        hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
+        mode: str = "direct",
+        hand_friction: float = 3.0,
+        obj_friction: float = 3.0,
+        num_sim_steps: int = 100,
+        gpu: int = 0,
+        debug_interval: float = 0.05,
+        start_with_step_mode: bool = False,
+        validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING,
     ):
         self.hand_friction = hand_friction
         self.obj_friction = obj_friction
         self.debug_interval = debug_interval
-        self.threshold_dis = threshold_dis
-        self.env_batch = env_batch
-        self.sim_step = sim_step
+        self.num_sim_steps = num_sim_steps
         self.gpu = gpu
         self.validation_type = validation_type
 
@@ -288,7 +284,12 @@ class IsaacValidator:
         self.envs.append(env)
 
         self._setup_hand(
-            env, hand_quaternion, hand_translation, hand_qpos, test_rot, target_qpos
+            env=env,
+            hand_quaternion=hand_quaternion,
+            hand_translation=hand_translation,
+            hand_qpos=hand_qpos,
+            transformation=test_rot,
+            target_qpos=target_qpos,
         )
 
         self._setup_obj(env, obj_scale, test_rot)
@@ -399,8 +400,8 @@ class IsaacValidator:
     def run_sim(self):
         sim_step_idx = 0
         default_desc = "Simulating"
-        pbar = tqdm(total=self.sim_step, desc=default_desc, dynamic_ncols=True)
-        while sim_step_idx < self.sim_step:
+        pbar = tqdm(total=self.num_sim_steps, desc=default_desc, dynamic_ncols=True)
+        while sim_step_idx < self.num_sim_steps:
             # Set virtual joint targets
             virtual_joint_dof_pos_targets = self._compute_virtual_joint_dof_pos_targets(
                 sim_step_idx
@@ -561,7 +562,7 @@ class IsaacValidator:
 
         # First do nothing
         fraction_do_nothing = 0.1
-        total_steps_not_moving = int(self.sim_step * fraction_do_nothing)
+        total_steps_not_moving = int(self.num_sim_steps * fraction_do_nothing)
         if sim_step_idx < total_steps_not_moving:
             return None
 
@@ -579,7 +580,7 @@ class IsaacValidator:
         ]
 
         num_steps_moving_so_far = sim_step_idx - total_steps_not_moving
-        total_steps_moving = self.sim_step - total_steps_not_moving
+        total_steps_moving = self.num_sim_steps - total_steps_not_moving
         direction_idx = int(
             (num_steps_moving_so_far / total_steps_moving) * len(directions_sequence)
         )

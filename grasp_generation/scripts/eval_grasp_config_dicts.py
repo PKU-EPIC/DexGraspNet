@@ -146,6 +146,21 @@ def main(args: EvalGraspConfigDictsArgumentParser):
     print(f"First 10: {[path.name for path in grasp_config_dict_paths[:10]]}")
     random.Random(args.seed).shuffle(grasp_config_dict_paths)
 
+    if args.debug_index is not None:
+        sim = IsaacValidator(
+            hand_model_type=args.hand_model_type,
+            gpu=args.gpu,
+            validation_type=args.validation_type,
+            mode="gui",
+            start_with_step_mode=args.start_with_step_mode,
+        )
+    else:
+        sim = IsaacValidator(
+            hand_model_type=args.hand_model_type,
+            gpu=args.gpu,
+            validation_type=args.validation_type,
+        )
+
     pbar = tqdm(
         grasp_config_dict_paths,
         desc="Generating evaled_grasp_config_dicts",
@@ -183,13 +198,6 @@ def main(args: EvalGraspConfigDictsArgumentParser):
 
         # Debug with single grasp
         if args.debug_index is not None:
-            sim = IsaacValidator(
-                hand_model_type=args.hand_model_type,
-                gpu=args.gpu,
-                validation_type=args.validation_type,
-                mode="gui",
-                start_with_step_mode=args.start_with_step_mode,
-            )
             sim.set_obj_asset(
                 obj_root=str(args.meshdata_root_path / object_code / "coacd"),
                 obj_file="coacd.urdf",
@@ -208,12 +216,6 @@ def main(args: EvalGraspConfigDictsArgumentParser):
             return
 
         # Run validation on all grasps
-        sim = IsaacValidator(
-            hand_model_type=args.hand_model_type,
-            gpu=args.gpu,
-            validation_type=args.validation_type,
-        )
-
         batch_size = len(grasp_config_dicts)
         assert (
             batch_size % args.sim_batch_size == 0
