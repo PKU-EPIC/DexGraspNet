@@ -112,7 +112,7 @@ class IsaacValidator:
         debug_interval: float = 0.05,
         start_with_step_mode: bool = False,
         validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING,
-    ):
+    ) -> None:
         self.hand_friction = hand_friction
         self.obj_friction = obj_friction
         self.debug_interval = debug_interval
@@ -244,14 +244,19 @@ class IsaacValidator:
             self.sim, self.hand_root, self.hand_file, self.hand_asset_options
         )
 
-    def set_obj_asset(self, obj_root, obj_file):
+    def set_obj_asset(self, obj_root: str, obj_file: str) -> None:
         self.obj_asset = gym.load_asset(
             self.sim, obj_root, obj_file, self.obj_asset_options
         )
 
     def add_env_all_test_rotations(
-        self, hand_quaternion, hand_translation, hand_qpos, obj_scale, target_qpos
-    ):
+        self,
+        hand_quaternion: np.ndarray,
+        hand_translation: np.ndarray,
+        hand_qpos: np.ndarray,
+        obj_scale: float,
+        target_qpos: np.ndarray,
+    ) -> None:
         for test_rotation_idx in range(len(self.test_rotations)):
             self.add_env_single_test_rotation(
                 hand_quaternion=hand_quaternion,
@@ -264,13 +269,13 @@ class IsaacValidator:
 
     def add_env_single_test_rotation(
         self,
-        hand_quaternion,
-        hand_translation,
-        hand_qpos,
-        obj_scale,
-        target_qpos,
-        test_rotation_index=0,
-    ):
+        hand_quaternion: np.ndarray,
+        hand_translation: np.ndarray,
+        hand_qpos: np.ndarray,
+        obj_scale: float,
+        target_qpos: np.ndarray,
+        test_rotation_index: int = 0,
+    ) -> None:
         # Set test rotation
         test_rot = self.test_rotations[test_rotation_index]
 
@@ -297,12 +302,12 @@ class IsaacValidator:
     def _setup_hand(
         self,
         env,
-        hand_quaternion,
-        hand_translation,
-        hand_qpos,
-        transformation,
-        target_qpos,
-    ):
+        hand_quaternion: np.ndarray,
+        hand_translation: np.ndarray,
+        hand_qpos: np.ndarray,
+        transformation: gymapi.Transform,
+        target_qpos: np.ndarray,
+    ) -> None:
         # Set hand pose
         hand_pose = gymapi.Transform()
         hand_pose.r = gymapi.Quat(*hand_quaternion[1:], hand_quaternion[0])
@@ -350,13 +355,12 @@ class IsaacValidator:
         gym.set_actor_dof_states(env, hand_actor_handle, dof_states, gymapi.STATE_ALL)
 
         # Set hand dof targets
-        if target_qpos is not None:
-            dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_actor_handle)
-            for i, joint in enumerate(self.joint_names):
-                joint_idx = gym.find_actor_dof_index(
-                    env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
-                )
-                dof_pos_targets[joint_idx] = target_qpos[i]
+        dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_actor_handle)
+        for i, joint in enumerate(self.joint_names):
+            joint_idx = gym.find_actor_dof_index(
+                env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
+            )
+            dof_pos_targets[joint_idx] = target_qpos[i]
         gym.set_actor_dof_position_targets(env, hand_actor_handle, dof_pos_targets)
 
         # Store hand link_idx_to_name_dict
@@ -371,7 +375,7 @@ class IsaacValidator:
         gym.set_actor_rigid_shape_properties(env, hand_actor_handle, hand_shape_props)
         return
 
-    def _setup_obj(self, env, obj_scale, transformation):
+    def _setup_obj(self, env, obj_scale: float, transformation: gymapi.Transform) -> None:
         obj_pose = gymapi.Transform()
         obj_pose.p = gymapi.Vec3(0, 0, 0)
         obj_pose.r = gymapi.Quat(0, 0, 0, 1)
