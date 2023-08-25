@@ -87,6 +87,10 @@ def compute_grasp_orientations(
 
 
 def main(args: GenerateGraspConfigDictsArgumentParser):
+    print("=" * 80)
+    print(f"args = {args}")
+    print("=" * 80 + "\n")
+
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
