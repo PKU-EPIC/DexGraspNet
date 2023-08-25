@@ -88,16 +88,30 @@ def main(args: VisualizeHandConfigArgumentParser):
     if hand_pose_start is not None:
         hand_model.set_parameters(hand_pose_start)
         hand_start_plotly = hand_model.get_plotly_data(
-            i=0, opacity=0.5, color="lightblue", with_contact_points=False
+            i=0,
+            opacity=0.5,
+            color="lightblue",
+            with_contact_points=False,
+            with_contact_candidates=True,
+            with_surface_points=True,
+            with_penetration_keypoints=True,
         )
     else:
         hand_start_plotly = []
 
     hand_model.set_parameters(hand_pose)
     hand_en_plotly = hand_model.get_plotly_data(
-        i=0, opacity=1, color="lightblue", with_contact_points=False
+        i=0,
+        opacity=1,
+        color="lightblue",
+        with_contact_points=False,
+        with_contact_candidates=True,
+        with_surface_points=True,
+        with_penetration_keypoints=True,
     )
-    object_plotly = object_model.get_plotly_data(i=0, color="lightgreen", opacity=1)
+    object_plotly = object_model.get_plotly_data(
+        i=0, color="lightgreen", opacity=1, with_surface_points=True
+    )
     fig = go.Figure(hand_start_plotly + hand_en_plotly + object_plotly)
     if "energy" in data_dict:
         energy = data_dict["energy"]
