@@ -21,7 +21,15 @@ from utils.object_model import ObjectModel
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import qpos_to_pose
 import pathlib
-from utils.joint_angle_targets import computer_fingertip_targets, compute_fingertip_mean_contact_positions, compute_optimized_joint_angle_targets_given_fingertip_targets
+from utils.joint_angle_targets import (
+    computer_fingertip_targets,
+    compute_fingertip_mean_contact_positions,
+    compute_optimized_joint_angle_targets_given_fingertip_targets,
+)
+
+from utils.parse_object_code_and_scale import (
+    parse_object_code_and_scale,
+)
 
 
 class VisualizeGraspConfigDictArgumentParser(Tap):
@@ -35,23 +43,11 @@ class VisualizeGraspConfigDictArgumentParser(Tap):
     save_to_html: bool = False
 
 
-def split_object_code_and_scale(object_code_and_scale_str: str) -> Tuple[str, float]:
-    keyword = "_0_"
-    idx = object_code_and_scale_str.rfind(keyword)
-    object_code = object_code_and_scale_str[:idx]
-
-    idx_offset_for_scale = keyword.index("0")
-    object_scale = float(
-        object_code_and_scale_str[idx + idx_offset_for_scale :].replace("_", ".")
-    )
-    return object_code, object_scale
-
-
 def main(args: VisualizeGraspConfigDictArgumentParser):
     device = "cpu"
 
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
-    object_code, object_scale = split_object_code_and_scale(
+    object_code, object_scale = parse_object_code_and_scale(
         args.object_code_and_scale_str
     )
 
@@ -117,7 +113,9 @@ def main(args: VisualizeGraspConfigDictArgumentParser):
     )
 
     # Add grasp_orientations
-    grasp_orientations = torch.tensor(data_dict["grasp_orientations"], dtype=torch.float, device=device)
+    grasp_orientations = torch.tensor(
+        data_dict["grasp_orientations"], dtype=torch.float, device=device
+    )
     assert grasp_orientations.shape == (hand_model.num_fingers, 3, 3)
     fingertip_mean_positions = compute_fingertip_mean_contact_positions(
         joint_angles=hand_pose[:, 9:],
@@ -146,7 +144,7 @@ def main(args: VisualizeGraspConfigDictArgumentParser):
             mode="markers",
             marker=dict(size=10, color="magenta"),
             name="fingertip targets",
-        )
+        ),
     ]
     for i in range(hand_model.num_fingers):
         origin = fingertip_mean_positions[0, i]
@@ -183,7 +181,10 @@ def main(args: VisualizeGraspConfigDictArgumentParser):
 
     # Add joint angle targets
     if args.visualize_joint_angle_targets:
-        joint_angle_targets, _ = compute_optimized_joint_angle_targets_given_fingertip_targets(
+        (
+            joint_angle_targets,
+            _,
+        ) = compute_optimized_joint_angle_targets_given_fingertip_targets(
             joint_angles_start=hand_pose[:, 9:],
             hand_model=hand_model,
             fingertip_targets=fingertip_targets,
@@ -209,7 +210,13 @@ def main(args: VisualizeGraspConfigDictArgumentParser):
     else:
         hand_target_plotly = []
 
-    fig = go.Figure(hand_start_plotly + hand_plotly + object_plotly + fingertips_plotly + hand_target_plotly)
+    fig = go.Figure(
+        hand_start_plotly
+        + hand_plotly
+        + object_plotly
+        + fingertips_plotly
+        + hand_target_plotly
+    )
     if "energy" in data_dict:
         energy = data_dict["energy"]
         E_fc = round(data_dict["E_fc"], 3)

@@ -30,6 +30,9 @@ from utils.seed import set_seed
 from utils.joint_angle_targets import (
     compute_optimized_joint_angle_targets_given_grasp_orientations,
 )
+from utils.parse_object_code_and_scale import (
+    parse_object_code_and_scale,
+)
 import pathlib
 
 
@@ -65,30 +68,19 @@ def compute_joint_angle_targets(
     hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
 
     # Optimization
-    optimized_joint_angle_targets, _ = (
-        compute_optimized_joint_angle_targets_given_grasp_orientations(
-            joint_angles_start=hand_model.hand_pose[:, 9:],
-            hand_model=hand_model,
-            grasp_orientations=grasp_orientations,
-        )
+    (
+        optimized_joint_angle_targets,
+        _,
+    ) = compute_optimized_joint_angle_targets_given_grasp_orientations(
+        joint_angles_start=hand_model.hand_pose[:, 9:],
+        hand_model=hand_model,
+        grasp_orientations=grasp_orientations,
     )
 
     num_joints = len(handmodeltype_to_joint_names[hand_model.hand_model_type])
     assert optimized_joint_angle_targets.shape == (hand_model.batch_size, num_joints)
 
     return optimized_joint_angle_targets.detach().cpu().numpy()
-
-
-def split_object_code_and_scale(object_code_and_scale_str: str) -> Tuple[str, float]:
-    keyword = "_0_"
-    idx = object_code_and_scale_str.rfind(keyword)
-    object_code = object_code_and_scale_str[:idx]
-
-    idx_offset_for_scale = keyword.index("0")
-    object_scale = float(
-        object_code_and_scale_str[idx + idx_offset_for_scale :].replace("_", ".")
-    )
-    return object_code, object_scale
 
 
 def get_data(
@@ -146,7 +138,7 @@ def main(args: EvalGraspConfigDictsArgumentParser):
 
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
-    object_code, object_scale = split_object_code_and_scale(
+    object_code, object_scale = parse_object_code_and_scale(
         args.object_code_and_scale_str
     )
     set_seed(42)  # Want this fixed so deterministic computation

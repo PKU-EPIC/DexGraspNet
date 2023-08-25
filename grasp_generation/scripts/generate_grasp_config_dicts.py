@@ -30,6 +30,9 @@ from utils.joint_angle_targets import (
     compute_grasp_orientations as compute_grasp_orientations_external,
 )
 from utils.energy import _cal_hand_object_penetration
+from utils.parse_object_code_and_scale import (
+    parse_object_code_and_scale,
+)
 
 
 class GenerateGraspConfigDictsArgumentParser(Tap):
@@ -39,20 +42,10 @@ class GenerateGraspConfigDictsArgumentParser(Tap):
     input_hand_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/hand_config_dicts"
     )
-    output_grasp_config_dicts_path: pathlib.Path = pathlib.Path("../data/grasp_config_dicts")
-    seed: int = 1
-
-
-def split_object_code_and_scale(object_code_and_scale_str: str) -> Tuple[str, float]:
-    keyword = "_0_"
-    idx = object_code_and_scale_str.rfind(keyword)
-    object_code = object_code_and_scale_str[:idx]
-
-    idx_offset_for_scale = keyword.index('0')
-    object_scale = float(
-        object_code_and_scale_str[idx + idx_offset_for_scale :].replace("_", ".")
+    output_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
+        "../data/grasp_config_dicts"
     )
-    return object_code, object_scale
+    seed: int = 1
 
 
 def compute_grasp_orientations(
@@ -109,7 +102,7 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
     )
     for hand_config_dict_path in pbar:
         object_code_and_scale_str = hand_config_dict_path.stem
-        object_code, object_scale = split_object_code_and_scale(
+        object_code, object_scale = parse_object_code_and_scale(
             object_code_and_scale_str
         )
 

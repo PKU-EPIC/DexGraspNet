@@ -20,6 +20,9 @@ from utils.object_model import ObjectModel
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import qpos_to_pose
 import pathlib
+from utils.parse_object_code_and_scale import (
+    parse_object_code_and_scale,
+)
 
 
 class VisualizeHandConfigDictArgumentParser(Tap):
@@ -32,23 +35,11 @@ class VisualizeHandConfigDictArgumentParser(Tap):
     save_to_html: bool = False
 
 
-def split_object_code_and_scale(object_code_and_scale_str: str) -> Tuple[str, float]:
-    keyword = "_0_"
-    idx = object_code_and_scale_str.rfind(keyword)
-    object_code = object_code_and_scale_str[:idx]
-
-    idx_offset_for_scale = keyword.index("0")
-    object_scale = float(
-        object_code_and_scale_str[idx + idx_offset_for_scale :].replace("_", ".")
-    )
-    return object_code, object_scale
-
-
 def main(args: VisualizeHandConfigDictArgumentParser):
     device = "cpu"
 
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
-    object_code, object_scale = split_object_code_and_scale(
+    object_code, object_scale = parse_object_code_and_scale(
         args.object_code_and_scale_str
     )
 
