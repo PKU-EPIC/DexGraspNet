@@ -36,7 +36,7 @@ from utils.parse_object_code_and_scale import (
 import pathlib
 
 
-class EvalGraspConfigDictsArgumentParser(Tap):
+class EvalGraspConfigDictArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
     gpu: int = 0
@@ -56,7 +56,7 @@ class EvalGraspConfigDictsArgumentParser(Tap):
 
 
 def compute_joint_angle_targets(
-    args: EvalGraspConfigDictsArgumentParser,
+    args: EvalGraspConfigDictArgumentParser,
     hand_pose_array: List[torch.Tensor],
     grasp_orientations_array: List[torch.Tensor],
 ) -> np.ndarray:
@@ -84,7 +84,7 @@ def compute_joint_angle_targets(
 
 
 def get_data(
-    args: EvalGraspConfigDictsArgumentParser, grasp_config_dicts: List[Dict[str, Any]]
+    args: EvalGraspConfigDictArgumentParser, grasp_config_dicts: List[Dict[str, Any]]
 ) -> Tuple[
     List[np.ndarray],
     List[np.ndarray],
@@ -131,7 +131,7 @@ def get_data(
     )
 
 
-def main(args: EvalGraspConfigDictsArgumentParser):
+def main(args: EvalGraspConfigDictArgumentParser):
     print("=" * 80)
     print(f"args = {args}")
     print("=" * 80 + "\n")
@@ -259,5 +259,5 @@ def main(args: EvalGraspConfigDictsArgumentParser):
 
 
 if __name__ == "__main__":
-    args = EvalGraspConfigDictsArgumentParser().parse_args()
+    args = EvalGraspConfigDictArgumentParser().parse_args()
     main(args)

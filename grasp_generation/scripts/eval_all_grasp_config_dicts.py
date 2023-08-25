@@ -14,7 +14,7 @@ from typing import Optional
 import pathlib
 
 
-class EvalAllGraspsArgumentParser(Tap):
+class EvalAllGraspConfigDictsArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
     gpu: int = 0
@@ -28,7 +28,7 @@ class EvalAllGraspsArgumentParser(Tap):
 
 
 def get_object_code_and_scale_strs_to_process(
-    args: EvalAllGraspsArgumentParser,
+    args: EvalAllGraspConfigDictsArgumentParser,
 ) -> list:
     input_object_code_and_scale_strs = [
         path.stem for path in args.input_grasp_config_dicts_path.iterdir()
@@ -62,13 +62,13 @@ def get_object_code_and_scale_strs_to_process(
     return list(only_in_input)
 
 
-def main(args: EvalAllGraspsArgumentParser):
+def main(args: EvalAllGraspConfigDictsArgumentParser):
     print("=" * 80)
     print(f"args = {args}")
     print("=" * 80 + "\n")
 
     # Check if script exists
-    script_to_run = pathlib.Path("scripts/eval_grasp_config_dicts.py")
+    script_to_run = pathlib.Path("scripts/eval_grasp_config_dict.py")
     assert script_to_run.exists(), f"Script {script_to_run} does not exist"
 
     input_object_code_and_scale_strs = get_object_code_and_scale_strs_to_process(args)
@@ -100,5 +100,5 @@ def main(args: EvalAllGraspsArgumentParser):
 
 
 if __name__ == "__main__":
-    args = EvalAllGraspsArgumentParser().parse_args()
+    args = EvalAllGraspConfigDictsArgumentParser().parse_args()
     main(args)
