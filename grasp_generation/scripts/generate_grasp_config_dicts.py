@@ -9,7 +9,6 @@ import sys
 
 sys.path.append(os.path.realpath("."))
 
-from utils.isaac_validator import IsaacValidator, ValidationType
 import pathlib
 from tap import Tap
 import torch
@@ -24,15 +23,11 @@ from utils.hand_model_type import (
 )
 from utils.qpos_pose_conversion import (
     qpos_to_pose,
-    qpos_to_translation_quaternion_jointangles,
-    pose_to_qpos,
 )
 from typing import List, Dict, Any, Tuple
-import math
 from utils.seed import set_seed
 from utils.joint_angle_targets import (
-    compute_optimized_joint_angle_targets,
-    OptimizationMethod,
+    compute_grasp_orientations as compute_grasp_orientations_external,
 )
 from utils.energy import _cal_hand_object_penetration
 
@@ -61,6 +56,8 @@ def split_object_code_and_scale(object_code_and_scale_str: str) -> Tuple[str, fl
 def compute_grasp_orientations(
     args: GenerateGraspConfigDictsArgumentParser,
     hand_pose_array: List[torch.Tensor],
+    object_code: str,
+    object_scale: float,
 ) -> torch.Tensor:
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
     batch_size = len(hand_pose_array)
@@ -73,11 +70,19 @@ def compute_grasp_orientations(
     object_model = ObjectModel(
         meshdata_root_path=str(args.meshdata_root_path),
         batch_size_each=batch_size,
-        scale=args.object_scale,
+        scale=object_scale,
         num_samples=0,
         device=device,
     )
-    object_model.initialize(args.object_code)
+    object_model.initialize(object_code)
+    grasp_orientations = compute_grasp_orientations_external(
+        joint_angles_start=hand_model.hand_pose[:, 9:],
+        hand_model=hand_model,
+        object_model=object_model,
+    )
+    assert grasp_orientations.shape == (batch_size, hand_model.num_fingers, 3, 3)
+    return grasp_orientations
+
 
 def main(args: GenerateGraspConfigDictsArgumentParser):
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
@@ -118,7 +123,10 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
 
         # Compute grasp_orientations
         grasp_orientations = compute_grasp_orientations(
-            hand_model_type=args.hand_model_type,
+            args=args,
+            hand_pose_array=hand_pose_array,
+            object_code=object_code,
+            object_scale=object_scale,
         )
 
         # Save grasp_config_dicts
