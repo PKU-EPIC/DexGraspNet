@@ -137,7 +137,7 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
             grasp_config_dicts.append(
                 {
                     **data_dicts[i],
-                    "grasp_orientations": grasp_orientations[i],
+                    "grasp_orientations": grasp_orientations[i].tolist(),
                 }
             )
 
