@@ -1,4 +1,5 @@
 import subprocess
+import random
 import os
 from tqdm import tqdm
 import sys
@@ -18,13 +19,13 @@ class EvalAllGraspConfigDictsArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
     gpu: int = 0
-    randomize_order_seed: Optional[int] = None
     input_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/grasp_config_dicts"
     )
     output_evaled_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/evaled_grasp_config_dicts"
     )
+    randomize_order_seed: Optional[int] = None
 
 
 def get_object_code_and_scale_strs_to_process(
@@ -72,6 +73,10 @@ def main(args: EvalAllGraspConfigDictsArgumentParser):
     assert script_to_run.exists(), f"Script {script_to_run} does not exist"
 
     input_object_code_and_scale_strs = get_object_code_and_scale_strs_to_process(args)
+    if args.randomize_order_seed is not None:
+        random.Random(args.randomize_order_seed).shuffle(input_object_code_and_scale_strs)
+    print(f"Processing {len(input_object_code_and_scale_strs)} object codes")
+    print(f"First 10 object codes: {input_object_code_and_scale_strs[:10]}")
 
     pbar = tqdm(input_object_code_and_scale_strs, dynamic_ncols=True)
     for object_code_and_scale_str in pbar:
