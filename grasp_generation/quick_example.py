@@ -16,6 +16,7 @@
 # %%
 import os
 import random
+import pathlib
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 import numpy as np
@@ -30,14 +31,15 @@ from utils.joint_angle_targets import (
     OptimizationMethod,
     compute_optimized_joint_angle_targets_given_grasp_orientations,
 )
+from utils.parse_object_code_and_scale import parse_object_code_and_scale
 
 
 # %% [markdown]
 # ## PARAMS
 
 # %%
-mesh_path = "../data/meshdata"
-data_path = "../data/2023-08-23_grasp_config_dicts/core-bottle-2722bec1947151b86e22e2d2f64c8cef_0_10.npy"
+meshdata_root_path = "../data/meshdata"
+grasp_config_dicts_path = pathlib.Path("../data/2023-08-23_grasp_config_dicts")
 hand_model_type = HandModelType.ALLEGRO_HAND
 seed = 102
 joint_angle_targets_optimization_method = (
@@ -56,36 +58,45 @@ set_seed(seed)
 # ## Grasp codes|
 
 # %%
-grasp_code_list = []
-for filename in os.listdir(data_path):
-    code = filename.split(".")[0]
-    grasp_code_list.append(code)
+object_code_list, object_scale_list = [], []
+for path in grasp_config_dicts_path.iterdir():
+    object_code_and_scale_str = path.stem
+
+    object_code, object_scale = parse_object_code_and_scale(object_code_and_scale_str)
+    object_code_list.append(object_code)
+    object_scale_list.append(object_scale)
 
 # %% [markdown]
 # ## Sample and read in data
 
 # %%
-grasp_code = random.choice(grasp_code_list)
-grasp_data_list = np.load(os.path.join(data_path, grasp_code + ".npy"), allow_pickle=True)
-print(f"Randomly sampled grasp_code = {grasp_code}")
+random_file_idx = random.randint(0, len(object_code_list) - 1)
+object_code = object_code_list[random_file_idx]
+object_scale = object_scale_list[random_file_idx]
+grasp_data_list = np.load(
+    grasp_config_dicts_path
+    / (f"{object_code}_{object_scale:.2f}".replace(".", "_") + ".npy"),
+    allow_pickle=True,
+)
+print(f"Randomly sampled object_code = {object_code}")
 
-index = random.randint(0, len(grasp_data_list) - 1)
-qpos = grasp_data_list[index]["qpos"]
-scale = grasp_data_list[index]["scale"]
-print(f"Randomly sampled index = {index}")
-print(f"scale = {scale}")
+random_grasp_index = random.randint(0, len(grasp_data_list) - 1)
+qpos = grasp_data_list[random_grasp_index]["qpos"]
+grasp_orientations = torch.tensor(grasp_data_list[random_grasp_index]["grasp_orientations"], device=device, dtype=torch.float)
+print(f"Randomly sampled random_grasp_index = {random_grasp_index}")
+print(f"object_scale = {object_scale}")
 
 # %% [markdown]
 # ## Object model
 
 # %%
 object_model = ObjectModel(
-    meshdata_root_path=mesh_path,
+    meshdata_root_path=meshdata_root_path,
     batch_size_each=1,
-    scale=scale,
+    scale=object_scale,
     device=device,
 )
-object_model.initialize([grasp_code])
+object_model.initialize([object_code])
 
 # %% [markdown]
 # ## Hand model
@@ -101,7 +112,7 @@ hand_model.set_parameters(hand_pose)
 
 batch_idx = 0
 hand_mesh = hand_model.get_trimesh_data(batch_idx)
-object_mesh = object_model.object_mesh_list[batch_idx].copy().apply_scale(scale)
+object_mesh = object_model.object_mesh_list[batch_idx].copy().apply_scale(object_scale)
 
 # %% [markdown]
 # ## Visualize hand and object
@@ -113,7 +124,7 @@ object_mesh = object_model.object_mesh_list[batch_idx].copy().apply_scale(scale)
 # ## Visualize hand and object plotly
 
 # %%
-fig_title = f"Grasp Code: {grasp_code}, Index: {index}"
+fig_title = f"Grasp Code: {object_code}, Index: {random_grasp_index}"
 idx_to_visualize = batch_idx
 
 fig = go.Figure(
@@ -157,13 +168,14 @@ print(f"original_hand_pose[:, 9:] = {original_hand_pose[:, 9:]}")
     hand_model=hand_model,
     grasp_orientations=grasp_orientations,
 )
-old_debug_info = debug_infos[0]
-debug_info = debug_infos[-1]
+losses = debug_info["loss"]
 
 # %%
 fig = px.line(y=losses)
 fig.update_layout(
-    title=f"{joint_angle_targets_optimization_method} Loss vs. Iterations", xaxis_title="Iterations", yaxis_title="Loss"
+    title=f"{joint_angle_targets_optimization_method} Loss vs. Iterations",
+    xaxis_title="Iterations",
+    yaxis_title="Loss",
 )
 fig.show()
 
@@ -187,28 +199,10 @@ fig = make_subplots(
     specs=[[{"type": "scene"}, {"type": "scene"}]],
     subplot_titles=("Original", "Optimized"),
 )
-old_target_points = old_debug_info["target_points"]
-old_contact_points_hand = old_debug_info["contact_points_hand"]
 
 plots = [
     *old_hand_model_plotly,
     *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
-    go.Scatter3d(
-        x=old_target_points[batch_idx, :, 0].detach().cpu().numpy(),
-        y=old_target_points[batch_idx, :, 1].detach().cpu().numpy(),
-        z=old_target_points[batch_idx, :, 2].detach().cpu().numpy(),
-        mode="markers",
-        marker=dict(size=10, color="red"),
-        name="target_points",
-    ),
-    go.Scatter3d(
-        x=old_contact_points_hand[batch_idx, :, 0].detach().cpu().numpy(),
-        y=old_contact_points_hand[batch_idx, :, 1].detach().cpu().numpy(),
-        z=old_contact_points_hand[batch_idx, :, 2].detach().cpu().numpy(),
-        mode="markers",
-        marker=dict(size=10, color="green"),
-        name="contact_points_hand",
-    ),
 ]
 
 for plot in plots:
@@ -223,28 +217,9 @@ new_hand_model_plotly = hand_model.get_plotly_data(
     i=idx_to_visualize, opacity=1.0, with_contact_candidates=True
 )
 
-new_target_points = debug_info["target_points"]
-new_contact_points_hand = debug_info["contact_points_hand"]
-
 plots = [
     *new_hand_model_plotly,
     *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
-    go.Scatter3d(
-        x=new_target_points[batch_idx, :, 0].detach().cpu().numpy(),
-        y=new_target_points[batch_idx, :, 1].detach().cpu().numpy(),
-        z=new_target_points[batch_idx, :, 2].detach().cpu().numpy(),
-        mode="markers",
-        marker=dict(size=10, color="red"),
-        name="new_target_points",
-    ),
-    go.Scatter3d(
-        x=new_contact_points_hand[batch_idx, :, 0].detach().cpu().numpy(),
-        y=new_contact_points_hand[batch_idx, :, 1].detach().cpu().numpy(),
-        z=new_contact_points_hand[batch_idx, :, 2].detach().cpu().numpy(),
-        mode="markers",
-        marker=dict(size=10, color="green"),
-        name="contact_points_hand",
-    ),
 ]
 
 for plot in plots:

@@ -109,7 +109,7 @@ def main(args: VisualizeGraspConfigDictArgumentParser):
         with_penetration_keypoints=False,
     )
     object_plotly = object_model.get_plotly_data(
-        i=0, color="lightgreen", opacity=1, with_surface_points=True
+        i=0, color="lightgreen", opacity=0.5, with_surface_points=True
     )
 
     # Add grasp_orientations
