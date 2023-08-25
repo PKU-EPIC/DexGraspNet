@@ -22,6 +22,7 @@ class EvalAllGraspConfigDictsArgumentParser(Tap):
     input_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/grasp_config_dicts"
     )
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     output_evaled_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/evaled_grasp_config_dicts"
     )
@@ -40,9 +41,11 @@ def get_object_code_and_scale_strs_to_process(
     )
 
     # Compare input and output directories
-    existing_object_code_and_scale_strs = [
-        path.stem for path in args.output_evaled_grasp_config_dicts_path.iterdir()
-    ] if args.output_evaled_grasp_config_dicts_path.exists() else []
+    existing_object_code_and_scale_strs = (
+        [path.stem for path in args.output_evaled_grasp_config_dicts_path.iterdir()]
+        if args.output_evaled_grasp_config_dicts_path.exists()
+        else []
+    )
     print(
         f"Found {len(existing_object_code_and_scale_strs)} object codes in {args.output_evaled_grasp_config_dicts_path}"
     )
@@ -74,7 +77,9 @@ def main(args: EvalAllGraspConfigDictsArgumentParser):
 
     input_object_code_and_scale_strs = get_object_code_and_scale_strs_to_process(args)
     if args.randomize_order_seed is not None:
-        random.Random(args.randomize_order_seed).shuffle(input_object_code_and_scale_strs)
+        random.Random(args.randomize_order_seed).shuffle(
+            input_object_code_and_scale_strs
+        )
     print(f"Processing {len(input_object_code_and_scale_strs)} object codes")
     print(f"First 10 object codes: {input_object_code_and_scale_strs[:10]}")
 
@@ -89,6 +94,7 @@ def main(args: EvalAllGraspConfigDictsArgumentParser):
                 f"--hand_model_type {args.hand_model_type.name}",
                 f"--validation_type {args.validation_type.name}",
                 f"--gpu {args.gpu}",
+                f"--meshdata_root_path {args.meshdata_root_path}",
                 f"--input_grasp_config_dicts_path {args.input_grasp_config_dicts_path}",
                 f"--output_evaled_grasp_config_dicts_path {args.output_evaled_grasp_config_dicts_path}",
                 f"--object_code_and_scale_str {object_code_and_scale_str}",
