@@ -10,10 +10,7 @@ import sys
 # os.chdir(os.path.dirname(os.path.dirname(__file__)))
 sys.path.append(os.path.realpath("."))
 
-import numpy as np
 import torch
-import trimesh as tm
-import transforms3d
 import plotly.graph_objects as go
 from utils.hand_model import HandModel
 from utils.hand_model_type import (
