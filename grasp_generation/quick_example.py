@@ -233,3 +233,5 @@ fig.update_layout(
     title_text=f"Optimization Method: {joint_angle_targets_optimization_method.name}",
 )
 fig.show()
+
+# %%
