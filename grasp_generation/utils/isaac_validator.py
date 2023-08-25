@@ -258,12 +258,12 @@ class IsaacValidator:
     ):
         for test_rotation_idx in range(len(self.test_rotations)):
             self.add_env_single_test_rotation(
-                hand_quaternion,
-                hand_translation,
-                hand_qpos,
-                obj_scale,
-                test_rotation_idx,
-                target_qpos,
+                hand_quaternion=hand_quaternion,
+                hand_translation=hand_translation,
+                hand_qpos=hand_qpos,
+                obj_scale=obj_scale,
+                target_qpos=target_qpos,
+                test_rotation_index=test_rotation_idx,
             )
 
     def add_env_single_test_rotation(
@@ -272,8 +272,8 @@ class IsaacValidator:
         hand_translation,
         hand_qpos,
         obj_scale,
-        test_rotation_index=0,
         target_qpos,
+        test_rotation_index=0,
     ):
         # Set test rotation
         test_rot = self.test_rotations[test_rotation_index]
