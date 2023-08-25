@@ -20,7 +20,7 @@ class ObjectModel:
         self,
         meshdata_root_path: str,
         batch_size_each: int,
-        scale: float = 0.1,
+        scale: float,
         num_samples: int = 2000,
         device: str = "cuda",
     ):
@@ -41,10 +41,11 @@ class ObjectModel:
             device for torch tensors
         """
 
-        self.device = device
-        self.batch_size_each = batch_size_each
         self.meshdata_root_path = meshdata_root_path
+        self.batch_size_each = batch_size_each
+        self.scale = scale
         self.num_samples = num_samples
+        self.device = device
 
         self.object_code_list = None
         self.object_scale_tensor = None

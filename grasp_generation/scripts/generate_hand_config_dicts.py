@@ -256,6 +256,7 @@ def generate(
     object_model = ObjectModel(
         meshdata_root_path=str(args.meshdata_root_path),
         batch_size_each=args.batch_size_each_object,
+        scale=args.object_scale,
         num_samples=2000,
         device=device,
     )

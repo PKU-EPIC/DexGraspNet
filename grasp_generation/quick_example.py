@@ -84,12 +84,10 @@ print(f"scale = {scale}")
 object_model = ObjectModel(
     meshdata_root_path=mesh_path,
     batch_size_each=1,
+    scale=scale,
     device=device,
 )
 object_model.initialize([grasp_code])
-object_model.object_scale_tensor = torch.tensor(
-    scale, dtype=torch.float, device=device
-).reshape(object_model.object_scale_tensor.shape)
 
 # %% [markdown]
 # ## Hand model

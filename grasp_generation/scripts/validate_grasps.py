@@ -57,10 +57,8 @@ class ValidateGraspArgumentParser(Tap):
 def compute_joint_angle_targets(
     args: ValidateGraspArgumentParser,
     hand_pose_array: List[torch.Tensor],
-    scale_array: List[float],
+    object_scale: float,
 ) -> torch.Tensor:
-    assert len(hand_pose_array) == len(scale_array)
-
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
     batch_size = len(hand_pose_array)
 
@@ -72,13 +70,11 @@ def compute_joint_angle_targets(
     object_model = ObjectModel(
         meshdata_root_path=args.mesh_path,
         batch_size_each=batch_size,
+        scale=object_scale,
         num_samples=0,
         device=device,
     )
     object_model.initialize(args.object_code)
-    object_model.object_scale_tensor = (
-        torch.tensor(scale_array).reshape(1, -1).to(device)
-    )  # 1 because 1 object code
 
     # Optimization
     (
@@ -98,10 +94,8 @@ def compute_joint_angle_targets(
 def compute_E_pen(
     args: ValidateGraspArgumentParser,
     hand_pose_array: List[torch.Tensor],
-    scale_array: List[float],
+    object_scale: float,
 ) -> torch.Tensor:
-    assert len(hand_pose_array) == len(scale_array)
-
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
     batch_size = len(hand_pose_array)
 
@@ -113,13 +107,11 @@ def compute_E_pen(
     object_model = ObjectModel(
         meshdata_root_path=args.mesh_path,
         batch_size_each=batch_size,
+        scale=object_scale,
         num_samples=2000,
         device=device,
     )
     object_model.initialize(args.object_code)
-    object_model.object_scale_tensor = (
-        torch.tensor(scale_array).reshape(1, -1).to(device)
-    )  # 1 because 1 object code
 
     E_pen = _cal_hand_object_penetration(hand_model, object_model)
     return E_pen
@@ -186,7 +178,6 @@ def main(args: ValidateGraspArgumentParser):
     translation_array = []
     quaternion_array = []
     joint_angles_array = []
-    scale_array = []
     E_pen_array = []
     hand_pose_array = []
     for i in range(batch_size):
@@ -204,9 +195,6 @@ def main(args: ValidateGraspArgumentParser):
         hand_pose_array.append(
             qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
         )
-
-        scale = data_dicts[i]["scale"]
-        scale_array.append(scale)
 
         if "E_pen" in data_dicts[i]:
             E_pen_array.append(data_dicts[i]["E_pen"])

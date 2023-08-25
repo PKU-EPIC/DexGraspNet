@@ -89,13 +89,11 @@ def main(args: VisualizeResultArgumentParser):
     object_model = ObjectModel(
         meshdata_root_path="../data/meshdata",
         batch_size_each=1,
+        scale=object_scale,
         num_samples=2000,
         device=device,
     )
     object_model.initialize(args.object_code)
-    object_model.object_scale_tensor = torch.tensor(
-        data_dict["scale"], dtype=torch.float, device=device
-    ).reshape(1, 1)
 
     # visualize
     if hand_pose_st is not None:

@@ -39,9 +39,6 @@ from utils.energy import _cal_hand_object_penetration
 
 class GenerateGraspConfigDictsArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
-    optimization_method: OptimizationMethod = (
-        OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
-    )
     gpu: int = 0
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     input_hand_config_dicts_path: pathlib.Path = pathlib.Path(
@@ -51,11 +48,19 @@ class GenerateGraspConfigDictsArgumentParser(Tap):
     seed: int = 1
 
 
-def compute_joint_angle_targets(
+def split_object_code_and_scale(object_code_and_scale_str: str) -> Tuple[str, float]:
+    keyword = "_0_"
+    idx = object_code_and_scale_str.rfind(keyword)
+    object_code = object_code_and_scale_str[:idx]
+    object_scale = float(
+        object_code_and_scale_str[idx + len(keyword) :].replace("_", ".")
+    )
+    return object_code, object_scale
+
+
+def compute_grasp_orientations(
     args: GenerateGraspConfigDictsArgumentParser,
     hand_pose_array: List[torch.Tensor],
-    object_code: str,
-    object_scale: float,
 ) -> torch.Tensor:
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
     batch_size = len(hand_pose_array)
@@ -68,70 +73,11 @@ def compute_joint_angle_targets(
     object_model = ObjectModel(
         meshdata_root_path=str(args.meshdata_root_path),
         batch_size_each=batch_size,
+        scale=args.object_scale,
         num_samples=0,
         device=device,
     )
-    object_model.initialize(object_code)
-    object_model.object_scale_tensor = (
-        torch.tensor([object_scale] * batch_size).reshape(1, batch_size).to(device)
-    )  # 1 because 1 object code
-
-    # Optimization
-    (
-        optimized_joint_angle_targets,
-        losses,
-        debug_infos,
-    ) = compute_optimized_joint_angle_targets(
-        optimization_method=args.optimization_method,
-        hand_model=hand_model,
-        object_model=object_model,
-        device=device,
-    )
-
-    return optimized_joint_angle_targets
-
-
-def compute_link_name_to_all_contact_candidates(
-    args: GenerateGraspConfigDictsArgumentParser,
-    hand_pose_array: List[torch.Tensor],
-    joint_angles: torch.Tensor,
-) -> Dict[str, torch.Tensor]:
-    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
-
-    # hand model
-    hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
-    hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
-    batch_size = len(hand_pose_array)
-
-    current_status = hand_model.chain.forward_kinematics(joint_angles.to(device))
-    link_name_to_contact_candidates = {}
-    for i, link_name in enumerate(hand_model.mesh):
-        contact_candidates = hand_model.mesh[link_name]["contact_candidates"]
-        if len(contact_candidates) == 0:
-            continue
-
-        contact_candidates = (
-            current_status[link_name]
-            .transform_points(contact_candidates)
-            .expand(batch_size, -1, 3)
-        )
-        contact_candidates = contact_candidates @ hand_model.global_rotation.transpose(
-            1, 2
-        ) + hand_model.global_translation.unsqueeze(1)
-
-        link_name_to_contact_candidates[link_name] = contact_candidates
-    return link_name_to_contact_candidates
-
-
-def split_object_code_and_scale(object_code_and_scale_str: str) -> Tuple[str, float]:
-    keyword = "_0_"
-    idx = object_code_and_scale_str.rfind(keyword)
-    object_code = object_code_and_scale_str[:idx]
-    object_scale = float(
-        object_code_and_scale_str[idx + len(keyword) :].replace("_", ".")
-    )
-    return object_code, object_scale
-
+    object_model.initialize(args.object_code)
 
 def main(args: GenerateGraspConfigDictsArgumentParser):
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
@@ -161,43 +107,26 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
             hand_config_dict_path, allow_pickle=True
         )
         batch_size = len(data_dicts)
-        joint_angles_array = []
         hand_pose_array = []
         for i in range(batch_size):
             qpos = data_dicts[i]["qpos"]
-            (
-                _,
-                _,
-                joint_angles,
-            ) = qpos_to_translation_quaternion_jointangles(
-                qpos=qpos, joint_names=joint_names
-            )
-            joint_angles_array.append(joint_angles)
             hand_pose_array.append(
                 qpos_to_pose(
                     qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False
                 )
             )
 
-        # Compute joint angle targets
-        joint_angle_targets_array = (
-            compute_joint_angle_targets(
-                args=args,
-                hand_pose_array=hand_pose_array,
-                object_code=object_code,
-                object_scale=object_scale,
-            )
-            .detach()
-            .cpu()
-            .numpy()
+        # Compute grasp_orientations
+        grasp_orientations = compute_grasp_orientations(
+            hand_model_type=args.hand_model_type,
         )
+
+        # Save grasp_config_dicts
         grasp_config_dicts = []
         for i in range(batch_size):
             grasp_config_dicts.append(
                 {
-                    "qpos": pose_to_qpos(
-                        hand_pose=hand_pose_array[i], joint_names=joint_names
-                    ),
+                    **data_dicts[i],
                     "grasp_orientations": grasp_orientations[i],
                 }
             )
