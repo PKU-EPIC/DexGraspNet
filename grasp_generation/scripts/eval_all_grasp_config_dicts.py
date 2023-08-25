@@ -41,7 +41,7 @@ def get_object_code_and_scale_strs_to_process(
     # Compare input and output directories
     existing_object_code_and_scale_strs = [
         path.stem for path in args.output_evaled_grasp_config_dicts_path.iterdir()
-    ]
+    ] if args.output_evaled_grasp_config_dicts_path.exists() else []
     print(
         f"Found {len(existing_object_code_and_scale_strs)} object codes in {args.output_evaled_grasp_config_dicts_path}"
     )
