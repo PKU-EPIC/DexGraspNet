@@ -295,9 +295,10 @@ class IsaacValidator:
             hand_qpos=hand_qpos,
             transformation=test_rot,
             target_qpos=target_qpos,
+            collision_idx=test_rotation_index,  # BRITTLE: ASSUMES ONLY ONE OBJECT AT A TIME.
         )
 
-        self._setup_obj(env, obj_scale, test_rot)
+        self._setup_obj(env, obj_scale, test_rot, collision_idx=test_rotation_index)
 
     def _setup_hand(
         self,
@@ -307,6 +308,7 @@ class IsaacValidator:
         hand_qpos: np.ndarray,
         transformation: gymapi.Transform,
         target_qpos: np.ndarray,
+        collision_idx: int,
     ) -> None:
         # Set hand pose
         hand_pose = gymapi.Transform()
@@ -314,10 +316,16 @@ class IsaacValidator:
         hand_pose.p = gymapi.Vec3(*hand_translation)
         hand_pose = transformation * hand_pose
         self.init_hand_poses.append(hand_pose)
+        self.collision_idx = collision_idx
 
         # Create hand
         hand_actor_handle = gym.create_actor(
-            env, self.hand_asset, hand_pose, "hand", 0, -1
+            env,
+            self.hand_asset,
+            hand_pose,
+            "hand",
+            collision_idx,
+            1,
         )
         self.hand_handles.append(hand_actor_handle)
 
@@ -375,16 +383,29 @@ class IsaacValidator:
         gym.set_actor_rigid_shape_properties(env, hand_actor_handle, hand_shape_props)
         return
 
-    def _setup_obj(self, env, obj_scale: float, transformation: gymapi.Transform) -> None:
+    def _setup_obj(
+        self,
+        env,
+        obj_scale: float,
+        transformation: gymapi.Transform,
+        collision_idx: int,
+    ) -> None:
         obj_pose = gymapi.Transform()
         obj_pose.p = gymapi.Vec3(0, 0, 0)
         obj_pose.r = gymapi.Quat(0, 0, 0, 1)
         obj_pose = transformation * obj_pose
         self.init_obj_poses.append(obj_pose)
+        self.collision_idx = collision_idx
 
         # Create obj
         obj_actor_handle = gym.create_actor(
-            env, self.obj_asset, obj_pose, "obj", 0, 1, OBJ_SEGMENTATION_ID
+            env,
+            self.obj_asset,
+            obj_pose,
+            "obj",
+            collision_idx,
+            1,
+            OBJ_SEGMENTATION_ID,
         )
         self.obj_handles.append(obj_actor_handle)
         gym.set_actor_scale(env, obj_actor_handle, obj_scale)
@@ -751,7 +772,7 @@ class IsaacValidator:
         )
         self.envs.append(env)
 
-        self._setup_obj(env, obj_scale, identity_transform)
+        self._setup_obj(env, obj_scale, identity_transform, collision_idx=0)
 
     def save_images(self, folder: str, overwrite: bool = False) -> None:
         assert len(self.envs) == 1
@@ -891,7 +912,9 @@ class IsaacValidator:
             data = [*pos.tolist(), *quat.q[1:].tolist(), quat.q[0].tolist()]
             json.dump(data, f)
 
-    def create_train_val_test_split(self, folder: str, train_frac: float, val_frac: float) -> None:
+    def create_train_val_test_split(
+        self, folder: str, train_frac: float, val_frac: float
+    ) -> None:
         assert train_frac + val_frac < 1.0
         num_imgs = len(self.camera_handles)
         num_train = int(train_frac * num_imgs)
