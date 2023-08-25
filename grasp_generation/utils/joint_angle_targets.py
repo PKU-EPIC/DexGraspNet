@@ -375,9 +375,12 @@ def compute_grasp_orientations(
         center_to_right_dirs
         - (center_to_right_dirs * z_dirs).sum(dim=-1, keepdim=True) * z_dirs,
     )
+    assert (y_dirs.norm(dim=-1).min() > 0).all()
     y_dirs = y_dirs / y_dirs.norm(dim=-1, keepdim=True)
 
     x_dirs = torch.cross(y_dirs, z_dirs)
+    assert (x_dirs.norm(dim=-1).min() > 0).all()
+    x_dirs = x_dirs / x_dirs.norm(dim=-1, keepdim=True)
     grasp_orientations = torch.stack([x_dirs, y_dirs, z_dirs], dim=-1)
 
     assert grasp_orientations.shape == (batch_size, hand_model.num_fingers, 3, 3)
