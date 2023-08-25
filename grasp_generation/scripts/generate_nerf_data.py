@@ -14,7 +14,7 @@ from tqdm import tqdm
 import subprocess
 from typing import Optional, Tuple
 import pathlib
-from utils.parse_object_code_and_str import parse_object_code_and_str
+from utils.parse_object_code_and_scale import parse_object_code_and_scale
 
 
 class GenerateNerfDataArgumentParser(Tap):
@@ -33,7 +33,7 @@ def get_object_codes_and_scales_to_process(
         input_object_codes, input_object_scales = [], []
         for path in args.only_objects_in_this_path.iterdir():
             object_code_and_scale_str = path.stem
-            object_code, object_scale = parse_object_code_and_str(
+            object_code, object_scale = parse_object_code_and_scale(
                 object_code_and_scale_str
             )
             input_object_codes.append(object_code)

@@ -1,3 +1,6 @@
+from typing import Tuple
+
+
 def parse_object_code_and_scale(object_code_and_scale_str: str) -> Tuple[str, float]:
     keyword = "_0_"
     idx = object_code_and_scale_str.rfind(keyword)
