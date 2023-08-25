@@ -16,11 +16,17 @@ from torchsdf import index_vertices_by_faces, compute_sdf
 
 
 class ObjectModel:
-
-    def __init__(self, meshdata_root_path: str, batch_size_each: int, scale: float = 0.1, num_samples: int = 2000, device: str = "cuda"):
+    def __init__(
+        self,
+        meshdata_root_path: str,
+        batch_size_each: int,
+        scale: float = 0.1,
+        num_samples: int = 2000,
+        device: str = "cuda",
+    ):
         """
         Create a Object Model
-        
+
         Parameters
         ----------
         meshdata_root_path: str
@@ -44,14 +50,16 @@ class ObjectModel:
         self.object_scale_tensor = None
         self.object_mesh_list = None
         self.object_face_verts_list = None
-        self.scale_choice = torch.tensor([scale], dtype=torch.float, device=self.device)  # Stick with just 1 scale for all
+        self.scale_choice = torch.tensor(
+            [scale], dtype=torch.float, device=self.device
+        )  # Stick with just 1 scale for all
 
     def initialize(self, object_code_list):
         """
         Initialize Object Model with list of objects
-        
+
         Choose scales, load meshes, sample surface points
-        
+
         Parameters
         ----------
         object_code_list: list | str
@@ -65,38 +73,79 @@ class ObjectModel:
         self.object_face_verts_list = []
         self.surface_points_tensor = []
         for object_code in object_code_list:
-            self.object_scale_tensor.append(self.scale_choice[torch.randint(0, self.scale_choice.shape[0], (self.batch_size_each, ), device=self.device)])
-            self.object_mesh_list.append(tm.load(os.path.join(self.meshdata_root_path, object_code, "coacd", "decomposed.obj"), force="mesh", process=False))
-            object_verts = torch.Tensor(self.object_mesh_list[-1].vertices).to(self.device)
-            object_faces = torch.Tensor(self.object_mesh_list[-1].faces).long().to(self.device)
-            self.object_face_verts_list.append(index_vertices_by_faces(object_verts, object_faces))
+            self.object_scale_tensor.append(
+                self.scale_choice[
+                    torch.randint(
+                        0,
+                        self.scale_choice.shape[0],
+                        (self.batch_size_each,),
+                        device=self.device,
+                    )
+                ]
+            )
+            self.object_mesh_list.append(
+                tm.load(
+                    os.path.join(
+                        self.meshdata_root_path, object_code, "coacd", "decomposed.obj"
+                    ),
+                    force="mesh",
+                    process=False,
+                )
+            )
+            object_verts = torch.Tensor(self.object_mesh_list[-1].vertices).to(
+                self.device
+            )
+            object_faces = (
+                torch.Tensor(self.object_mesh_list[-1].faces).long().to(self.device)
+            )
+            self.object_face_verts_list.append(
+                index_vertices_by_faces(object_verts, object_faces)
+            )
             if self.num_samples != 0:
-                vertices = torch.tensor(self.object_mesh_list[-1].vertices, dtype=torch.float, device=self.device)
-                faces = torch.tensor(self.object_mesh_list[-1].faces, dtype=torch.float, device=self.device)
-                mesh = pytorch3d.structures.Meshes(vertices.unsqueeze(0), faces.unsqueeze(0))
-                dense_point_cloud = pytorch3d.ops.sample_points_from_meshes(mesh, num_samples=100 * self.num_samples)
-                surface_points = pytorch3d.ops.sample_farthest_points(dense_point_cloud, K=self.num_samples)[0][0]
+                vertices = torch.tensor(
+                    self.object_mesh_list[-1].vertices,
+                    dtype=torch.float,
+                    device=self.device,
+                )
+                faces = torch.tensor(
+                    self.object_mesh_list[-1].faces,
+                    dtype=torch.float,
+                    device=self.device,
+                )
+                mesh = pytorch3d.structures.Meshes(
+                    vertices.unsqueeze(0), faces.unsqueeze(0)
+                )
+                dense_point_cloud = pytorch3d.ops.sample_points_from_meshes(
+                    mesh, num_samples=100 * self.num_samples
+                )
+                surface_points = pytorch3d.ops.sample_farthest_points(
+                    dense_point_cloud, K=self.num_samples
+                )[0][0]
                 surface_points.to(dtype=float, device=self.device)
                 self.surface_points_tensor.append(surface_points)
         self.object_scale_tensor = torch.stack(self.object_scale_tensor, dim=0)
         if self.num_samples != 0:
-            self.surface_points_tensor = torch.stack(self.surface_points_tensor, dim=0).repeat_interleave(self.batch_size_each, dim=0)  # (n_objects * batch_size_each, num_samples, 3)
+            self.surface_points_tensor = torch.stack(
+                self.surface_points_tensor, dim=0
+            ).repeat_interleave(
+                self.batch_size_each, dim=0
+            )  # (n_objects * batch_size_each, num_samples, 3)
 
     def cal_distance(self, x, with_closest_points=False):
         """
         Calculate signed distances from hand contact points to object meshes and return contact normals
-        
+
         Interiors are positive, exteriors are negative
-        
+
         Use our modified Kaolin package
-        
+
         Parameters
         ----------
         x: (B, `n_contact`, 3) torch.Tensor
             hand contact points
         with_closest_points: bool
             whether to return closest points on object meshes
-        
+
         Returns
         -------
         distance: (B, `n_contact`) torch.Tensor
@@ -128,14 +177,18 @@ class ObjectModel:
         distance = distance.reshape(-1, n_points)
         normals = normals.reshape(-1, n_points, 3)
         if with_closest_points:
-            closest_points = (torch.stack(closest_points) * scale.unsqueeze(2)).reshape(-1, n_points, 3)
+            closest_points = (torch.stack(closest_points) * scale.unsqueeze(2)).reshape(
+                -1, n_points, 3
+            )
             return distance, normals, closest_points
         return distance, normals
 
-    def get_plotly_data(self, i, color='lightgreen', opacity=0.5, pose=None):
+    def get_plotly_data(
+        self, i, color="lightgreen", opacity=0.5, pose=None, with_surface_points=False
+    ):
         """
         Get visualization data for plotly.graph_objects
-        
+
         Parameters
         ----------
         i: int
@@ -146,19 +199,57 @@ class ObjectModel:
             opacity
         pose: (4, 4) matrix
             homogeneous transformation matrix
-        
+
         Returns
         -------
         data: list
             list of plotly.graph_object visualization data
         """
+        data = []
         model_index = i // self.batch_size_each
         model_code = self.object_code_list[model_index]
-        model_scale = self.object_scale_tensor[model_index, i % self.batch_size_each].detach().cpu().numpy()
+        model_scale = (
+            self.object_scale_tensor[model_index, i % self.batch_size_each]
+            .detach()
+            .cpu()
+            .numpy()
+        )
         mesh = self.object_mesh_list[model_index]
         vertices = mesh.vertices * model_scale
         if pose is not None:
             pose = np.array(pose, dtype=np.float32)
             vertices = vertices @ pose[:3, :3].T + pose[:3, 3]
-        data = go.Mesh3d(x=vertices[:, 0],y=vertices[:, 1], z=vertices[:, 2], i=mesh.faces[:, 0], j=mesh.faces[:, 1], k=mesh.faces[:, 2], color=color, opacity=opacity, name=f"object: {model_code}")
-        return [data]
+        data.append(
+            go.Mesh3d(
+                x=vertices[:, 0],
+                y=vertices[:, 1],
+                z=vertices[:, 2],
+                i=mesh.faces[:, 0],
+                j=mesh.faces[:, 1],
+                k=mesh.faces[:, 2],
+                color=color,
+                opacity=opacity,
+                name=f"object: {model_code}",
+            )
+        )
+
+        if with_surface_points and len(self.surface_points_tensor) > 0:
+            object_surface_points = (
+                self.surface_points_tensor[i].detach().cpu().numpy() * model_scale
+            )  # (num_samples, 3)
+            if pose is not None:
+                object_surface_points = (
+                    object_surface_points @ pose[:3, :3].T + pose[:3, 3]
+                )
+            data.append(
+                go.Scatter3d(
+                    x=object_surface_points[:, 0],
+                    y=object_surface_points[:, 1],
+                    z=object_surface_points[:, 2],
+                    mode="markers",
+                    marker=dict(size=5, color="red"),
+                    name=f"object surface points: {model_code}",
+                )
+            )
+
+        return data

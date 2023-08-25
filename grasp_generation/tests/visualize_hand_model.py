@@ -56,76 +56,18 @@ if __name__ == "__main__":
     )
     hand_model.set_parameters(hand_pose.unsqueeze(0))
 
-    # info
-    surface_points = hand_model.get_surface_points()[0].detach().cpu().numpy()
-    contact_candidates = hand_model.get_contact_candidates()[0].detach().cpu().numpy()
-    penetration_keypoints = (
-        hand_model.get_penetraion_keypoints()[0].detach().cpu().numpy()
-    )
-
-    print("n_surface_points", surface_points.shape[0])
-    print("n_contact_candidates", contact_candidates.shape[0])
-
     # visualize
-
     hand_plotly = hand_model.get_plotly_data(
-        i=0, opacity=0.5, color="lightblue", with_contact_points=False
+        i=0,
+        opacity=0.5,
+        color="lightblue",
+        with_contact_points=False,
+        with_contact_candidates=True,
+        with_surface_points=True,
+        with_penetration_keypoints=True,
     )
-    surface_points_plotly = [
-        go.Scatter3d(
-            x=surface_points[:, 0],
-            y=surface_points[:, 1],
-            z=surface_points[:, 2],
-            mode="markers",
-            marker=dict(color="green", size=2),
-            name="surface_points",
-        )
-    ]
-    contact_candidates_plotly = [
-        go.Scatter3d(
-            x=contact_candidates[:, 0],
-            y=contact_candidates[:, 1],
-            z=contact_candidates[:, 2],
-            mode="markers",
-            marker=dict(color="black", size=2),
-            name="contact_candidates",
-        )
-    ]
-    penetration_keypoints_plotly = [
-        go.Scatter3d(
-            x=penetration_keypoints[:, 0],
-            y=penetration_keypoints[:, 1],
-            z=penetration_keypoints[:, 2],
-            mode="markers",
-            marker=dict(color="red", size=3),
-            name="penetration_keypoints",
-        )
-    ]
-    for penetration_keypoint in penetration_keypoints:
-        mesh = tm.primitives.Capsule(radius=0.01, height=0)
-        v = mesh.vertices + penetration_keypoint
-        f = mesh.faces
-        penetration_keypoints_plotly += [
-            go.Mesh3d(
-                x=v[:, 0],
-                y=v[:, 1],
-                z=v[:, 2],
-                i=f[:, 0],
-                j=f[:, 1],
-                k=f[:, 2],
-                color="burlywood",
-                opacity=0.5,
-                name="penetration_keypoints_mesh",
-            )
-        ]
-
     fig = go.Figure(
-        data=(
-            hand_plotly
-            + surface_points_plotly
-            + contact_candidates_plotly
-            + penetration_keypoints_plotly
-        ),
+        data=(hand_plotly),
         layout=go.Layout(
             scene=dict(
                 xaxis=dict(title="X"),

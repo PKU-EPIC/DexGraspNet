@@ -761,21 +761,21 @@ class HandModel:
         points = []
         batch_size = self.global_translation.shape[0]
         for link_name in self.mesh:
-            n_surface_points = self.mesh[link_name]["contact_candidates"].shape[0]
+            n_contact_candidates = self.mesh[link_name]["contact_candidates"].shape[0]
             points.append(
                 self.current_status[link_name].transform_points(
                     self.mesh[link_name]["contact_candidates"]
                 )
             )
             if 1 < batch_size != points[-1].shape[0]:
-                points[-1] = points[-1].expand(batch_size, n_surface_points, 3)
+                points[-1] = points[-1].expand(batch_size, n_contact_candidates, 3)
         points = torch.cat(points, dim=-2).to(self.device)
         points = points @ self.global_rotation.transpose(
             1, 2
         ) + self.global_translation.unsqueeze(1)
         return points
 
-    def get_penetraion_keypoints(self):
+    def get_penetration_keypoints(self):
         """
         Get penetration keypoints
 
@@ -787,14 +787,14 @@ class HandModel:
         points = []
         batch_size = self.global_translation.shape[0]
         for link_name in self.mesh:
-            n_surface_points = self.mesh[link_name]["penetration_keypoints"].shape[0]
+            n_keypoints = self.mesh[link_name]["penetration_keypoints"].shape[0]
             points.append(
                 self.current_status[link_name].transform_points(
                     self.mesh[link_name]["penetration_keypoints"]
                 )
             )
             if 1 < batch_size != points[-1].shape[0]:
-                points[-1] = points[-1].expand(batch_size, n_surface_points, 3)
+                points[-1] = points[-1].expand(batch_size, n_keypoints, 3)
         points = torch.cat(points, dim=-2).to(self.device)
         points = points @ self.global_rotation.transpose(
             1, 2
@@ -808,6 +808,8 @@ class HandModel:
         color="lightblue",
         with_contact_points=False,
         with_contact_candidates=False,
+        with_surface_points=False,
+        with_penetration_keypoints=False,
         pose=None,
         visual=True,
     ):
@@ -824,6 +826,12 @@ class HandModel:
             color of mesh
         with_contact_points: bool
             whether to visualize contact points
+        with_contact_candidates: bool
+            whether to visualize contact candidates
+        with_surface_points: bool
+            whether to visualize surface points
+        with_penetration_keypoints: bool
+            whether to visualize penetration keypoints
         pose: (4, 4) matrix
             homogeneous transformation matrix
         visual: bool
@@ -899,6 +907,58 @@ class HandModel:
                     name="contact candidates",
                 )
             )
+        if with_surface_points:
+            surface_points = self.get_surface_points()[i].detach().cpu()
+            if pose is not None:
+                surface_points = surface_points @ pose[:3, :3].T + pose[:3, 3]
+            data.append(
+                go.Scatter3d(
+                    x=surface_points[:, 0],
+                    y=surface_points[:, 1],
+                    z=surface_points[:, 2],
+                    mode="markers",
+                    marker=dict(color="green", size=2),
+                    name="surface points",
+                )
+            )
+
+        if with_penetration_keypoints:
+            penetration_keypoints = (
+                self.get_penetration_keypoints()[i].detach().cpu()
+            )
+            if pose is not None:
+                penetration_keypoints = (
+                    penetration_keypoints @ pose[:3, :3].T + pose[:3, 3]
+                )
+            data.append(
+                go.Scatter3d(
+                    x=penetration_keypoints[:, 0],
+                    y=penetration_keypoints[:, 1],
+                    z=penetration_keypoints[:, 2],
+                    mode="markers",
+                    marker=dict(color="red", size=3),
+                    name="penetration_keypoints",
+                )
+            )
+            for penetration_keypoint in penetration_keypoints:
+                penetration_keypoint = penetration_keypoint.numpy()
+                mesh = tm.primitives.Capsule(radius=0.01, height=0)
+                v = mesh.vertices + penetration_keypoint
+                f = mesh.faces
+                data.append(
+                    go.Mesh3d(
+                        x=v[:, 0],
+                        y=v[:, 1],
+                        z=v[:, 2],
+                        i=f[:, 0],
+                        j=f[:, 1],
+                        k=f[:, 2],
+                        color="burlywood",
+                        opacity=0.5,
+                        name="penetration_keypoints_mesh",
+                    )
+                )
+
         return data
 
     def get_trimesh_data(self, i):
