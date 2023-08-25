@@ -10,6 +10,7 @@ import sys
 # os.chdir(os.path.dirname(os.path.dirname(__file__)))
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
+import torch
 from tap import Tap
 import numpy as np
 import plotly.graph_objects as go
@@ -20,12 +21,13 @@ from utils.object_model import ObjectModel
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import qpos_to_pose
 import pathlib
+from utils.joint_angle_targets import computer_fingertip_targets, compute_fingertip_mean_contact_positions
 
 
-class VisualizeHandConfigArgumentParser(Tap):
+class VisualizeGraspConfigDictArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
-    input_hand_config_dicts_path: pathlib.Path = pathlib.Path(
-        "../data/hand_config_dicts"
+    input_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
+        "../data/grasp_config_dicts"
     )
     object_code_and_scale_str: str = "sem-Ipod-4b6c6248d5c01b3e4eee8d1cb32988b_0_10"
     idx_to_visualize: int = 0
@@ -44,7 +46,7 @@ def split_object_code_and_scale(object_code_and_scale_str: str) -> Tuple[str, fl
     return object_code, object_scale
 
 
-def main(args: VisualizeHandConfigArgumentParser):
+def main(args: VisualizeGraspConfigDictArgumentParser):
     device = "cpu"
 
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
@@ -54,7 +56,7 @@ def main(args: VisualizeHandConfigArgumentParser):
 
     # load results
     data_dicts: List[Dict[str, Any]] = np.load(
-        args.input_hand_config_dicts_path / f"{args.object_code_and_scale_str}.npy",
+        args.input_grasp_config_dicts_path / f"{args.object_code_and_scale_str}.npy",
         allow_pickle=True,
     )
     data_dict = data_dicts[args.idx_to_visualize]
@@ -112,7 +114,73 @@ def main(args: VisualizeHandConfigArgumentParser):
     object_plotly = object_model.get_plotly_data(
         i=0, color="lightgreen", opacity=1, with_surface_points=True
     )
-    fig = go.Figure(hand_start_plotly + hand_en_plotly + object_plotly)
+
+    # Add grasp_orientations
+    grasp_orientations = torch.tensor(data_dict["grasp_orientations"], dtype=torch.float, device=device)
+    assert grasp_orientations.shape == (hand_model.num_fingers, 3, 3)
+    fingertip_mean_positions = compute_fingertip_mean_contact_positions(
+        joint_angles=hand_pose[:, 9:],
+        hand_model=hand_model,
+    )
+    assert fingertip_mean_positions.shape == (1, hand_model.num_fingers, 3)
+    fingertip_targets = computer_fingertip_targets(
+        joint_angles_start=hand_pose[:, 9:],
+        hand_model=hand_model,
+        grasp_orientations=grasp_orientations.unsqueeze(dim=0),
+    )
+    assert fingertip_targets.shape == (1, hand_model.num_fingers, 3)
+    fingertips_plotly = [
+        go.Scatter3d(
+            x=fingertip_mean_positions[0, :, 0],
+            y=fingertip_mean_positions[0, :, 1],
+            z=fingertip_mean_positions[0, :, 2],
+            mode="markers",
+            marker=dict(size=7, color="goldenrod"),
+            name="fingertip mean positions",
+        ),
+        go.Scatter3d(
+            x=fingertip_targets[0, :, 0],
+            y=fingertip_targets[0, :, 1],
+            z=fingertip_targets[0, :, 2],
+            mode="markers",
+            marker=dict(size=10, color="magenta"),
+            name="fingertip targets",
+        )
+    ]
+    for i in range(hand_model.num_fingers):
+        origin = fingertip_mean_positions[0, i]
+        line_length = 0.01
+        x_dir = grasp_orientations[i, :, 0] * line_length
+        y_dir = grasp_orientations[i, :, 1] * line_length
+        z_dir = grasp_orientations[i, :, 2] * line_length
+        fingertips_plotly += [
+            go.Scatter3d(
+                x=[origin[0], origin[0] + x_dir[0]],
+                y=[origin[1], origin[1] + x_dir[1]],
+                z=[origin[2], origin[2] + x_dir[2]],
+                mode="lines",
+                marker=dict(size=5, color="red"),
+                name=f"x_dir for finger {i}",
+            ),
+            go.Scatter3d(
+                x=[origin[0], origin[0] + y_dir[0]],
+                y=[origin[1], origin[1] + y_dir[1]],
+                z=[origin[2], origin[2] + y_dir[2]],
+                mode="lines",
+                marker=dict(size=5, color="green"),
+                name=f"y_dir for finger {i}",
+            ),
+            go.Scatter3d(
+                x=[origin[0], origin[0] + z_dir[0]],
+                y=[origin[1], origin[1] + z_dir[1]],
+                z=[origin[2], origin[2] + z_dir[2]],
+                mode="lines",
+                marker=dict(size=5, color="blue"),
+                name=f"z_dir for finger {i}",
+            ),
+        ]
+
+    fig = go.Figure(hand_start_plotly + hand_en_plotly + object_plotly + fingertips_plotly)
     if "energy" in data_dict:
         energy = data_dict["energy"]
         E_fc = round(data_dict["E_fc"], 3)
@@ -141,5 +209,5 @@ def main(args: VisualizeHandConfigArgumentParser):
 
 
 if __name__ == "__main__":
-    args = VisualizeHandConfigArgumentParser().parse_args()
+    args = VisualizeGraspConfigDictArgumentParser().parse_args()
     main(args)
