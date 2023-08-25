@@ -347,7 +347,7 @@ def compute_grasp_orientations(
     batch_size = joint_angles_start.shape[0]
 
     (
-        _,
+        hand_contact_nearest_points,
         nearest_object_to_hand_directions,
         _,
         _,
@@ -359,6 +359,14 @@ def compute_grasp_orientations(
     nearest_hand_to_object_directions = -nearest_object_to_hand_directions
     z_dirs = nearest_hand_to_object_directions
     assert z_dirs.shape == (batch_size, hand_model.num_fingers, 3)
+
+    if torch.any(z_dirs.norm(dim=-1) == 0):
+        bad_inds = torch.where(z_dirs.norm(dim=-1) == 0)
+        z_dirs[bad_inds] = -hand_contact_nearest_points[bad_inds]
+        print(
+            f"WARNING: {len(bad_inds)} z_dirs have 0 norm, using hand_contact_nearest_points instead"
+        )
+
     assert (z_dirs.norm(dim=-1).min() > 0).all()
     z_dirs = z_dirs / z_dirs.norm(dim=-1, keepdim=True)
 
