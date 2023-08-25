@@ -734,8 +734,8 @@ class IsaacValidator:
     ## NERF DATA COLLECTION START ##
     def add_env_nerf_data_collection(
         self,
-        obj_scale,
-    ):
+        obj_scale: float,
+    ) -> None:
         # Set test rotation
         identity_transform = gymapi.Transform(
             gymapi.Vec3(0, 0, 0), gymapi.Quat(0, 0, 0, 1)
@@ -753,7 +753,7 @@ class IsaacValidator:
 
         self._setup_obj(env, obj_scale, identity_transform)
 
-    def save_images(self, folder, overwrite=False):
+    def save_images(self, folder: str, overwrite: bool = False) -> None:
         assert len(self.envs) == 1
         self._setup_cameras(self.envs[0])
 
@@ -891,7 +891,8 @@ class IsaacValidator:
             data = [*pos.tolist(), *quat.q[1:].tolist(), quat.q[0].tolist()]
             json.dump(data, f)
 
-    def create_train_val_test_split(self, folder, train_frac, val_frac):
+    def create_train_val_test_split(self, folder: str, train_frac: float, val_frac: float) -> None:
+        assert train_frac + val_frac < 1.0
         num_imgs = len(self.camera_handles)
         num_train = int(train_frac * num_imgs)
         num_val = int(val_frac * num_imgs)
@@ -941,7 +942,7 @@ class IsaacValidator:
         assert math.isclose(cx, cy) and math.isclose(cx, 0) and math.isclose(cy, 0)
         return fx, fy, cx, cy
 
-    def _create_one_split(self, split_name, split_range, folder):
+    def _create_one_split(self, split_name: str, split_range: np.ndarray, folder: str):
         import scipy
 
         USE_TORCH_NGP = False
