@@ -65,7 +65,7 @@ def compute_joint_angle_targets(
     hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
 
     # Optimization
-    optimized_joint_angle_targets = (
+    optimized_joint_angle_targets, _ = (
         compute_optimized_joint_angle_targets_given_grasp_orientations(
             joint_angles_start=hand_model.hand_pose[:, 9:],
             hand_model=hand_model,

@@ -465,7 +465,7 @@ def compute_optimized_joint_angle_targets_given_grasp_orientations(
     joint_angles_start: torch.Tensor,
     hand_model: HandModel,
     grasp_orientations: torch.Tensor,
-) -> torch.Tensor:
+) -> Tuple[torch.Tensor, defaultdict]:
     # Sanity check
     batch_size = joint_angles_start.shape[0]
     num_fingers = hand_model.num_fingers
@@ -488,10 +488,10 @@ def compute_optimized_joint_angle_targets_given_grasp_orientations(
 
     (
         joint_angle_targets,
-        _,
+        debug_info,
     ) = compute_optimized_joint_angle_targets_given_fingertip_targets(
         joint_angles_start=joint_angles_start,
         hand_model=hand_model,
         fingertip_targets=fingertip_targets,
     )
-    return joint_angle_targets
+    return joint_angle_targets, debug_info

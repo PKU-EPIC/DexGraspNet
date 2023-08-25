@@ -21,7 +21,7 @@ from utils.object_model import ObjectModel
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import qpos_to_pose
 import pathlib
-from utils.joint_angle_targets import computer_fingertip_targets, compute_fingertip_mean_contact_positions
+from utils.joint_angle_targets import computer_fingertip_targets, compute_fingertip_mean_contact_positions, compute_optimized_joint_angle_targets_given_fingertip_targets
 
 
 class VisualizeGraspConfigDictArgumentParser(Tap):
@@ -31,6 +31,7 @@ class VisualizeGraspConfigDictArgumentParser(Tap):
     )
     object_code_and_scale_str: str = "sem-Ipod-4b6c6248d5c01b3e4eee8d1cb32988b_0_10"
     idx_to_visualize: int = 0
+    visualize_joint_angle_targets: bool = False
     save_to_html: bool = False
 
 
@@ -102,14 +103,14 @@ def main(args: VisualizeGraspConfigDictArgumentParser):
         hand_start_plotly = []
 
     hand_model.set_parameters(hand_pose)
-    hand_en_plotly = hand_model.get_plotly_data(
+    hand_plotly = hand_model.get_plotly_data(
         i=0,
         opacity=1,
         color="lightblue",
         with_contact_points=False,
         with_contact_candidates=True,
         with_surface_points=True,
-        with_penetration_keypoints=True,
+        with_penetration_keypoints=False,
     )
     object_plotly = object_model.get_plotly_data(
         i=0, color="lightgreen", opacity=1, with_surface_points=True
@@ -180,7 +181,35 @@ def main(args: VisualizeGraspConfigDictArgumentParser):
             ),
         ]
 
-    fig = go.Figure(hand_start_plotly + hand_en_plotly + object_plotly + fingertips_plotly)
+    # Add joint angle targets
+    if args.visualize_joint_angle_targets:
+        joint_angle_targets, _ = compute_optimized_joint_angle_targets_given_fingertip_targets(
+            joint_angles_start=hand_pose[:, 9:],
+            hand_model=hand_model,
+            fingertip_targets=fingertip_targets,
+        )
+
+        hand_pose_target = torch.cat(
+            [
+                hand_pose[:, :9],
+                joint_angle_targets,
+            ],
+            dim=1,
+        )
+        hand_model.set_parameters(hand_pose_target)
+        hand_target_plotly = hand_model.get_plotly_data(
+            i=0,
+            opacity=0.5,
+            color="lightblue",
+            with_contact_points=False,
+            with_contact_candidates=False,
+            with_surface_points=False,
+            with_penetration_keypoints=False,
+        )
+    else:
+        hand_target_plotly = []
+
+    fig = go.Figure(hand_start_plotly + hand_plotly + object_plotly + fingertips_plotly + hand_target_plotly)
     if "energy" in data_dict:
         energy = data_dict["energy"]
         E_fc = round(data_dict["E_fc"], 3)
