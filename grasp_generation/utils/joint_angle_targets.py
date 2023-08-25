@@ -190,12 +190,12 @@ def compute_closest_contact_point_info(
             index=nearest_point_index.unsqueeze(1),
         )
         hand_contact_nearest_points = torch.gather(
-            inputs=contact_candidates,
+            input=contact_candidates,
             dim=1,
             index=nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3),
         )
         nearest_object_to_hand_directions = torch.gather(
-            inputs=object_to_hand_directions,
+            input=object_to_hand_directions,
             dim=1,
             index=nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3),
         )
@@ -260,6 +260,79 @@ def compute_fingertip_targets_and_hand_contact_nearest_point_indices(
     return fingertip_targets, hand_contact_nearest_point_indices
 
 
+def compute_fingertip_dirs(
+    joint_angles: torch.Tensor,
+    hand_model: HandModel,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    batch_size = joint_angles.shape[0]
+    untransformed_center = torch.tensor([0, 0, 0]).to(joint_angles.device)
+    untransformed_center_to_tip_dir = torch.tensor([0, 0, 1.0]).to(joint_angles.device)
+    untransformed_center_to_right_dir = torch.tensor([0, 1.0, 0]).to(
+        joint_angles.device
+    )
+
+    untransformed_points = torch.stack(
+        [
+            untransformed_center,
+            untransformed_center + untransformed_center_to_tip_dir,
+            untransformed_center + untransformed_center_to_right_dir,
+        ],
+        dim=0,
+    )
+
+    current_status = hand_model.chain.forward_kinematics(joint_angles)
+    fingertip_link_names = set(
+        ["link_3.0_tip", "link_7.0_tip", "link_11.0_tip", "link_15.0_tip"]
+    )
+    center_to_right_dirs, center_to_tip_dirs = [], []
+    for i, link_name in enumerate(hand_model.mesh):
+        if link_name not in fingertip_link_names:
+            continue
+
+        transformed_points = current_status[link_name].transform_points(
+            untransformed_points
+        )
+        transformed_points = transformed_points @ hand_model.global_rotation.transpose(
+            1, 2
+        ) + hand_model.global_translation.unsqueeze(1)
+
+        assert transformed_points.shape == (
+            batch_size,
+            len(untransformed_points),
+            3,
+        )
+        center = transformed_points[:, 0, :]
+        center_to_tip_dir = transformed_points[:, 1, :] - center
+        center_to_right_dir = transformed_points[:, 2, :] - center
+        assert center_to_tip_dir.shape == (batch_size, 3)
+        assert center_to_right_dir.shape == (batch_size, 3)
+        assert torch.allclose(
+            center_to_tip_dir.norm(dim=-1),
+            torch.ones(
+                batch_size,
+                device=center_to_tip_dir.device,
+                dtype=center_to_tip_dir.dtype,
+            ),
+        )
+        assert torch.allclose(
+            center_to_right_dir.norm(dim=-1),
+            torch.ones(
+                batch_size,
+                device=center_to_right_dir.device,
+                dtype=center_to_right_dir.dtype,
+            ),
+        )
+
+        center_to_right_dirs.append(center_to_right_dir)
+        center_to_tip_dirs.append(center_to_tip_dir)
+
+    center_to_right_dirs = torch.stack(center_to_right_dirs, dim=1)
+    center_to_tip_dirs = torch.stack(center_to_tip_dirs, dim=1)
+    assert center_to_right_dirs.shape == (batch_size, hand_model.num_fingers, 3)
+    assert center_to_tip_dirs.shape == (batch_size, hand_model.num_fingers, 3)
+    return center_to_right_dirs, center_to_tip_dirs
+
+
 def compute_grasp_orientations(
     joint_angles_start: torch.Tensor,
     hand_model: HandModel,
@@ -274,10 +347,10 @@ def compute_grasp_orientations(
     batch_size = joint_angles_start.shape[0]
 
     (
-        hand_contact_nearest_points,
+        _,
         nearest_object_to_hand_directions,
-        nearest_distances,
-        hand_contact_nearest_point_indices,
+        _,
+        _,
     ) = compute_closest_contact_point_info(
         joint_angles=joint_angles_start,
         hand_model=hand_model,
@@ -285,10 +358,26 @@ def compute_grasp_orientations(
     )
     nearest_hand_to_object_directions = -nearest_object_to_hand_directions
     z_dirs = nearest_hand_to_object_directions
+    assert z_dirs.shape == (batch_size, hand_model.num_fingers, 3)
+    assert (z_dirs.norm(dim=-1).min() > 0).all()
+    z_dirs = z_dirs / z_dirs.norm(dim=-1, keepdim=True)
 
-    # TODO: use hand positioning to get y and x dir
-    y_dirs = torch.zeros_like(z_dirs)
-    x_dirs = torch.zeros_like(z_dirs)
+    (center_to_right_dirs, center_to_tip_dirs) = compute_fingertip_dirs(
+        joint_angles=joint_angles_start,
+        hand_model=hand_model,
+    )
+    option_1_ok = torch.cross(center_to_tip_dirs, z_dirs).norm(dim=-1, keepdim=True) > 0
+
+    y_dirs = torch.where(
+        option_1_ok,
+        center_to_tip_dirs
+        - (center_to_tip_dirs * z_dirs).sum(dim=-1, keepdim=True) * z_dirs,
+        center_to_right_dirs
+        - (center_to_right_dirs * z_dirs).sum(dim=-1, keepdim=True) * z_dirs,
+    )
+    y_dirs = y_dirs / y_dirs.norm(dim=-1, keepdim=True)
+
+    x_dirs = torch.cross(y_dirs, z_dirs)
     grasp_orientations = torch.stack([x_dirs, y_dirs, z_dirs], dim=-1)
 
     assert grasp_orientations.shape == (batch_size, hand_model.num_fingers, 3, 3)
