@@ -160,13 +160,14 @@ original_hand_pose = hand_model.hand_pose.detach().clone()
 print(f"original_hand_pose[:, 9:] = {original_hand_pose[:, 9:]}")
 
 # %%
+assert grasp_orientations.shape == (hand_model.num_fingers, 3, 3)
 (
     joint_angle_targets_to_optimize,
     debug_info,
 ) = compute_optimized_joint_angle_targets_given_grasp_orientations(
-    joint_angle_start=original_hand_pose[:, 9:],
+    joint_angles_start=original_hand_pose[:, 9:],
     hand_model=hand_model,
-    grasp_orientations=grasp_orientations,
+    grasp_orientations=grasp_orientations.unsqueeze(dim=0),
 )
 losses = debug_info["loss"]
 
