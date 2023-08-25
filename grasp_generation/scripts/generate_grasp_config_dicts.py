@@ -39,7 +39,7 @@ class GenerateGraspConfigDictsArgumentParser(Tap):
     input_hand_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/hand_config_dicts"
     )
-    output_grasp_config_dicts_path: pathlib.Path = pathlib.Path("../data/dataset")
+    output_grasp_config_dicts_path: pathlib.Path = pathlib.Path("../data/grasp_config_dicts")
     seed: int = 1
 
 
@@ -110,13 +110,13 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
         )
 
         # Read in data
-        data_dicts: List[Dict[str, Any]] = np.load(
+        hand_config_dicts: List[Dict[str, Any]] = np.load(
             hand_config_dict_path, allow_pickle=True
         )
-        batch_size = len(data_dicts)
+        batch_size = len(hand_config_dicts)
         hand_pose_array = []
         for i in range(batch_size):
-            qpos = data_dicts[i]["qpos"]
+            qpos = hand_config_dicts[i]["qpos"]
             hand_pose_array.append(
                 qpos_to_pose(
                     qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False
@@ -136,7 +136,7 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
         for i in range(batch_size):
             grasp_config_dicts.append(
                 {
-                    **data_dicts[i],
+                    **hand_config_dicts[i],
                     "grasp_orientations": grasp_orientations[i].tolist(),
                 }
             )

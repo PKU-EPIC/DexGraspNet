@@ -254,7 +254,7 @@ class IsaacValidator:
         )
 
     def add_env_all_test_rotations(
-        self, hand_quaternion, hand_translation, hand_qpos, obj_scale, target_qpos=None
+        self, hand_quaternion, hand_translation, hand_qpos, obj_scale, target_qpos
     ):
         for test_rotation_idx in range(len(self.test_rotations)):
             self.add_env_single_test_rotation(
@@ -273,7 +273,7 @@ class IsaacValidator:
         hand_qpos,
         obj_scale,
         test_rotation_index=0,
-        target_qpos=None,
+        target_qpos,
     ):
         # Set test rotation
         test_rot = self.test_rotations[test_rotation_index]
@@ -300,7 +300,7 @@ class IsaacValidator:
         hand_translation,
         hand_qpos,
         transformation,
-        target_qpos=None,
+        target_qpos,
     ):
         # Set hand pose
         hand_pose = gymapi.Transform()
@@ -356,8 +356,6 @@ class IsaacValidator:
                     env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
                 )
                 dof_pos_targets[joint_idx] = target_qpos[i]
-        else:
-            dof_pos_targets = dof_states["pos"]
         gym.set_actor_dof_position_targets(env, hand_actor_handle, dof_pos_targets)
 
         # Store hand link_idx_to_name_dict
