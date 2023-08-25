@@ -32,6 +32,7 @@ import plotly.graph_objects as go
 import wandb
 from datetime import datetime
 from tap import Tap
+import pathlib
 
 try:
     set_start_method("spawn")
@@ -43,23 +44,28 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 np.seterr(all="raise")
 
 
-class GenerateGraspsArgumentParser(Tap):
+class GenerateHandConfigDictsArgumentParser(Tap):
     # experiment settings
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
+    output_hand_config_dicts_path: pathlib.Path = pathlib.Path(
+        "../data/hand_config_dicts"
+    )
+    object_scale: float = 0.1
+    seed: int = 1
+    batch_size_each_object: int = 500
+    n_objects_per_batch: int = (
+        2  # Runs batch_size_each_object * n_objects_per_batch grasps per GPU
+    )
+    n_iter: int = 4000
+    use_multiprocess: bool = False
+
+    # Logging
+    use_wandb: bool = False
     wandb_name: str = ""
     wandb_entity: str = "tylerlum"
     wandb_project: str = "DexGraspNet_v1"
     wandb_visualization_freq: Optional[int] = 2000
-    result_path: str = "../data/graspdata"
-    data_root_path: str = "../data/meshdata"
-    object_code_list: Optional[List[str]] = None
-    all: bool = False
-    overwrite: bool = False
-    todo: bool = False
-    seed: int = 1
-    batch_size_each: int = 500
-    max_total_batch_size: int = 1000
-    n_iter: int = 4000
 
     # hyper parameters
     switch_possibility: float = 0.5
@@ -150,42 +156,54 @@ def get_energy_term_log_dict(
     return log_dict
 
 
-def save_results(
+def save_hand_config_dicts(
     hand_model: HandModel,
     object_model: ObjectModel,
     object_code_list: List[str],
-    hand_pose_st: torch.Tensor,
+    object_scale: float,
+    hand_pose_start: torch.Tensor,
     energy: torch.Tensor,
     unweighted_energy_matrix: torch.Tensor,
-    output_folder: str,
+    output_folder_path: pathlib.Path,
 ) -> None:
+    """
+    Save results to output_folder_path
+        * <output_folder_path>/<object_code>_<object_scale>.npy
+
+    Each file is a list of hand_config_dict, where each hand_config_dict is a dict with keys:
+        * qpos: {<joint_1.0>: x, <joint_1.1>: y, ...,
+                 <translation_x>: x, <translation_y>: y, <translation_z>: z,
+                 <rotation_x>: x, <rotation_y>: y, <rotation_z>: z}
+        * qpos_start: ^ but for the starting pose
+        * energy: float
+        * E_{name}: float for each energy name
+    """
     num_objects, num_grasps_per_object = object_model.object_scale_tensor.shape
     assert len(object_code_list) == num_objects
-    assert hand_pose_st.shape[0] == num_objects * num_grasps_per_object
+    assert hand_pose_start.shape[0] == num_objects * num_grasps_per_object
+    assert (object_model.object_scale_tensor == object_scale).all()
 
     joint_names = handmodeltype_to_joint_names[hand_model.hand_model_type]
     for object_i, object_code in enumerate(object_code_list):
-        object_grasp_data_list = []
+        hand_config_dicts = []
         for object_grasp_j in range(num_grasps_per_object):
             grasp_idx = object_i * num_grasps_per_object + object_grasp_j
 
-            scale = object_model.object_scale_tensor[object_i, object_grasp_j].item()
             qpos = pose_to_qpos(
                 hand_pose=hand_model.hand_pose[grasp_idx].detach().cpu(),
                 joint_names=joint_names,
             )
-            qpos_st = pose_to_qpos(
-                hand_pose=hand_pose_st[grasp_idx].detach().cpu(),
+            qpos_start = pose_to_qpos(
+                hand_pose=hand_pose_start[grasp_idx].detach().cpu(),
                 joint_names=joint_names,
             )
-            object_grasp_data = dict(
-                scale=scale,
+            hand_config_dict = dict(
                 qpos=qpos,
-                qpos_st=qpos_st,
+                qpos_start=qpos_start,
                 energy=energy[grasp_idx].item(),
             )
 
-            object_grasp_data.update(
+            hand_config_dict.update(
                 {
                     ENERGY_NAME_TO_SHORTHAND_DICT[
                         energy_name
@@ -194,36 +212,40 @@ def save_results(
                 }
             )
 
-            object_grasp_data_list.append(object_grasp_data)
+            hand_config_dicts.append(hand_config_dict)
 
+        object_code_and_scale_str = f"{object_code}_{object_scale:.2f}".replace(".", "_")
         np.save(
-            os.path.join(output_folder, object_code + ".npy"),
-            object_grasp_data_list,
+            output_folder_path / f"{object_code_and_scale_str}.npy",
+            hand_config_dicts,
             allow_pickle=True,
         )
 
 
 def generate(
-    args_tuple: Tuple[GenerateGraspsArgumentParser, List[str], int, List[str]]
+    args_tuple: Tuple[GenerateHandConfigDictsArgumentParser, List[str], int, List[str]]
 ) -> None:
     args, object_code_list, id, gpu_list = args_tuple
 
     # Log to wandb
     time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     name = f"{args.wandb_name}_{time_str}" if len(args.wandb_name) > 0 else time_str
-    # wandb.init(
-    #     entity=args.wandb_entity,
-    #     project=args.wandb_project,
-    #     name=name,
-    #     config=args,
-    # )
+    if args.use_wandb:
+        wandb.init(
+            entity=args.wandb_entity,
+            project=args.wandb_project,
+            name=name,
+            config=args,
+        )
 
     set_seed(args.seed)
 
     # prepare models
-
-    worker = multiprocessing.current_process()._identity[0]
-    os.environ["CUDA_VISIBLE_DEVICES"] = gpu_list[worker - 1]
+    if args.use_multiprocess:
+        worker = multiprocessing.current_process()._identity[0]
+        os.environ["CUDA_VISIBLE_DEVICES"] = gpu_list[worker - 1]
+    else:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     device = torch.device("cuda")
 
     hand_model = HandModel(
@@ -232,8 +254,9 @@ def generate(
     )
 
     object_model = ObjectModel(
-        data_root_path=args.data_root_path,
-        batch_size_each=args.batch_size_each,
+        meshdata_root_path=str(args.meshdata_root_path),
+        batch_size_each=args.batch_size_each_object,
+        scale=args.object_scale,
         num_samples=2000,
         device=device,
     )
@@ -251,7 +274,7 @@ def generate(
         n_contacts_per_finger=args.n_contacts_per_finger,
     )
 
-    hand_pose_st = hand_model.hand_pose.detach()
+    hand_pose_start = hand_model.hand_pose.detach()
 
     optim_config = {
         "switch_possibility": args.switch_possibility,
@@ -284,7 +307,8 @@ def generate(
     energy.sum().backward(retain_graph=True)
 
     idx_to_visualize = 0
-    for step in tqdm(range(args.n_iter), desc=f"optimizing {id}"):
+    pbar = tqdm(range(args.n_iter), desc="optimizing", dynamic_ncols=True)
+    for step in pbar:
         wandb_log_dict = {}
         wandb_log_dict["optimization_step"] = step
 
@@ -315,18 +339,19 @@ def generate(
             args.store_grasps_mid_optimization_freq is not None
             and step % args.store_grasps_mid_optimization_freq == 0
         ):
-            new_output_folder = os.path.join(
-                args.result_path + "_mid_optimization", str(step)
-            )
-            os.makedirs(new_output_folder, exist_ok=True)
-            save_results(
+            new_output_folder = pathlib.Path(
+                f"{args.output_hand_config_dicts_path.name}_mid_optimization"
+            ) / str(step)
+            new_output_folder.mkdir(parents=True, exist_ok=True)
+            save_hand_config_dicts(
                 hand_model=hand_model,
                 object_model=object_model,
                 object_code_list=object_code_list,
-                hand_pose_st=hand_pose_st,
+                object_scale=args.object_scale,
+                hand_pose_start=hand_pose_start,
                 energy=energy,
                 unweighted_energy_matrix=unweighted_energy_matrix,
-                output_folder=new_output_folder,
+                output_folder_path=new_output_folder,
             )
 
         # Log
@@ -359,87 +384,68 @@ def generate(
             )
             wandb_log_dict[fig_title] = fig
 
-        # wandb.log(wandb_log_dict)
+        if args.use_wandb:
+            wandb.log(wandb_log_dict)
 
-    # save results
-    save_results(
+        pbar.set_description(f"optimizing, mean energy: {energy.mean().item():.4f}")
+
+    save_hand_config_dicts(
         hand_model=hand_model,
         object_model=object_model,
         object_code_list=object_code_list,
-        hand_pose_st=hand_pose_st,
+        object_scale=args.object_scale,
+        hand_pose_start=hand_pose_start,
         energy=energy,
         unweighted_energy_matrix=unweighted_energy_matrix,
-        output_folder=args.result_path,
+        output_folder_path=args.output_hand_config_dicts_path,
     )
 
 
-if __name__ == "__main__":
-    args = GenerateGraspsArgumentParser().parse_args()
+def main(args: GenerateHandConfigDictsArgumentParser) -> None:
+    print("=" * 80)
+    print(f"args = {args}")
+    print("=" * 80 + "\n")
 
     gpu_list = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
     print(f"gpu_list: {gpu_list}")
 
     # check whether arguments are valid and process arguments
     set_seed(args.seed)
-    if not os.path.exists(args.result_path):
-        os.makedirs(args.result_path)
+    args.output_hand_config_dicts_path.mkdir(parents=True, exist_ok=True)
 
-    if not os.path.exists(args.data_root_path):
-        raise ValueError(f"data_root_path {args.data_root_path} doesn't exist")
+    if not args.meshdata_root_path.exists():
+        raise ValueError(f"meshdata_root_path {args.meshdata_root_path} doesn't exist")
 
-    if (args.object_code_list is not None) + args.all != 1:
-        raise ValueError(
-            "exactly one among 'object_code_list' 'all' should be specified"
-        )
-
-    if args.todo:
-        with open("todo.txt", "r") as f:
-            lines = f.readlines()
-            object_code_list_all = [line[:-1] for line in lines]
-    else:
-        object_code_list_all = os.listdir(args.data_root_path)
-        print(f"First 10 in object_code_list_all: {object_code_list_all[:10]}")
-
-    if args.object_code_list is not None:
-        object_code_list = args.object_code_list
-        if not set(object_code_list).issubset(set(object_code_list_all)):
-            raise ValueError(
-                "object_code_list isn't a subset of dirs in data_root_path"
-            )
-    else:
-        object_code_list = object_code_list_all
-
-    if not args.overwrite:
-        for object_code in object_code_list.copy():
-            if os.path.exists(os.path.join(args.result_path, object_code + ".npy")):
-                object_code_list.remove(object_code)
-
-    if args.batch_size_each > args.max_total_batch_size:
-        raise ValueError(
-            f"batch_size_each {args.batch_size_each} should be smaller than max_total_batch_size {args.max_total_batch_size}"
-        )
-
-    print(f"n_objects: {len(object_code_list)}")
+    object_code_list = [path.name for path in args.meshdata_root_path.iterdir()]
+    print(f"First 10 in object_code_list_all: {object_code_list[:10]}")
+    print(f"len(object_code_list): {len(object_code_list)}")
 
     # generate
-
     set_seed(args.seed)
     random.shuffle(object_code_list)
-    objects_each = args.max_total_batch_size // args.batch_size_each
     object_code_groups = [
-        object_code_list[i : i + objects_each]
-        for i in range(0, len(object_code_list), objects_each)
+        object_code_list[i : i + args.n_objects_per_batch]
+        for i in range(0, len(object_code_list), args.n_objects_per_batch)
     ]
 
     process_args = []
     for id, object_code_group in enumerate(object_code_groups):
         process_args.append((args, object_code_group, id + 1, gpu_list))
 
-    with multiprocessing.Pool(len(gpu_list)) as p:
-        it = tqdm(
-            p.imap(generate, process_args),
-            total=len(process_args),
-            desc="generating",
-            maxinterval=1000,
-        )
-        list(it)
+    if args.use_multiprocess:
+        with multiprocessing.Pool(len(gpu_list)) as p:
+            it = tqdm(
+                p.imap(generate, process_args),
+                total=len(process_args),
+                desc="generating",
+                maxinterval=1000,
+            )
+            list(it)
+    else:
+        for process_arg in tqdm(process_args, desc="generating", maxinterval=1000):
+            generate(process_arg)
+
+
+if __name__ == "__main__":
+    args = GenerateHandConfigDictsArgumentParser().parse_args()
+    main(args)

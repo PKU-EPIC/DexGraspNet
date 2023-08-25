@@ -103,24 +103,20 @@ class ValidationType(AutoName):
 class IsaacValidator:
     def __init__(
         self,
-        hand_model_type=HandModelType.ALLEGRO_HAND,
-        mode="direct",
-        hand_friction=3.0,
-        obj_friction=3.0,
-        threshold_dis=0.1,
-        env_batch=1,
-        sim_step=100,
-        gpu=0,
-        debug_interval=0.05,
-        start_with_step_mode=False,
-        validation_type=ValidationType.NO_GRAVITY_SHAKING,
-    ):
+        hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
+        mode: str = "direct",
+        hand_friction: float = 3.0,
+        obj_friction: float = 3.0,
+        num_sim_steps: int = 100,
+        gpu: int = 0,
+        debug_interval: float = 0.05,
+        start_with_step_mode: bool = False,
+        validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING,
+    ) -> None:
         self.hand_friction = hand_friction
         self.obj_friction = obj_friction
         self.debug_interval = debug_interval
-        self.threshold_dis = threshold_dis
-        self.env_batch = env_batch
-        self.sim_step = sim_step
+        self.num_sim_steps = num_sim_steps
         self.gpu = gpu
         self.validation_type = validation_type
 
@@ -248,33 +244,38 @@ class IsaacValidator:
             self.sim, self.hand_root, self.hand_file, self.hand_asset_options
         )
 
-    def set_obj_asset(self, obj_root, obj_file):
+    def set_obj_asset(self, obj_root: str, obj_file: str) -> None:
         self.obj_asset = gym.load_asset(
             self.sim, obj_root, obj_file, self.obj_asset_options
         )
 
     def add_env_all_test_rotations(
-        self, hand_quaternion, hand_translation, hand_qpos, obj_scale, target_qpos=None
-    ):
+        self,
+        hand_quaternion: np.ndarray,
+        hand_translation: np.ndarray,
+        hand_qpos: np.ndarray,
+        obj_scale: float,
+        target_qpos: np.ndarray,
+    ) -> None:
         for test_rotation_idx in range(len(self.test_rotations)):
             self.add_env_single_test_rotation(
-                hand_quaternion,
-                hand_translation,
-                hand_qpos,
-                obj_scale,
-                test_rotation_idx,
-                target_qpos,
+                hand_quaternion=hand_quaternion,
+                hand_translation=hand_translation,
+                hand_qpos=hand_qpos,
+                obj_scale=obj_scale,
+                target_qpos=target_qpos,
+                test_rotation_index=test_rotation_idx,
             )
 
     def add_env_single_test_rotation(
         self,
-        hand_quaternion,
-        hand_translation,
-        hand_qpos,
-        obj_scale,
-        test_rotation_index=0,
-        target_qpos=None,
-    ):
+        hand_quaternion: np.ndarray,
+        hand_translation: np.ndarray,
+        hand_qpos: np.ndarray,
+        obj_scale: float,
+        target_qpos: np.ndarray,
+        test_rotation_index: int = 0,
+    ) -> None:
         # Set test rotation
         test_rot = self.test_rotations[test_rotation_index]
 
@@ -288,7 +289,12 @@ class IsaacValidator:
         self.envs.append(env)
 
         self._setup_hand(
-            env, hand_quaternion, hand_translation, hand_qpos, test_rot, target_qpos
+            env=env,
+            hand_quaternion=hand_quaternion,
+            hand_translation=hand_translation,
+            hand_qpos=hand_qpos,
+            transformation=test_rot,
+            target_qpos=target_qpos,
         )
 
         self._setup_obj(env, obj_scale, test_rot)
@@ -296,12 +302,12 @@ class IsaacValidator:
     def _setup_hand(
         self,
         env,
-        hand_quaternion,
-        hand_translation,
-        hand_qpos,
-        transformation,
-        target_qpos=None,
-    ):
+        hand_quaternion: np.ndarray,
+        hand_translation: np.ndarray,
+        hand_qpos: np.ndarray,
+        transformation: gymapi.Transform,
+        target_qpos: np.ndarray,
+    ) -> None:
         # Set hand pose
         hand_pose = gymapi.Transform()
         hand_pose.r = gymapi.Quat(*hand_quaternion[1:], hand_quaternion[0])
@@ -349,15 +355,12 @@ class IsaacValidator:
         gym.set_actor_dof_states(env, hand_actor_handle, dof_states, gymapi.STATE_ALL)
 
         # Set hand dof targets
-        if target_qpos is not None:
-            dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_actor_handle)
-            for i, joint in enumerate(self.joint_names):
-                joint_idx = gym.find_actor_dof_index(
-                    env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
-                )
-                dof_pos_targets[joint_idx] = target_qpos[i]
-        else:
-            dof_pos_targets = dof_states["pos"]
+        dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_actor_handle)
+        for i, joint in enumerate(self.joint_names):
+            joint_idx = gym.find_actor_dof_index(
+                env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
+            )
+            dof_pos_targets[joint_idx] = target_qpos[i]
         gym.set_actor_dof_position_targets(env, hand_actor_handle, dof_pos_targets)
 
         # Store hand link_idx_to_name_dict
@@ -372,7 +375,7 @@ class IsaacValidator:
         gym.set_actor_rigid_shape_properties(env, hand_actor_handle, hand_shape_props)
         return
 
-    def _setup_obj(self, env, obj_scale, transformation):
+    def _setup_obj(self, env, obj_scale: float, transformation: gymapi.Transform) -> None:
         obj_pose = gymapi.Transform()
         obj_pose.p = gymapi.Vec3(0, 0, 0)
         obj_pose.r = gymapi.Quat(0, 0, 0, 1)
@@ -401,8 +404,8 @@ class IsaacValidator:
     def run_sim(self):
         sim_step_idx = 0
         default_desc = "Simulating"
-        pbar = tqdm(total=self.sim_step, desc=default_desc, dynamic_ncols=True)
-        while sim_step_idx < self.sim_step:
+        pbar = tqdm(total=self.num_sim_steps, desc=default_desc, dynamic_ncols=True)
+        while sim_step_idx < self.num_sim_steps:
             # Set virtual joint targets
             virtual_joint_dof_pos_targets = self._compute_virtual_joint_dof_pos_targets(
                 sim_step_idx
@@ -563,7 +566,7 @@ class IsaacValidator:
 
         # First do nothing
         fraction_do_nothing = 0.1
-        total_steps_not_moving = int(self.sim_step * fraction_do_nothing)
+        total_steps_not_moving = int(self.num_sim_steps * fraction_do_nothing)
         if sim_step_idx < total_steps_not_moving:
             return None
 
@@ -581,7 +584,7 @@ class IsaacValidator:
         ]
 
         num_steps_moving_so_far = sim_step_idx - total_steps_not_moving
-        total_steps_moving = self.sim_step - total_steps_not_moving
+        total_steps_moving = self.num_sim_steps - total_steps_not_moving
         direction_idx = int(
             (num_steps_moving_so_far / total_steps_moving) * len(directions_sequence)
         )
@@ -731,8 +734,8 @@ class IsaacValidator:
     ## NERF DATA COLLECTION START ##
     def add_env_nerf_data_collection(
         self,
-        obj_scale,
-    ):
+        obj_scale: float,
+    ) -> None:
         # Set test rotation
         identity_transform = gymapi.Transform(
             gymapi.Vec3(0, 0, 0), gymapi.Quat(0, 0, 0, 1)
@@ -750,7 +753,7 @@ class IsaacValidator:
 
         self._setup_obj(env, obj_scale, identity_transform)
 
-    def save_images(self, folder, overwrite=False):
+    def save_images(self, folder: str, overwrite: bool = False) -> None:
         assert len(self.envs) == 1
         self._setup_cameras(self.envs[0])
 
@@ -888,7 +891,8 @@ class IsaacValidator:
             data = [*pos.tolist(), *quat.q[1:].tolist(), quat.q[0].tolist()]
             json.dump(data, f)
 
-    def create_train_val_test_split(self, folder, train_frac, val_frac):
+    def create_train_val_test_split(self, folder: str, train_frac: float, val_frac: float) -> None:
+        assert train_frac + val_frac < 1.0
         num_imgs = len(self.camera_handles)
         num_train = int(train_frac * num_imgs)
         num_val = int(val_frac * num_imgs)
@@ -938,7 +942,7 @@ class IsaacValidator:
         assert math.isclose(cx, cy) and math.isclose(cx, 0) and math.isclose(cy, 0)
         return fx, fy, cx, cy
 
-    def _create_one_split(self, split_name, split_range, folder):
+    def _create_one_split(self, split_name: str, split_range: np.ndarray, folder: str):
         import scipy
 
         USE_TORCH_NGP = False
