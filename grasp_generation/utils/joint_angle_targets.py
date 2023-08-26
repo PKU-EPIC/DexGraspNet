@@ -19,6 +19,7 @@ class OptimizationMethod(AutoName):
     DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS = auto()
     DESIRED_DIST_TOWARDS_FINGERS_CENTER_MULTIPLE_STEP = auto()
 
+FINGERTIP_KEYWORDS = ["link_3.0", "link_7.0", "link_11.0", "link_15.0"]
 
 ### HELPERS START ###
 def _compute_link_name_to_contact_candidates(
@@ -61,7 +62,7 @@ def _compute_fingertip_name_to_contact_candidates(
 ) -> Dict[str, torch.Tensor]:
     # HACK: hardcoded
     # Merge links associated with same fingertip
-    fingertip_keywords = ["link_3.0", "link_7.0", "link_11.0", "link_15.0"]
+    fingertip_keywords = FINGERTIP_KEYWORDS
     fingertip_name_to_contact_candidates = {}
     for fingertip_keyword in fingertip_keywords:
         merged_contact_candidates = []
@@ -115,7 +116,7 @@ def compute_fingertip_mean_contact_positions(
     )
 
     # Iterate in deterministic order
-    fingertip_names = sorted(list(fingertip_name_to_contact_candidates.keys()))
+    fingertip_names = FINGERTIP_KEYWORDS
     fingertip_mean_positions = []
     for i, fingertip_name in enumerate(fingertip_names):
         contact_candidates = fingertip_name_to_contact_candidates[fingertip_name]
@@ -168,7 +169,7 @@ def compute_closest_contact_point_info(
         torch.zeros((batch_size, num_fingers)).long().to(joint_angles.device)
     )
 
-    fingertip_names = sorted(list(fingertip_name_to_contact_candidates.keys()))
+    fingertip_names = FINGERTIP_KEYWORDS
     for i, fingertip_name in enumerate(fingertip_names):
         contact_candidates = fingertip_name_to_contact_candidates[fingertip_name]
         n_contact_candidates = contact_candidates.shape[1]
