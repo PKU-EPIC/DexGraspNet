@@ -318,6 +318,17 @@ class IsaacValidator:
         self.init_hand_poses.append(hand_pose)
         self.collision_idx = collision_idx
 
+        # 💀 HERE THAR BE MONSTERS 👹
+        # We hardcoded the collision filter for the hand to 2, but have no clue
+        # what this actually does. It was originally set to -1, but this
+        # would cause the collision buffer to overflow.
+
+        # Occasionally we get a warning like:
+        # "internal error : Contact buffer overflow detected, please increase its size"
+        # but it doesn't seem to affect the realism of the simulation.
+
+        # <3 preston and albert
+
         # Create hand
         hand_actor_handle = gym.create_actor(
             env,
@@ -325,7 +336,7 @@ class IsaacValidator:
             hand_pose,
             "hand",
             collision_idx,
-            0,
+            2,
         )
         self.hand_handles.append(hand_actor_handle)
 
@@ -404,7 +415,7 @@ class IsaacValidator:
             obj_pose,
             "obj",
             collision_idx,
-            0,
+            1,
             OBJ_SEGMENTATION_ID,
         )
         self.obj_handles.append(obj_actor_handle)
@@ -715,6 +726,11 @@ class IsaacValidator:
         self.obj_link_idx_to_name_dicts = []
         self.hand_asset = None
         self.obj_asset = None
+
+        # Recreate hand asset in new sim.
+        self.hand_asset = gym.load_asset(
+            self.sim, self.hand_root, self.hand_file, self.hand_asset_options
+        )
 
     def destroy(self):
         gym.destroy_sim(self.sim)

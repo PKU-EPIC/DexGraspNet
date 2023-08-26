@@ -53,6 +53,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     # if debug_index is received, then the debug mode is on
     debug_index: Optional[int] = None
     start_with_step_mode: bool = False
+    use_gui: bool = False
     penetration_threshold: Optional[float] = None
 
 
@@ -199,30 +200,37 @@ def main(args: EvalGraspConfigDictArgumentParser):
         hand_model_type=args.hand_model_type,
         gpu=args.gpu,
         validation_type=args.validation_type,
+        mode="gui" if args.use_gui else "headless",
     )
     # Run validation on all grasps
     batch_size = len(grasp_config_dicts)
 
-    # TODO: All rotations should be the same since no gravity, so this is meaningless
-    num_envs_per_grasp = len(sim.test_rotations)
-    sim.set_obj_asset(
-        obj_root=str(args.meshdata_root_path / object_code / "coacd"),
-        obj_file="coacd.urdf",
-    )
-    for index in range(batch_size):
-        sim.add_env_all_test_rotations(
-            hand_quaternion=quaternion_array[index],
-            hand_translation=translation_array[index],
-            hand_qpos=joint_angles_array[index],
-            obj_scale=object_scale,
-            target_qpos=joint_angle_targets_array[index],
+    # Run for loop over minibatches of grasps.
+    successes = []
+    for i in tqdm(range(math.ceil(batch_size / args.max_grasps_per_batch))):
+        start_index = i * args.max_grasps_per_batch
+        end_index = min((i + 1) * args.max_grasps_per_batch, batch_size)
+        num_grasps_in_batch = end_index - start_index
+        sim.set_obj_asset(
+            obj_root=str(args.meshdata_root_path / object_code / "coacd"),
+            obj_file="coacd.urdf",
         )
-    successes = sim.run_sim()
-    sim.reset_simulator()
+        for index in range(start_index, end_index):
+            sim.add_env_all_test_rotations(
+                hand_quaternion=quaternion_array[index],
+                hand_translation=translation_array[index],
+                hand_qpos=joint_angles_array[index],
+                obj_scale=object_scale,
+                target_qpos=joint_angle_targets_array[index],
+            )
+        batch_successes = sim.run_sim()
+        successes.append(batch_successes)
+        sim.reset_simulator()
 
     # Aggregate results
-    assert len(successes) == batch_size * num_envs_per_grasp
-    successes = np.array(successes).reshape(batch_size, num_envs_per_grasp)
+    successes = np.concatenate(successes, axis=0)
+    assert len(successes) == batch_size * len(sim.test_rotations)
+    successes = np.array(successes).reshape(batch_size, len(sim.test_rotations))
     passed_simulation = successes.all(axis=1)
 
     # TODO: add penetration check E_pen
