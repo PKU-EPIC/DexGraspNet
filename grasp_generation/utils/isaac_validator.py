@@ -325,7 +325,7 @@ class IsaacValidator:
             hand_pose,
             "hand",
             collision_idx,
-            1,
+            0,
         )
         self.hand_handles.append(hand_actor_handle)
 
@@ -404,7 +404,7 @@ class IsaacValidator:
             obj_pose,
             "obj",
             collision_idx,
-            1,
+            0,
             OBJ_SEGMENTATION_ID,
         )
         self.obj_handles.append(obj_actor_handle)
