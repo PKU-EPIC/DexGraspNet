@@ -1,3 +1,4 @@
+from __future__ import annotations
 import subprocess
 import random
 import os
@@ -19,14 +20,16 @@ class EvalAllGraspConfigDictsArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
     gpu: int = 0
+    max_grasps_per_batch: int = 500
+    debug_index: Optional[int] = None
     input_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/grasp_config_dicts"
     )
+    use_gui: bool = False
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     output_evaled_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/evaled_grasp_config_dicts"
     )
-    max_grasps_per_batch: int = 1000
     randomize_order_seed: Optional[int] = None
 
 
@@ -102,6 +105,13 @@ def main(args: EvalAllGraspConfigDictsArgumentParser):
                 f"--max_grasps_per_batch {args.max_grasps_per_batch}",
             ]
         )
+
+        if args.debug_index is not None:
+            command += f" --debug_index {args.debug_index}"
+
+        if args.use_gui:
+            command += " --use_gui"
+
         print(f"Running command: {command}")
 
         try:
