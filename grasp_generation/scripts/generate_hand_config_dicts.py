@@ -83,6 +83,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     w_joints: float = 1.0
     w_ff: float = 3.0
     w_fp: float = 0.0
+    use_pen_energy: bool = False
 
     # initialization settings
     jitter_strength: float = 0.1
@@ -214,7 +215,9 @@ def save_hand_config_dicts(
 
             hand_config_dicts.append(hand_config_dict)
 
-        object_code_and_scale_str = f"{object_code}_{object_scale:.2f}".replace(".", "_")
+        object_code_and_scale_str = f"{object_code}_{object_scale:.2f}".replace(
+            ".", "_"
+        )
         np.save(
             output_folder_path / f"{object_code_and_scale_str}.npy",
             hand_config_dicts,

@@ -55,6 +55,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     start_with_step_mode: bool = False
     use_gui: bool = False
     penetration_threshold: Optional[float] = None
+    optimized: bool = False
 
 
 def compute_joint_angle_targets(
@@ -146,9 +147,18 @@ def main(args: EvalGraspConfigDictArgumentParser):
     set_seed(42)  # Want this fixed so deterministic computation
 
     # Read in data
-    grasp_config_dict_path = (
-        args.input_grasp_config_dicts_path / f"{args.object_code_and_scale_str}.npy"
-    )
+    if args.optimized:
+        grasp_config_dict_path = (
+            args.input_grasp_config_dicts_path
+            / f"{args.object_code_and_scale_str}_optimized.npy"  # BRITTLE AF.
+        )
+    else:
+        grasp_config_dict_path = (
+            args.input_grasp_config_dicts_path / f"{args.object_code_and_scale_str}.npy"
+        )
+
+    print(f"Loading grasp config dicts from: {grasp_config_dict_path}")
+
     grasp_config_dicts: List[Dict[str, Any]] = np.load(
         grasp_config_dict_path, allow_pickle=True
     )
