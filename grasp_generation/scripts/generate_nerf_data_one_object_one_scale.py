@@ -53,8 +53,13 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
     sim.add_env_nerf_data_collection(
         obj_scale=args.object_scale,
     )
+
+    # ORIGINAL SCALING STRATEGY:
+    # object scale = 0.1
+    # camera radius = 0.3
     sim.save_images_lightweight(
         folder=str(output_nerf_object_path),
+        obj_scale=args.object_scale,
         generate_seg=args.generate_seg,
         generate_depth=args.generate_depth,
     )

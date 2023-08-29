@@ -887,12 +887,13 @@ class IsaacValidator:
     def save_images_lightweight(
         self,
         folder: str,
+        obj_scale: float,
         overwrite: bool = False,
         generate_seg: bool = False,
         generate_depth: bool = False,
     ) -> None:
         assert len(self.envs) == 1
-        self._setup_cameras(self.envs[0])
+        self._setup_cameras(self.envs[0], radius=2 * obj_scale)
 
         gym.step_graphics(self.sim)
         gym.render_all_camera_sensors(self.sim)
@@ -1117,7 +1118,7 @@ class IsaacValidator:
         self._create_one_split(split_name="val", split_range=val_range, folder=folder)
         self._create_one_split(split_name="test", split_range=test_range, folder=folder)
 
-    def create_no_split_data(self, folder: str) -> None:
+    def create_no_split_data(self, folder: str, generate_depth: bool = False) -> None:
         # create the images folder and transforms.json
         num_imgs = len(self.camera_handles)
         print()
@@ -1125,14 +1126,19 @@ class IsaacValidator:
         print()
         img_range = np.arange(num_imgs)
         self._create_one_split(
-            split_name="images", split_range=img_range, folder=folder
+            split_name="images",
+            split_range=img_range,
+            folder=folder,
+            generate_depth=generate_depth,
         )
 
-        # delete all the .txt files
+        # delete all the .txt and .png files
         directory = os.listdir(folder)
         for item in directory:
             if item.endswith(".txt"):
-                os.remove(os.path.join(directory, item))
+                os.remove(os.path.join(folder, item))
+            elif item.endswith(".png"):
+                os.remove(os.path.join(folder, item))
 
     def _run_sanity_check_proj_matrices_all_same(self):
         proj_matrix = gym.get_camera_proj_matrix(
@@ -1159,7 +1165,13 @@ class IsaacValidator:
         assert math.isclose(cx, cy) and math.isclose(cx, 0) and math.isclose(cy, 0)
         return fx, fy, cx, cy
 
-    def _create_one_split(self, split_name: str, split_range: np.ndarray, folder: str):
+    def _create_one_split(
+        self,
+        split_name: str,
+        split_range: np.ndarray,
+        folder: str,
+        generate_depth: bool = False,
+    ):
         import scipy
 
         USE_TORCH_NGP = False
@@ -1231,21 +1243,25 @@ class IsaacValidator:
                 else:
                     raise ValueError()
 
-                json_dict["frames"].append(
-                    {
-                        "transform_matrix": transform_mat.tolist(),
-                        "file_path": target_img,
-                        "depth_file_path": depth_img,
-                    }
-                )
+                if generate_depth:
+                    json_dict["frames"].append(
+                        {
+                            "transform_matrix": transform_mat.tolist(),
+                            "file_path": target_img,
+                            "depth_file_path": depth_img,
+                        }
+                    )
+                else:
+                    json_dict["frames"].append(
+                        {
+                            "transform_matrix": transform_mat.tolist(),
+                            "file_path": target_img,
+                        }
+                    )
 
         with open(
-            os.path.join(folder, f"transforms_{split_name}.json"), "w"
+            os.path.join(folder, f"transforms.json"), "w"
         ) as outfile:
             outfile.write(json.dumps(json_dict))
-
-        if split_name == "train":
-            with open(os.path.join(folder, f"transforms.json"), "w") as outfile:
-                outfile.write(json.dumps(json_dict))
 
     ## NERF DATA COLLECTION END ##
