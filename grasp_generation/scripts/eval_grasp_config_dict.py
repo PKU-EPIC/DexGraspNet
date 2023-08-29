@@ -103,8 +103,8 @@ def get_data(
     hand_pose_array = []
     grasp_orientations_array = []
     for i in range(batch_size):
-        data_dict = grasp_config_dicts[i]
-        qpos = data_dict["qpos"]
+        grasp_config_dict = grasp_config_dicts[i]
+        qpos = grasp_config_dict["qpos"]
 
         (
             translation,
@@ -121,7 +121,7 @@ def get_data(
         )
         grasp_orientations_array.append(
             torch.tensor(
-                data_dict["grasp_orientations"], dtype=torch.float, device=device
+                grasp_config_dict["grasp_orientations"], dtype=torch.float, device=device
             )
         )
     return (
