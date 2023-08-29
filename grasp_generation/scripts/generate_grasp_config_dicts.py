@@ -89,8 +89,19 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
     hand_config_dict_paths = [
-        path for path in args.input_hand_config_dicts_path.iterdir()
+        path for path in args.input_hand_config_dicts_path.glob("*.npy")
     ]
+
+    # Add in mid-optimization grasps.
+    # NOTE: assumes mid-opt grasps are on the same objects as the original grasps.
+    if args.mid_optimization_steps:
+        for step in args.mid_optimization_steps:
+            hand_config_dict_paths.append(
+                (
+                    args.input_hand_config_dicts_path / "mid_opimization" / f"{step}"
+                ).glob("*.npy")
+            )
+
     print(f"len(hand_config_dict_paths): {len(hand_config_dict_paths)}")
     print(f"First 10: {[path.name for path in hand_config_dict_paths[:10]]}")
     random.Random(args.seed).shuffle(hand_config_dict_paths)
