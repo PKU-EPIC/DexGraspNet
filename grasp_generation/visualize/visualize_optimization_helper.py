@@ -11,10 +11,11 @@ from dataclasses import dataclass
 sys.path.append(os.path.realpath("."))
 
 import plotly.graph_objects as go
+import pathlib
 import wandb
 from tqdm import tqdm
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 import torch
 import numpy as np
@@ -25,6 +26,7 @@ from utils.hand_model_type import (
 )
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
+from utils.parse_object_code_and_scale import parse_object_code_and_scale
 
 path_to_this_file = os.path.dirname(os.path.realpath(__file__))
 
@@ -134,42 +136,45 @@ def create_grasp_fig(
     return fig
 
 
-def get_hand_and_object_model_from_data_dicts(
-    data_dicts: np.ndarray, object_code: str
-) -> Tuple[HandModel, ObjectModel]:
-    HAND_MODEL_TYPE = HandModelType.ALLEGRO_HAND
-    MESH_PATH = "../data/meshdata"
+def get_hand_model_from_hand_config_dicts(
+    hand_config_dicts: List[Dict[str, Any]],
+    device: str,
+    hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
+) -> HandModel:
+    joint_names = handmodeltype_to_joint_names[hand_model_type]
+    batch_size = len(hand_config_dicts)
 
-    joint_names = handmodeltype_to_joint_names[HAND_MODEL_TYPE]
-    batch_size = data_dicts.shape[0]
-    scale_array = []
     hand_pose_array = []
     for i in range(batch_size):
-        qpos = data_dicts[i]["qpos"]
+        qpos = hand_config_dicts[i]["qpos"]
         hand_pose_array.append(
             qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
         )
-        scale = data_dicts[i]["scale"]
-        scale_array.append(scale)
+    hand_pose_array = torch.stack(hand_pose_array).to(device)
 
-    GPU = 0
-    device = torch.device(f"cuda:{GPU}" if torch.cuda.is_available() else "cpu")
-    batch_size = len(hand_pose_array)
+    hand_model = HandModel(hand_model_type=hand_model_type, device=device)
+    hand_model.set_parameters(hand_pose_array)
+    return hand_model
 
-    # hand model
-    hand_model = HandModel(hand_model_type=HAND_MODEL_TYPE, device=device)
-    hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
+
+def get_object_model(
+    meshdata_root_path: pathlib.Path,
+    object_code_and_scale_str: str,
+    device: str,
+    batch_size: int,
+) -> ObjectModel:
+    object_code, object_scale = parse_object_code_and_scale(object_code_and_scale_str)
 
     # object model
     object_model = ObjectModel(
-        meshdata_root_path=MESH_PATH,
+        meshdata_root_path=str(meshdata_root_path),
         batch_size_each=batch_size,
         scale=object_scale,
         num_samples=0,
         device=device,
     )
     object_model.initialize(object_code)
-    return hand_model, object_model
+    return object_model
 
 
 ## Shared ##

@@ -28,8 +28,11 @@ import json
 from pathlib import Path
 import shutil
 from PIL import Image
+import imageio
+import pathlib
 
 from utils.quaternions import Quaternion
+from datetime import datetime
 
 CAMERA_IMG_HEIGHT, CAMERA_IMG_WIDTH = 400, 400
 CAMERA_HORIZONTAL_FOV_DEG = 35.0
@@ -37,6 +40,8 @@ CAMERA_VERTICAL_FOV_DEG = (
     CAMERA_IMG_HEIGHT / CAMERA_IMG_WIDTH
 ) * CAMERA_HORIZONTAL_FOV_DEG
 OBJ_SEGMENTATION_ID = 1
+RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE = 1
+ISAAC_DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 
 def get_fixed_camera_transform(gym, sim, env, camera):
@@ -127,6 +132,10 @@ class IsaacValidator:
         self.obj_link_idx_to_name_dicts = []
         self.init_hand_poses = []
         self.init_obj_poses = []
+        self.camera_handles = []
+        self.camera_envs = []
+        self.camera_properties_list = []
+        self.video_frames = []
         self.joint_names = handmodeltype_to_joint_names[hand_model_type]
         self.allowed_contact_link_names = handmodeltype_to_allowedcontactlinknames[
             hand_model_type
@@ -275,6 +284,7 @@ class IsaacValidator:
         obj_scale: float,
         target_qpos: np.ndarray,
         test_rotation_index: int = 0,
+        record: bool = False,
     ) -> None:
         # Set test rotation
         test_rot = self.test_rotations[test_rotation_index]
@@ -299,6 +309,35 @@ class IsaacValidator:
         )
 
         self._setup_obj(env, obj_scale, test_rot, collision_idx=test_rotation_index)
+
+        if record:
+            self._setup_camera(env)
+
+    # TODO: be less lazy, integrate with NeRF datagen.
+    def _setup_camera(self, env):
+        camera_properties = gymapi.CameraProperties()  # type: ignore
+
+        camera_properties.width = int(
+            CAMERA_IMG_WIDTH / RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE
+        )
+        camera_properties.height = int(
+            CAMERA_IMG_HEIGHT / RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE
+        )
+
+        camera_handle = gym.create_camera_sensor(
+            env,
+            camera_properties,
+        )
+        self.camera_handles.append(camera_handle)
+        self.camera_properties_list.append(camera_properties)
+
+        self.camera_envs.append(env)
+
+        cam_target = gymapi.Vec3(0, 0, 0)  # type: ignore  # where object s
+        cam_pos = cam_target + gymapi.Vec3(-0.25, 0.1, 0.1)  # Define offset
+
+        self.video_frames.append([])
+        gym.set_camera_location(camera_handle, env, cam_pos, cam_target)
 
     def _setup_hand(
         self,
@@ -448,6 +487,23 @@ class IsaacValidator:
             # Step physics if not paused
             if not self.is_paused:
                 gym.simulate(self.sim)
+
+                if self.camera_handles and sim_step_idx > 0:
+                    gym.step_graphics(self.sim)
+                    gym.render_all_camera_sensors(self.sim)
+                    for ii, env in enumerate(self.camera_envs):
+                        self.video_frames[ii].append(
+                            gym.get_camera_image(
+                                self.sim,
+                                env,
+                                self.camera_handles[ii],
+                                gymapi.IMAGE_COLOR,
+                            ).reshape(
+                                self.camera_properties_list[ii].height,
+                                self.camera_properties_list[ii].width,
+                                4,  # RGBA
+                            )
+                        )
                 sim_step_idx += 1
                 pbar.update(1)
 
@@ -488,6 +544,20 @@ class IsaacValidator:
                 if self.is_step_mode:
                     desc += ". Step mode on"
                 pbar.set_description(desc)
+
+        # Render out all videos.
+        if self.camera_handles:
+            for ii, _ in enumerate(self.camera_envs):
+                video_path = pathlib.Path(f"videos/{ISAAC_DATETIME_STR}_video_{ii}.mp4")
+                if not video_path.parent.exists():
+                    video_path.parent.mkdir(parents=True)
+                print(f"Rendering camera {ii} to video at path {video_path}.")
+                self._render_video(
+                    video_frames=self.video_frames[ii],
+                    video_path=video_path,
+                    fps=int(1 / self.sim_params.dt),
+                )
+                print(f"Done rendering camera {ii}.")
 
         successes = []
         for i, (
@@ -586,6 +656,12 @@ class IsaacValidator:
                 print("-------------")
 
         return successes
+
+    def _render_video(
+        self, video_frames: List[torch.tensor], video_path: str, fps: int
+    ):
+        print(f"number of frames: {len(video_frames)}")
+        imageio.mimsave(video_path, video_frames, fps=fps)
 
     def _compute_virtual_joint_dof_pos_targets(
         self, sim_step_idx: int
@@ -724,6 +800,10 @@ class IsaacValidator:
         self.obj_handles = []
         self.hand_link_idx_to_name_dicts = []
         self.obj_link_idx_to_name_dicts = []
+        self.camera_handles = []
+        self.camera_envs = []
+        self.camera_properties_list = []
+        self.video_frames = []
         self.hand_asset = None
         self.obj_asset = None
 
@@ -818,7 +898,6 @@ class IsaacValidator:
         y_vals = radius * np.sqrt(1 - np.square(u_vals)) * np.sin(th_vals)
         z_vals = radius * u_vals
 
-        self.camera_handles = []
         for xx, yy, zz in zip(x_vals, y_vals, z_vals):
             camera_handle = gym.create_camera_sensor(env, camera_props)
             gym.set_camera_location(

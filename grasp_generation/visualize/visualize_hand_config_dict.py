@@ -44,21 +44,21 @@ def main(args: VisualizeHandConfigDictArgumentParser):
     )
 
     # load results
-    data_dicts: List[Dict[str, Any]] = np.load(
+    hand_config_dicts: List[Dict[str, Any]] = np.load(
         args.input_hand_config_dicts_path / f"{args.object_code_and_scale_str}.npy",
         allow_pickle=True,
     )
-    data_dict = data_dicts[args.idx_to_visualize]
+    hand_config_dict = hand_config_dicts[args.idx_to_visualize]
     hand_pose = qpos_to_pose(
-        qpos=data_dict["qpos"], joint_names=joint_names, unsqueeze_batch_dim=True
+        qpos=hand_config_dict["qpos"], joint_names=joint_names, unsqueeze_batch_dim=True
     ).to(device)
     hand_pose_start = (
         qpos_to_pose(
-            qpos=data_dict["qpos_start"],
+            qpos=hand_config_dict["qpos_start"],
             joint_names=joint_names,
             unsqueeze_batch_dim=True,
         ).to(device)
-        if "qpos_start" in data_dict
+        if "qpos_start" in hand_config_dict
         else None
     )
 
@@ -104,13 +104,13 @@ def main(args: VisualizeHandConfigDictArgumentParser):
         i=0, color="lightgreen", opacity=1, with_surface_points=True
     )
     fig = go.Figure(hand_start_plotly + hand_en_plotly + object_plotly)
-    if "energy" in data_dict:
-        energy = data_dict["energy"]
-        E_fc = round(data_dict["E_fc"], 3)
-        E_dis = round(data_dict["E_dis"], 5)
-        E_pen = round(data_dict["E_pen"], 5)
-        E_spen = round(data_dict["E_spen"], 5)
-        E_joints = round(data_dict["E_joints"], 5)
+    if "energy" in hand_config_dict:
+        energy = hand_config_dict["energy"]
+        E_fc = round(hand_config_dict["E_fc"], 3)
+        E_dis = round(hand_config_dict["E_dis"], 5)
+        E_pen = round(hand_config_dict["E_pen"], 5)
+        E_spen = round(hand_config_dict["E_spen"], 5)
+        E_joints = round(hand_config_dict["E_joints"], 5)
         result = (
             f"Index {args.idx_to_visualize}  E_fc {E_fc}  E_dis {E_dis}  E_pen {E_pen}"
         )

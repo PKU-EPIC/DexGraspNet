@@ -83,7 +83,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     w_joints: float = 1.0
     w_ff: float = 3.0
     w_fp: float = 0.0
-    use_pen_energy: bool = False
+    use_penetration_energy: bool = False
 
     # initialization settings
     jitter_strength: float = 0.1
@@ -304,7 +304,10 @@ def generate(
     }
 
     energy, unweighted_energy_matrix, weighted_energy_matrix = cal_energy(
-        hand_model, object_model, energy_name_to_weight_dict=energy_name_to_weight_dict
+        hand_model,
+        object_model,
+        energy_name_to_weight_dict=energy_name_to_weight_dict,
+        use_penetration_energy=args.use_penetration_energy,
     )
 
     energy.sum().backward(retain_graph=True)
@@ -327,6 +330,7 @@ def generate(
             hand_model,
             object_model,
             energy_name_to_weight_dict=energy_name_to_weight_dict,
+            use_penetration_energy=args.use_penetration_energy,
         )
         new_energy.sum().backward(retain_graph=True)
 

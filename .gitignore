@@ -17,3 +17,5 @@ html_outputs
 
 # PRESTON ADDITIONS
 *.npy
+*.mp4
+*.html
