@@ -304,7 +304,7 @@ def generate(
     }
 
     energy, unweighted_energy_matrix, weighted_energy_matrix = cal_energy(
-        hand_model, object_model, energy_name_to_weight_dict=energy_name_to_weight_dict
+        hand_model, object_model, energy_name_to_weight_dict=energy_name_to_weight_dict, use_penetration_energy=args.use_pen_energy
     )
 
     energy.sum().backward(retain_graph=True)
@@ -327,6 +327,7 @@ def generate(
             hand_model,
             object_model,
             energy_name_to_weight_dict=energy_name_to_weight_dict,
+            use_penetration_energy=args.use_pen_energy,
         )
         new_energy.sum().backward(retain_graph=True)
 
