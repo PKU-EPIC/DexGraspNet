@@ -134,6 +134,7 @@ class IsaacValidator:
         self.init_obj_poses = []
         self.camera_handles = []
         self.camera_envs = []
+        self.camera_properties_list = []
         self.video_frames = []
         self.joint_names = handmodeltype_to_joint_names[hand_model_type]
         self.allowed_contact_link_names = handmodeltype_to_allowedcontactlinknames[
@@ -328,6 +329,7 @@ class IsaacValidator:
             camera_properties,
         )
         self.camera_handles.append(camera_handle)
+        self.camera_properties_list.append(camera_properties)
 
         self.camera_envs.append(env)
 
@@ -497,14 +499,8 @@ class IsaacValidator:
                                 self.camera_handles[ii],
                                 gymapi.IMAGE_COLOR,
                             ).reshape(
-                                int(
-                                    CAMERA_IMG_HEIGHT
-                                    / RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE
-                                ),
-                                int(
-                                    CAMERA_IMG_WIDTH
-                                    / RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE
-                                ),
+                                self.camera_properties_list[ii].height,
+                                self.camera_properties_list[ii].width,
                                 4,  # RGBA
                             )
                         )
@@ -806,6 +802,7 @@ class IsaacValidator:
         self.obj_link_idx_to_name_dicts = []
         self.camera_handles = []
         self.camera_envs = []
+        self.camera_properties_list = []
         self.video_frames = []
         self.hand_asset = None
         self.obj_asset = None
