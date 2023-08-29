@@ -123,7 +123,9 @@ def get_data(
         )
         grasp_orientations_array.append(
             torch.tensor(
-                grasp_config_dict["grasp_orientations"], dtype=torch.float, device=device
+                grasp_config_dict["grasp_orientations"],
+                dtype=torch.float,
+                device=device,
             )
         )
     return (
@@ -242,9 +244,8 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
     # Aggregate results
     successes = np.concatenate(successes, axis=0)
-    assert len(successes) == batch_size * len(sim.test_rotations)
-    successes = np.array(successes).reshape(batch_size, len(sim.test_rotations))
-    passed_simulation = successes.all(axis=1)
+    assert len(successes) == batch_size
+    passed_simulation = np.array(successes)
 
     # TODO: add penetration check E_pen
     print("WARNING: penetration check is not implemented yet")
