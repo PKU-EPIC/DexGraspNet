@@ -55,6 +55,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     start_with_step_mode: bool = False
     use_gui: bool = False
     penetration_threshold: Optional[float] = None
+    record_indices: List[int] = [1, 2]
 
 
 def compute_joint_angle_targets(
@@ -190,6 +191,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             hand_qpos=joint_angles_array[index],
             obj_scale=object_scale,
             target_qpos=joint_angle_targets_array[index],
+            record=index in args.record_indices,
         )
         successes = sim.run_sim()
         print(f"successes = {successes}")
@@ -216,12 +218,13 @@ def main(args: EvalGraspConfigDictArgumentParser):
             obj_file="coacd.urdf",
         )
         for index in range(start_index, end_index):
-            sim.add_env_all_test_rotations(
+            sim.add_env_single_test_rotation(
                 hand_quaternion=quaternion_array[index],
                 hand_translation=translation_array[index],
                 hand_qpos=joint_angles_array[index],
                 obj_scale=object_scale,
                 target_qpos=joint_angle_targets_array[index],
+                record=index in args.record_indices,
             )
         batch_successes = sim.run_sim()
         successes.append(batch_successes)
