@@ -77,13 +77,16 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     temperature_decay: float = 0.95
     n_contacts_per_finger: int = 1
     w_fc: float = 1.0
-    w_dis: float = 300.0
+    w_dis: float = 100.0
     w_pen: float = 100.0
     w_spen: float = 100.0
     w_joints: float = 1.0
     w_ff: float = 3.0
     w_fp: float = 0.0
     use_penetration_energy: bool = False
+    penetration_iters_frac = (
+        0.8  # Fraction of iterations to perform penetration energy calculation
+    )
 
     # initialization settings
     jitter_strength: float = 0.1
@@ -330,7 +333,8 @@ def generate(
             hand_model,
             object_model,
             energy_name_to_weight_dict=energy_name_to_weight_dict,
-            use_penetration_energy=args.use_penetration_energy,
+            use_penetration_energy=args.use_penetration_energy
+            and (step / args.n_iter) > args.penetration_iters_frac,
         )
         new_energy.sum().backward(retain_graph=True)
 
@@ -347,7 +351,7 @@ def generate(
             and step % args.store_grasps_mid_optimization_freq == 0
         ):
             new_output_folder = (
-                pathlib.Path(f"{args.output_hand_config_dicts_path.name}")
+                pathlib.Path(f"{args.output_hand_config_dicts_path}")
                 / "mid_optimization"
                 / str(step)
             )
