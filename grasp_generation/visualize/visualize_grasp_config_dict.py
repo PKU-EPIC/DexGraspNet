@@ -52,21 +52,21 @@ def main(args: VisualizeGraspConfigDictArgumentParser):
     )
 
     # load results
-    data_dicts: List[Dict[str, Any]] = np.load(
+    grasp_config_dicts: List[Dict[str, Any]] = np.load(
         args.input_grasp_config_dicts_path / f"{args.object_code_and_scale_str}.npy",
         allow_pickle=True,
     )
-    data_dict = data_dicts[args.idx_to_visualize]
+    grasp_config_dict = grasp_config_dicts[args.idx_to_visualize]
     hand_pose = qpos_to_pose(
-        qpos=data_dict["qpos"], joint_names=joint_names, unsqueeze_batch_dim=True
+        qpos=grasp_config_dict["qpos"], joint_names=joint_names, unsqueeze_batch_dim=True
     ).to(device)
     hand_pose_start = (
         qpos_to_pose(
-            qpos=data_dict["qpos_start"],
+            qpos=grasp_config_dict["qpos_start"],
             joint_names=joint_names,
             unsqueeze_batch_dim=True,
         ).to(device)
-        if "qpos_start" in data_dict
+        if "qpos_start" in grasp_config_dict
         else None
     )
 
@@ -114,7 +114,7 @@ def main(args: VisualizeGraspConfigDictArgumentParser):
 
     # Add grasp_orientations
     grasp_orientations = torch.tensor(
-        data_dict["grasp_orientations"], dtype=torch.float, device=device
+        grasp_config_dict["grasp_orientations"], dtype=torch.float, device=device
     )
     assert grasp_orientations.shape == (hand_model.num_fingers, 3, 3)
     fingertip_mean_positions = compute_fingertip_mean_contact_positions(
@@ -217,13 +217,13 @@ def main(args: VisualizeGraspConfigDictArgumentParser):
         + fingertips_plotly
         + hand_target_plotly
     )
-    if "energy" in data_dict:
-        energy = data_dict["energy"]
-        E_fc = round(data_dict["E_fc"], 3)
-        E_dis = round(data_dict["E_dis"], 5)
-        E_pen = round(data_dict["E_pen"], 5)
-        E_spen = round(data_dict["E_spen"], 5)
-        E_joints = round(data_dict["E_joints"], 5)
+    if "energy" in grasp_config_dict:
+        energy = grasp_config_dict["energy"]
+        E_fc = round(grasp_config_dict["E_fc"], 3)
+        E_dis = round(grasp_config_dict["E_dis"], 5)
+        E_pen = round(grasp_config_dict["E_pen"], 5)
+        E_spen = round(grasp_config_dict["E_spen"], 5)
+        E_joints = round(grasp_config_dict["E_joints"], 5)
         result = (
             f"Index {args.idx_to_visualize}  E_fc {E_fc}  E_dis {E_dis}  E_pen {E_pen}"
         )
