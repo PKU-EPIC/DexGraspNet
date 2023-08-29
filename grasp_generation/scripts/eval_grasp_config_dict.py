@@ -56,6 +56,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     use_gui: bool = False
     penetration_threshold: Optional[float] = None
     record_indices: List[int] = [1, 2]
+    optimized: bool = False
 
 
 def compute_joint_angle_targets(
@@ -104,8 +105,8 @@ def get_data(
     hand_pose_array = []
     grasp_orientations_array = []
     for i in range(batch_size):
-        data_dict = grasp_config_dicts[i]
-        qpos = data_dict["qpos"]
+        grasp_config_dict = grasp_config_dicts[i]
+        qpos = grasp_config_dict["qpos"]
 
         (
             translation,
@@ -122,7 +123,7 @@ def get_data(
         )
         grasp_orientations_array.append(
             torch.tensor(
-                data_dict["grasp_orientations"], dtype=torch.float, device=device
+                grasp_config_dict["grasp_orientations"], dtype=torch.float, device=device
             )
         )
     return (
@@ -147,9 +148,18 @@ def main(args: EvalGraspConfigDictArgumentParser):
     set_seed(42)  # Want this fixed so deterministic computation
 
     # Read in data
-    grasp_config_dict_path = (
-        args.input_grasp_config_dicts_path / f"{args.object_code_and_scale_str}.npy"
-    )
+    if args.optimized:
+        grasp_config_dict_path = (
+            args.input_grasp_config_dicts_path
+            / f"{args.object_code_and_scale_str}_optimized.npy"  # BRITTLE AF.
+        )
+    else:
+        grasp_config_dict_path = (
+            args.input_grasp_config_dicts_path / f"{args.object_code_and_scale_str}.npy"
+        )
+
+    print(f"Loading grasp config dicts from: {grasp_config_dict_path}")
+
     grasp_config_dicts: List[Dict[str, Any]] = np.load(
         grasp_config_dict_path, allow_pickle=True
     )
