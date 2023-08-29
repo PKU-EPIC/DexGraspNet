@@ -83,6 +83,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     w_joints: float = 1.0
     w_ff: float = 3.0
     w_fp: float = 0.0
+    use_pen_energy: bool = False
 
     # initialization settings
     jitter_strength: float = 0.1
