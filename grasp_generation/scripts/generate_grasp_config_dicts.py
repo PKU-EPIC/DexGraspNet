@@ -45,6 +45,7 @@ class GenerateGraspConfigDictsArgumentParser(Tap):
     output_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/grasp_config_dicts"
     )
+    mid_optimization_steps: List[int] = []
     seed: int = 1
 
 

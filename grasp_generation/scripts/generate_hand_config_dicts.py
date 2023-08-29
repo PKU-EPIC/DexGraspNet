@@ -65,7 +65,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     wandb_name: str = ""
     wandb_entity: str = "tylerlum"
     wandb_project: str = "DexGraspNet_v1"
-    wandb_visualization_freq: Optional[int] = 2000
+    wandb_visualization_freq: Optional[int] = 50
 
     # hyper parameters
     switch_possibility: float = 0.5
@@ -98,7 +98,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     thres_pen: float = 0.001
 
     # verbose (grasps throughout)
-    store_grasps_mid_optimization_freq: Optional[int] = 100
+    store_grasps_mid_optimization_freq: Optional[int] = 50
 
 
 def create_visualization_figure(
@@ -342,9 +342,11 @@ def generate(
             args.store_grasps_mid_optimization_freq is not None
             and step % args.store_grasps_mid_optimization_freq == 0
         ):
-            new_output_folder = pathlib.Path(
-                f"{args.output_hand_config_dicts_path.name}_mid_optimization"
-            ) / str(step)
+            new_output_folder = (
+                pathlib.Path(f"{args.output_hand_config_dicts_path.name}")
+                / "mid_optimization"
+                / str(step)
+            )
             new_output_folder.mkdir(parents=True, exist_ok=True)
             save_hand_config_dicts(
                 hand_model=hand_model,
