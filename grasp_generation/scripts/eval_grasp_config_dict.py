@@ -45,7 +45,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     input_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/grasp_config_dicts"
     )
-    max_grasps_per_batch: int = 1000
+    max_grasps_per_batch: int = 2500
     object_code_and_scale_str: str = "core-bottle-2722bec1947151b86e22e2d2f64c8cef_0_10"
     output_evaled_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/evaled_grasp_config_dicts"
@@ -55,6 +55,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     start_with_step_mode: bool = False
     use_gui: bool = False
     penetration_threshold: Optional[float] = None
+    record_indices: List[int] = [1, 2]
     optimized: bool = False
 
 
@@ -200,6 +201,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             hand_qpos=joint_angles_array[index],
             obj_scale=object_scale,
             target_qpos=joint_angle_targets_array[index],
+            record=index in args.record_indices,
         )
         successes = sim.run_sim()
         print(f"successes = {successes}")
@@ -226,12 +228,13 @@ def main(args: EvalGraspConfigDictArgumentParser):
             obj_file="coacd.urdf",
         )
         for index in range(start_index, end_index):
-            sim.add_env_all_test_rotations(
+            sim.add_env_single_test_rotation(
                 hand_quaternion=quaternion_array[index],
                 hand_translation=translation_array[index],
                 hand_qpos=joint_angles_array[index],
                 obj_scale=object_scale,
                 target_qpos=joint_angle_targets_array[index],
+                record=index in args.record_indices,
             )
         batch_successes = sim.run_sim()
         successes.append(batch_successes)
