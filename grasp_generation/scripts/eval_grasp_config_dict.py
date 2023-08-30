@@ -224,7 +224,6 @@ def main(args: EvalGraspConfigDictArgumentParser):
     for i in tqdm(range(math.ceil(batch_size / args.max_grasps_per_batch))):
         start_index = i * args.max_grasps_per_batch
         end_index = min((i + 1) * args.max_grasps_per_batch, batch_size)
-        num_grasps_in_batch = end_index - start_index
         sim.set_obj_asset(
             obj_root=str(args.meshdata_root_path / object_code / "coacd"),
             obj_file="coacd.urdf",
