@@ -12,6 +12,7 @@ sys.path.append(os.path.realpath("."))
 from utils.isaac_validator import IsaacValidator
 from utils.object_model import ObjectModel
 from utils.seed import set_seed
+from utils.parse_object_code_and_scale import object_code_and_scale_to_str
 from tap import Tap
 from tqdm import tqdm
 import pathlib
@@ -31,12 +32,13 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
     set_seed(42)
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
+    object_code_and_scale_str = object_code_and_scale_to_str(args.object_code, args.object_scale)
     output_nerf_object_path = (
         args.output_nerfdata_path
-        / f"{args.object_code}_{args.object_scale:.4f}".replace(".", "_")
+        / object_code_and_scale_str
     )
     if output_nerf_object_path.exists():
-        print(f"Skipping {args.object_code} at scale {args.object_scale:.4f}")
+        print(f"{output_nerf_object_path} exists, skipping {object_code_and_scale_str}")
         return
 
     # Create sim
