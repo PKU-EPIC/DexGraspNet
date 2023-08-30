@@ -65,7 +65,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     wandb_name: str = ""
     wandb_entity: str = "tylerlum"
     wandb_project: str = "DexGraspNet_v1"
-    wandb_visualization_freq: Optional[int] = 2000
+    wandb_visualization_freq: Optional[int] = 50
 
     # hyper parameters
     switch_possibility: float = 0.5
@@ -77,13 +77,16 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     temperature_decay: float = 0.95
     n_contacts_per_finger: int = 1
     w_fc: float = 1.0
-    w_dis: float = 300.0
+    w_dis: float = 100.0
     w_pen: float = 100.0
     w_spen: float = 100.0
     w_joints: float = 1.0
     w_ff: float = 3.0
     w_fp: float = 0.0
     use_penetration_energy: bool = False
+    penetration_iters_frac = (
+        0.8  # Fraction of iterations to perform penetration energy calculation
+    )
 
     # initialization settings
     jitter_strength: float = 0.1
@@ -98,7 +101,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     thres_pen: float = 0.001
 
     # verbose (grasps throughout)
-    store_grasps_mid_optimization_freq: Optional[int] = 100
+    store_grasps_mid_optimization_freq: Optional[int] = 50
 
 
 def create_visualization_figure(
@@ -304,7 +307,10 @@ def generate(
     }
 
     energy, unweighted_energy_matrix, weighted_energy_matrix = cal_energy(
-        hand_model, object_model, energy_name_to_weight_dict=energy_name_to_weight_dict, use_penetration_energy=args.use_penetration_energy
+        hand_model,
+        object_model,
+        energy_name_to_weight_dict=energy_name_to_weight_dict,
+        use_penetration_energy=args.use_penetration_energy,
     )
 
     energy.sum().backward(retain_graph=True)
@@ -327,7 +333,8 @@ def generate(
             hand_model,
             object_model,
             energy_name_to_weight_dict=energy_name_to_weight_dict,
-            use_penetration_energy=args.use_penetration_energy,
+            use_penetration_energy=args.use_penetration_energy
+            and (step / args.n_iter) > args.penetration_iters_frac,
         )
         new_energy.sum().backward(retain_graph=True)
 
@@ -344,10 +351,8 @@ def generate(
             and step % args.store_grasps_mid_optimization_freq == 0
         ):
             new_output_folder = (
-                args.output_hand_config_dicts_path.parent
-                / pathlib.Path(
-                    f"{args.output_hand_config_dicts_path.name}_mid_optimization"
-                )
+                pathlib.Path(f"{args.output_hand_config_dicts_path}")
+                / "mid_optimization"
                 / str(step)
             )
             new_output_folder.mkdir(parents=True, exist_ok=True)

@@ -21,7 +21,7 @@ class ObjectModel:
         meshdata_root_path: str,
         batch_size_each: int,
         scale: float,
-        num_samples: int = 2000,
+        num_samples: int = 250,
         device: str = "cuda",
     ):
         """

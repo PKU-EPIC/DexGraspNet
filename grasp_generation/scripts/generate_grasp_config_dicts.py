@@ -45,6 +45,7 @@ class GenerateGraspConfigDictsArgumentParser(Tap):
     output_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/grasp_config_dicts"
     )
+    mid_optimization_steps: List[int] = []
     seed: int = 1
 
 
@@ -88,10 +89,11 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
     hand_config_dict_paths = [
-        path for path in args.input_hand_config_dicts_path.iterdir()
+        path for path in list(args.input_hand_config_dicts_path.glob("*.npy"))
     ]
+
     print(f"len(hand_config_dict_paths): {len(hand_config_dict_paths)}")
-    print(f"First 10: {[path.name for path in hand_config_dict_paths[:10]]}")
+    print(f"First 10: {[path for path in hand_config_dict_paths[:10]]}")
     random.Random(args.seed).shuffle(hand_config_dict_paths)
 
     set_seed(42)  # Want this fixed so deterministic computation
@@ -107,9 +109,24 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
         )
 
         # Read in data
-        hand_config_dicts: List[Dict[str, Any]] = np.load(
-            hand_config_dict_path, allow_pickle=True
+        hand_config_dicts: List[Dict[str, Any]] = list(
+            np.load(hand_config_dict_path, allow_pickle=True)
         )
+
+        # Load mid-optimization grasp configs for this grasp
+        if args.mid_optimization_steps:
+            for mid_optimization_step in args.mid_optimization_steps:
+                mid_optimization_hand_config_dict_path = (
+                    hand_config_dict_path.parent
+                    / "mid_optimization"
+                    / f"{mid_optimization_step}"
+                    / f"{object_code_and_scale_str}.npy"
+                )
+                curr_iter_hand_config_dicts = list(
+                    np.load(mid_optimization_hand_config_dict_path, allow_pickle=True)
+                )
+                hand_config_dicts.extend(curr_iter_hand_config_dicts)
+
         batch_size = len(hand_config_dicts)
         hand_pose_array = []
         for i in range(batch_size):
