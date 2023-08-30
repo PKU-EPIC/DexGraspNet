@@ -30,6 +30,7 @@ class VisualizeHandConfigDictArgumentParser(Tap):
     input_hand_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/hand_config_dicts"
     )
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     object_code_and_scale_str: str = "sem-Ipod-4b6c6248d5c01b3e4eee8d1cb32988b_0_10"
     idx_to_visualize: int = 0
     save_to_html: bool = False
@@ -67,7 +68,7 @@ def main(args: VisualizeHandConfigDictArgumentParser):
 
     # object model
     object_model = ObjectModel(
-        meshdata_root_path="../data/meshdata",
+        meshdata_root_path=str(meshdata_root_path),
         batch_size_each=1,
         scale=object_scale,
         num_samples=2000,
