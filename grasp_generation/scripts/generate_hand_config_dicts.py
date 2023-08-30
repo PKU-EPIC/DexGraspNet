@@ -84,7 +84,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     w_ff: float = 3.0
     w_fp: float = 0.0
     use_penetration_energy: bool = False
-    penetration_iters_frac = (
+    penetration_iters_frac: float = (
         0.8  # Fraction of iterations to perform penetration energy calculation
     )
 
