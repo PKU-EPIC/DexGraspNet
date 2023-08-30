@@ -884,6 +884,33 @@ class IsaacValidator:
         # Avoid segfault if run multiple times by destroying camera sensors
         self._destroy_cameras(self.envs[0])
 
+    def save_images_lightweight(
+        self,
+        folder: str,
+        obj_scale: float,
+        overwrite: bool = False,
+        generate_seg: bool = False,
+        generate_depth: bool = False,
+    ) -> None:
+        assert len(self.envs) == 1
+        self._setup_cameras(self.envs[0], radius=2 * obj_scale)
+
+        gym.step_graphics(self.sim)
+        gym.render_all_camera_sensors(self.sim)
+        path = self._setup_save_dir(folder, overwrite)
+
+        for ii, camera_handle in enumerate(self.camera_handles):
+            self._save_single_image_lightweight(
+                path,
+                ii,
+                camera_handle,
+                generate_seg=generate_seg,
+                generate_depth=generate_depth,
+            )
+
+        # Avoid segfault if run multiple times by destroying camera sensors
+        self._destroy_cameras(self.envs[0])
+
     def _setup_cameras(self, env, num_cameras=750, radius=0.3):
         camera_props = gymapi.CameraProperties()
         camera_props.horizontal_fov = CAMERA_HORIZONTAL_FOV_DEG
@@ -1007,6 +1034,62 @@ class IsaacValidator:
             data = [*pos.tolist(), *quat.q[1:].tolist(), quat.q[0].tolist()]
             json.dump(data, f)
 
+    def _save_single_image_lightweight(
+        self,
+        path,
+        ii,
+        camera_handle,
+        generate_seg=False,
+        generate_depth=False,
+        numpy_depth=False,
+        debug=False,
+    ):
+        if debug:
+            print(f"saving camera {ii}")
+        env_idx = 0
+        env = self.envs[env_idx]
+
+        # COLOR IMAGE
+        # NEED THESE TEMPORARILY FOR transforms.json
+        color_image = gym.get_camera_image(
+            self.sim, env, camera_handle, gymapi.IMAGE_COLOR
+        )
+        color_image = color_image.reshape(CAMERA_IMG_HEIGHT, CAMERA_IMG_WIDTH, -1)
+        Image.fromarray(color_image).save(path / f"col_{ii}.png")
+
+        # SEGMENTATION IMAGE
+        if generate_seg:
+            segmentation_image = gym.get_camera_image(
+                self.sim, env, camera_handle, gymapi.IMAGE_SEGMENTATION
+            )
+            segmentation_image = segmentation_image == OBJ_SEGMENTATION_ID
+            segmentation_image = (
+                segmentation_image.reshape(CAMERA_IMG_HEIGHT, CAMERA_IMG_WIDTH) * 255
+            ).astype(np.uint8)
+            Image.fromarray(segmentation_image).convert("L").save(
+                path / f"seg_{ii}.png"
+            )
+
+        # DEPTH IMAGE
+        if generate_depth:
+            depth_image = gym.get_camera_image(
+                self.sim, env, camera_handle, gymapi.IMAGE_DEPTH
+            )
+            depth_image = -1000 * depth_image.reshape(
+                CAMERA_IMG_HEIGHT, CAMERA_IMG_WIDTH
+            )
+            if numpy_depth:
+                np.save(path / f"dep_{ii}.npy", depth_image)
+            else:
+                depth_image = (depth_image).astype(np.uint8)
+                Image.fromarray(depth_image).convert("L").save(path / f"dep_{ii}.png")
+
+        # NEED THESE TEMPORARILY FOR transforms.json
+        pos, quat = get_fixed_camera_transform(gym, self.sim, env, camera_handle)
+        with open(path / f"pos_xyz_quat_xyzw_{ii}.txt", "w+") as f:
+            data = [*pos.tolist(), *quat.q[1:].tolist(), quat.q[0].tolist()]
+            json.dump(data, f)
+
     def create_train_val_test_split(
         self, folder: str, train_frac: float, val_frac: float
     ) -> None:
@@ -1035,6 +1118,28 @@ class IsaacValidator:
         self._create_one_split(split_name="val", split_range=val_range, folder=folder)
         self._create_one_split(split_name="test", split_range=test_range, folder=folder)
 
+    def create_no_split_data(self, folder: str, generate_depth: bool = False) -> None:
+        # create the images folder and transforms.json
+        num_imgs = len(self.camera_handles)
+        print()
+        print(f"num_imgs = {num_imgs}")
+        print()
+        img_range = np.arange(num_imgs)
+        self._create_one_split(
+            split_name="images",
+            split_range=img_range,
+            folder=folder,
+            generate_depth=generate_depth,
+        )
+
+        # delete all the .txt and .png files
+        directory = os.listdir(folder)
+        for item in directory:
+            if item.endswith(".txt"):
+                os.remove(os.path.join(folder, item))
+            elif item.endswith(".png"):
+                os.remove(os.path.join(folder, item))
+
     def _run_sanity_check_proj_matrices_all_same(self):
         proj_matrix = gym.get_camera_proj_matrix(
             self.sim, self.envs[0], self.camera_handles[0]
@@ -1060,7 +1165,13 @@ class IsaacValidator:
         assert math.isclose(cx, cy) and math.isclose(cx, 0) and math.isclose(cy, 0)
         return fx, fy, cx, cy
 
-    def _create_one_split(self, split_name: str, split_range: np.ndarray, folder: str):
+    def _create_one_split(
+        self,
+        split_name: str,
+        split_range: np.ndarray,
+        folder: str,
+        generate_depth: bool = False,
+    ):
         import scipy
 
         USE_TORCH_NGP = False
@@ -1132,21 +1243,25 @@ class IsaacValidator:
                 else:
                     raise ValueError()
 
-                json_dict["frames"].append(
-                    {
-                        "transform_matrix": transform_mat.tolist(),
-                        "file_path": target_img,
-                        "depth_file_path": depth_img,
-                    }
-                )
+                if generate_depth:
+                    json_dict["frames"].append(
+                        {
+                            "transform_matrix": transform_mat.tolist(),
+                            "file_path": target_img,
+                            "depth_file_path": depth_img,
+                        }
+                    )
+                else:
+                    json_dict["frames"].append(
+                        {
+                            "transform_matrix": transform_mat.tolist(),
+                            "file_path": target_img,
+                        }
+                    )
 
         with open(
-            os.path.join(folder, f"transforms_{split_name}.json"), "w"
+            os.path.join(folder, f"transforms.json"), "w"
         ) as outfile:
             outfile.write(json.dumps(json_dict))
-
-        if split_name == "train":
-            with open(os.path.join(folder, f"transforms.json"), "w") as outfile:
-                outfile.write(json.dumps(json_dict))
 
     ## NERF DATA COLLECTION END ##
