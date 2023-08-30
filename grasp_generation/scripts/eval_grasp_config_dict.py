@@ -55,7 +55,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     start_with_step_mode: bool = False
     use_gui: bool = False
     penetration_threshold: Optional[float] = None
-    record_indices: List[int] = [1, 2]
+    record_indices: List[int] = []
     optimized: bool = False
 
 
