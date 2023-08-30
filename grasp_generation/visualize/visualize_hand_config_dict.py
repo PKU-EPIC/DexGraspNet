@@ -68,7 +68,7 @@ def main(args: VisualizeHandConfigDictArgumentParser):
 
     # object model
     object_model = ObjectModel(
-        meshdata_root_path=str(meshdata_root_path),
+        meshdata_root_path=str(args.meshdata_root_path),
         batch_size_each=1,
         scale=object_scale,
         num_samples=2000,
