@@ -24,6 +24,7 @@ from utils.optimizer import Annealing
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
 from utils.qpos_pose_conversion import pose_to_qpos
 from utils.seed import set_seed
+from utils.parse_object_code_and_scale import object_code_and_scale_to_str
 
 from torch.multiprocessing import set_start_method
 from typing import Tuple, List, Optional, Dict, Any
@@ -87,6 +88,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     penetration_iters_frac: float = (
         0.8  # Fraction of iterations to perform penetration energy calculation
     )
+    object_num_samples_for_penetration_energy: int = 2000
 
     # initialization settings
     jitter_strength: float = 0.1
@@ -218,9 +220,7 @@ def save_hand_config_dicts(
 
             hand_config_dicts.append(hand_config_dict)
 
-        object_code_and_scale_str = f"{object_code}_{object_scale:.2f}".replace(
-            ".", "_"
-        )
+        object_code_and_scale_str = object_code_and_scale_to_str(object_code, object_scale)
         np.save(
             output_folder_path / f"{object_code_and_scale_str}.npy",
             hand_config_dicts,
@@ -263,7 +263,7 @@ def generate(
         meshdata_root_path=str(args.meshdata_root_path),
         batch_size_each=args.batch_size_each_object,
         scale=args.object_scale,
-        num_samples=2000,
+        num_samples=args.object_num_samples_for_penetration_energy,
         device=device,
     )
     object_model.initialize(object_code_list)
