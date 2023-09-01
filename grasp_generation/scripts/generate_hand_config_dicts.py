@@ -47,7 +47,7 @@ np.seterr(all="raise")
 class GenerateHandConfigDictsArgumentParser(Tap):
     # experiment settings
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
-    meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata_trial")
     output_hand_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/hand_config_dicts"
     )
@@ -78,14 +78,14 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     n_contacts_per_finger: int = 1
     w_fc: float = 1.0
     w_dis: float = 100.0
-    w_pen: float = 100.0
+    w_pen: float = 300.0
     w_spen: float = 100.0
     w_joints: float = 1.0
     w_ff: float = 3.0
     w_fp: float = 0.0
     use_penetration_energy: bool = False
     penetration_iters_frac = (
-        0.8  # Fraction of iterations to perform penetration energy calculation
+        0.7  # Fraction of iterations to perform penetration energy calculation
     )
 
     # initialization settings

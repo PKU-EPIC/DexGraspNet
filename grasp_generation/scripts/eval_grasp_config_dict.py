@@ -189,7 +189,6 @@ def main(args: EvalGraspConfigDictArgumentParser):
             hand_model_type=args.hand_model_type,
             gpu=args.gpu,
             validation_type=args.validation_type,
-            mode="gui",
             start_with_step_mode=args.start_with_step_mode,
         )
         sim.set_obj_asset(
@@ -206,6 +205,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             record=index in args.record_indices,
         )
         successes = sim.run_sim()
+        sim.reset_simulator()
         print(f"successes = {successes}")
         print("Ending...")
         return
