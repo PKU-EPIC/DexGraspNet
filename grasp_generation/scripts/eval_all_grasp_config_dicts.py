@@ -118,7 +118,7 @@ def main(args: EvalAllGraspConfigDictsArgumentParser):
             subprocess.run(command, shell=True, check=True)
         except Exception as e:
             print(f"Exception: {e}")
-            print(f"Skipping {object_code} and continuing")
+            print(f"Skipping {object_code_and_scale_str} and continuing")
             continue
 
 

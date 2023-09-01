@@ -12,6 +12,7 @@ sys.path.append(os.path.realpath("."))
 from utils.isaac_validator import IsaacValidator
 from utils.object_model import ObjectModel
 from utils.seed import set_seed
+from utils.parse_object_code_and_scale import object_code_and_scale_to_str
 from tap import Tap
 from tqdm import tqdm
 import pathlib
@@ -23,18 +24,21 @@ class GenerateNerfDataOneObjectOneScaleArgumentParser(Tap):
     output_nerfdata_path: pathlib.Path = pathlib.Path("../data/nerfdata")
     object_code: str = "sem-Camera-7bff4fd4dc53de7496dece3f86cb5dd5"
     object_scale: float = 0.1
+    generate_seg: bool = False
+    generate_depth: bool = False
 
 
 def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
     set_seed(42)
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
+    object_code_and_scale_str = object_code_and_scale_to_str(args.object_code, args.object_scale)
     output_nerf_object_path = (
         args.output_nerfdata_path
-        / f"{args.object_code}_{args.object_scale:.2f}".replace(".", "_")
+        / object_code_and_scale_str
     )
     if output_nerf_object_path.exists():
-        print(f"Skipping {args.object_code} at scale {args.object_scale:.2f}")
+        print(f"{output_nerf_object_path} exists, skipping {object_code_and_scale_str}")
         return
 
     # Create sim
@@ -51,13 +55,19 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
     sim.add_env_nerf_data_collection(
         obj_scale=args.object_scale,
     )
-    sim.save_images(folder=str(output_nerf_object_path))
-    sim.create_train_val_test_split(
-        folder=str(output_nerf_object_path), train_frac=0.8, val_frac=0.1
+
+    # ORIGINAL SCALING STRATEGY:
+    # object scale = 0.1
+    # camera radius = 0.3
+    sim.save_images_lightweight(
+        folder=str(output_nerf_object_path),
+        obj_scale=args.object_scale,
+        generate_seg=args.generate_seg,
+        generate_depth=args.generate_depth,
     )
+    sim.create_no_split_data(folder=str(output_nerf_object_path))
     sim.reset_simulator()
     sim.destroy()
-
 
 if __name__ == "__main__":
     args = GenerateNerfDataOneObjectOneScaleArgumentParser().parse_args()
