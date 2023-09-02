@@ -11,22 +11,11 @@ from dataclasses import dataclass
 sys.path.append(os.path.realpath("."))
 
 import plotly.graph_objects as go
-import pathlib
 import wandb
 from tqdm import tqdm
 from datetime import datetime
 from typing import List, Tuple, Dict, Any
 
-import torch
-import numpy as np
-from utils.qpos_pose_conversion import qpos_to_pose
-from utils.hand_model_type import (
-    HandModelType,
-    handmodeltype_to_joint_names,
-)
-from utils.hand_model import HandModel
-from utils.object_model import ObjectModel
-from utils.parse_object_code_and_scale import parse_object_code_and_scale
 
 path_to_this_file = os.path.dirname(os.path.realpath(__file__))
 
@@ -104,79 +93,6 @@ def get_visualization_freq_from_wandb(run_path: str):
     return run.config["visualization_freq"]
 
 
-## From Folder ##
-
-
-def create_grasp_fig(
-    hand_model: HandModel, object_model: ObjectModel, idx_to_visualize: int
-) -> go.Figure:
-    fig = go.Figure(
-        layout=go.Layout(
-            scene=dict(
-                xaxis=dict(title="X"),
-                yaxis=dict(title="Y"),
-                zaxis=dict(title="Z"),
-                aspectmode="data",
-            ),
-            showlegend=True,
-            title="Grasp Visualization",
-        )
-    )
-    plots = [
-        *hand_model.get_plotly_data(
-            i=idx_to_visualize,
-            opacity=1.0,
-            with_contact_points=False,  # No contact points after optimization
-            with_contact_candidates=True,
-        ),
-        *object_model.get_plotly_data(i=idx_to_visualize, opacity=0.5),
-    ]
-    for plot in plots:
-        fig.add_trace(plot)
-    return fig
-
-
-def get_hand_model_from_hand_config_dicts(
-    hand_config_dicts: List[Dict[str, Any]],
-    device: str,
-    hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
-) -> HandModel:
-    joint_names = handmodeltype_to_joint_names[hand_model_type]
-    batch_size = len(hand_config_dicts)
-
-    hand_pose_array = []
-    for i in range(batch_size):
-        qpos = hand_config_dicts[i]["qpos"]
-        hand_pose_array.append(
-            qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
-        )
-    hand_pose_array = torch.stack(hand_pose_array).to(device)
-
-    hand_model = HandModel(hand_model_type=hand_model_type, device=device)
-    hand_model.set_parameters(hand_pose_array)
-    return hand_model
-
-
-def get_object_model(
-    meshdata_root_path: pathlib.Path,
-    object_code_and_scale_str: str,
-    device: str,
-    batch_size: int,
-) -> ObjectModel:
-    object_code, object_scale = parse_object_code_and_scale(object_code_and_scale_str)
-
-    # object model
-    object_model = ObjectModel(
-        meshdata_root_path=str(meshdata_root_path),
-        batch_size_each=batch_size,
-        scale=object_scale,
-        num_samples=0,
-        device=device,
-    )
-    object_model.initialize(object_code)
-    return object_model
-
-
 ## Shared ##
 def get_scene_dict(bounds: Bounds3D):
     return dict(
@@ -188,19 +104,25 @@ def get_scene_dict(bounds: Bounds3D):
 
 
 def get_bounds(fig: go.Figure):
-    x_min = min([min(d.x) for d in fig.data])
-    x_max = max([max(d.x) for d in fig.data])
-    y_min = min([min(d.y) for d in fig.data])
-    y_max = max([max(d.y) for d in fig.data])
-    z_min = min([min(d.z) for d in fig.data])
-    z_max = max([max(d.z) for d in fig.data])
+    # d.<x, y, z> may be empty, need to handle
+    x_min = min([min(d.x) for d in fig.data if len(d.x) > 0])
+    x_max = max([max(d.x) for d in fig.data if len(d.x) > 0])
+    y_min = min([min(d.y) for d in fig.data if len(d.y) > 0])
+    y_max = max([max(d.y) for d in fig.data if len(d.y) > 0])
+    z_min = min([min(d.z) for d in fig.data if len(d.z) > 0])
+    z_max = max([max(d.z) for d in fig.data if len(d.z) > 0])
     return Bounds3D(
         x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max, z_min=z_min, z_max=z_max
     )
 
 
-def get_title(idx: int, visualization_freq: int):
-    return f"Grasp Optimization Step {idx * visualization_freq}"
+def get_title(fig: go.Figure, idx: int, visualization_freq: int):
+    try:
+        original_title = fig.layout.title.text
+    except AttributeError:
+        original_title = ""
+
+    return f"Grasp Optimization Step {idx * visualization_freq} {original_title}"
 
 
 def get_fig_name(idx: int):
@@ -295,7 +217,9 @@ def create_figure_with_buttons_and_slider(
         layout=go.Layout(
             scene=get_scene_dict(bounds),
             title=get_title(
-                idx=FIG_TO_SHOW_FIRST, visualization_freq=visualization_freq
+                fig=input_figs[FIG_TO_SHOW_FIRST],
+                idx=FIG_TO_SHOW_FIRST,
+                visualization_freq=visualization_freq,
             ),
             showlegend=True,
             updatemenus=[
@@ -318,7 +242,9 @@ def create_figure_with_buttons_and_slider(
                 data=fig.data,
                 layout=go.Layout(
                     scene=get_scene_dict(bounds),
-                    title=get_title(idx=fig_idx, visualization_freq=visualization_freq),
+                    title=get_title(
+                        fig=fig, idx=fig_idx, visualization_freq=visualization_freq
+                    ),
                     showlegend=True,
                 ),
                 name=get_fig_name(fig_idx),  # Important to match with slider label

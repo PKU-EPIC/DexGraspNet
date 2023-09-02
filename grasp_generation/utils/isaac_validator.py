@@ -609,17 +609,22 @@ class IsaacValidator:
             not_allowed_contacts = set(hand_link_contact_count.keys()) - set(
                 self.allowed_contact_link_names
             )
+
+            # palm_link_idx
+            palm_link_idxs = [idx for idx, name in hand_link_idx_to_name.items() if name == "palm_link"]
+            assert len(palm_link_idxs) == 1, f"len(palm_link_idxs) = {len(palm_link_idxs)}"
+            palm_link_idx = palm_link_idxs[0]
+
             final_hand_pose = gymapi.Transform()
             final_hand_pose.p, final_hand_pose.r = gym.get_actor_rigid_body_states(
                 env, self.hand_handles[i], gymapi.STATE_POS
-            )[6][
-                "pose"
-            ]  # pull '6' here for the palm link.
+            )[palm_link_idx]["pose"]
 
+            OBJ_BASE_LINK_IDX = 0
             final_obj_pose = gymapi.Transform()
             final_obj_pose.p, final_obj_pose.r = gym.get_actor_rigid_body_states(
                 env, obj_handle, gymapi.STATE_POS
-            )[0]["pose"]
+            )[OBJ_BASE_LINK_IDX]["pose"]
             init_rel_obj_pos = torch.tensor(
                 [init_rel_obj_pose.p.x, init_rel_obj_pose.p.y, init_rel_obj_pose.p.z]
             )

@@ -16,17 +16,26 @@ from tap import Tap
 import numpy as np
 from visualize_optimization_helper import (
     create_figure_with_buttons_and_slider,
-    get_hand_model_from_hand_config_dicts,
-    get_object_model,
-    create_grasp_fig,
 )
+from visualize_config_dict_helper import create_config_dict_fig
 
 import pathlib
 
+import torch
+import numpy as np
+from utils.qpos_pose_conversion import qpos_to_pose
+from utils.hand_model_type import (
+    HandModelType,
+    handmodeltype_to_joint_names,
+)
+from utils.hand_model import HandModel
+from utils.object_model import ObjectModel
+from utils.parse_object_code_and_scale import parse_object_code_and_scale
 
-class VisualizeHandConfigDictOptimizationArgumentParser(Tap):
+
+class VisualizeConfigDictOptimizationArgumentParser(Tap):
     """Expects a folder with the following structure:
-    - <input_hand_config_dicts_mid_optimization_path>
+    - <input_config_dicts_mid_optimization_path>
         - 0
             - <object_code_and_scale_str>.npy
         - x
@@ -38,8 +47,8 @@ class VisualizeHandConfigDictOptimizationArgumentParser(Tap):
         ...
     """
 
-    input_hand_config_dicts_mid_optimization_path: pathlib.Path = pathlib.Path(
-        "../data/hand_config_dicts_mid_optimization"
+    input_config_dicts_mid_optimization_path: pathlib.Path = pathlib.Path(
+        "../data/config_dicts_mid_optimization"
     )
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     object_code_and_scale_str: str = (
@@ -50,19 +59,61 @@ class VisualizeHandConfigDictOptimizationArgumentParser(Tap):
     transition_duration: int = 100
     device: str = "cpu"
     save_to_html: bool = False
+    skip_visualize_grasp_config_dict: bool = False
 
 
-def get_grasp_figs_from_folder(
-    input_hand_config_dicts_mid_optimization_path: pathlib.Path,
+def get_hand_model_from_config_dicts(
+    config_dict: Dict[str, Any],
+    device: str,
+    hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
+) -> HandModel:
+    joint_names = handmodeltype_to_joint_names[hand_model_type]
+
+    hand_pose = qpos_to_pose(
+        qpos=config_dict["qpos"],
+        joint_names=joint_names,
+        unsqueeze_batch_dim=True,
+    ).to(device)
+    hand_model = HandModel(hand_model_type=hand_model_type, device=device)
+    hand_model.set_parameters(hand_pose)
+    return hand_model
+
+
+def get_object_model(
+    meshdata_root_path: pathlib.Path,
+    object_code_and_scale_str: str,
+    device: str,
+) -> ObjectModel:
+    object_code, object_scale = parse_object_code_and_scale(object_code_and_scale_str)
+
+    # object model
+    object_model = ObjectModel(
+        meshdata_root_path=str(meshdata_root_path),
+        batch_size_each=1,
+        scale=object_scale,
+        num_samples=0,
+        device=device,
+    )
+    object_model.initialize(object_code)
+    return object_model
+
+
+def create_config_dict_figs_from_folder(
+    input_config_dicts_mid_optimization_path: pathlib.Path,
     meshdata_root_path: pathlib.Path,
     object_code_and_scale_str: str,
     idx_to_visualize: int,
     device: str,
+    skip_visualize_grasp_config_dict: bool,
 ) -> Tuple[List[go.Figure], int]:
     filename = f"{object_code_and_scale_str}.npy"
 
     sorted_mid_folders = sorted(
-        [path.name for path in input_hand_config_dicts_mid_optimization_path.iterdir()],
+        [
+            path.name
+            for path in input_config_dicts_mid_optimization_path.iterdir()
+            if path.is_dir() and path.name.isdigit() and (path / filename).exists()
+        ],
         key=int,
     )
 
@@ -75,26 +126,30 @@ def get_grasp_figs_from_folder(
 
     figs = []
     for mid_folder in tqdm(sorted_mid_folders, desc="Going through folders..."):
-        filepath = input_hand_config_dicts_mid_optimization_path / mid_folder / filename
+        filepath = input_config_dicts_mid_optimization_path / mid_folder / filename
         assert filepath.exists(), f"{filepath} does not exist"
 
         # Read in data
-        hand_config_dicts: List[Dict[str, Any]] = np.load(filepath, allow_pickle=True)
-        hand_model = get_hand_model_from_hand_config_dicts(
-            hand_config_dicts=hand_config_dicts, device=device
+        config_dicts: List[Dict[str, Any]] = np.load(filepath, allow_pickle=True)
+        config_dict = config_dicts[idx_to_visualize]
+
+        hand_model = get_hand_model_from_config_dicts(
+            config_dict=config_dict, device=device
         )
         object_model = get_object_model(
             meshdata_root_path=meshdata_root_path,
             object_code_and_scale_str=object_code_and_scale_str,
             device=device,
-            batch_size=len(hand_config_dicts),
         )
 
         # Create figure
-        fig = create_grasp_fig(
+        fig = create_config_dict_fig(
+            config_dict=config_dict,
             hand_model=hand_model,
             object_model=object_model,
-            idx_to_visualize=idx_to_visualize,
+            skip_visualize_qpos_start=True,
+            skip_visualize_grasp_config_dict=skip_visualize_grasp_config_dict,
+            title=f"{object_code_and_scale_str} {idx_to_visualize}",
         )
         figs.append(fig)
 
@@ -116,17 +171,18 @@ def get_visualization_freq_from_folder(input_folder: str) -> int:
     return visualization_freq
 
 
-def main(args: VisualizeHandConfigDictOptimizationArgumentParser):
+def main(args: VisualizeConfigDictOptimizationArgumentParser):
     print("=" * 80)
     print(f"args = {args}")
     print("=" * 80 + "\n")
 
-    input_figs, visualization_freq = get_grasp_figs_from_folder(
-        input_hand_config_dicts_mid_optimization_path=args.input_hand_config_dicts_mid_optimization_path,
+    input_figs, visualization_freq = create_config_dict_figs_from_folder(
+        input_config_dicts_mid_optimization_path=args.input_config_dicts_mid_optimization_path,
         meshdata_root_path=args.meshdata_root_path,
         object_code_and_scale_str=args.object_code_and_scale_str,
         idx_to_visualize=args.idx_to_visualize,
         device=args.device,
+        skip_visualize_grasp_config_dict=args.skip_visualize_grasp_config_dict,
     )
 
     print("Making figure with buttons and slider...")
@@ -153,4 +209,4 @@ def main(args: VisualizeHandConfigDictOptimizationArgumentParser):
 
 
 if __name__ == "__main__":
-    main(VisualizeHandConfigDictOptimizationArgumentParser().parse_args())
+    main(VisualizeConfigDictOptimizationArgumentParser().parse_args())

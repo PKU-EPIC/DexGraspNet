@@ -189,6 +189,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             hand_model_type=args.hand_model_type,
             gpu=args.gpu,
             validation_type=args.validation_type,
+            mode="gui" if args.use_gui else "headless",
             start_with_step_mode=args.start_with_step_mode,
         )
         sim.set_obj_asset(
@@ -221,7 +222,8 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
     # Run for loop over minibatches of grasps.
     successes = []
-    for i in tqdm(range(math.ceil(batch_size / args.max_grasps_per_batch))):
+    pbar = tqdm(range(math.ceil(batch_size / args.max_grasps_per_batch)))
+    for i in pbar:
         start_index = i * args.max_grasps_per_batch
         end_index = min((i + 1) * args.max_grasps_per_batch, batch_size)
         sim.set_obj_asset(
@@ -240,6 +242,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         batch_successes = sim.run_sim()
         successes.append(batch_successes)
         sim.reset_simulator()
+        pbar.set_description(f"mean_success = {np.mean(successes)}")
 
     # Aggregate results
     successes = np.concatenate(successes, axis=0)
