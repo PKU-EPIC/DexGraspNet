@@ -132,6 +132,7 @@ class IsaacValidator:
         self.obj_link_idx_to_name_dicts = []
         self.init_hand_poses = []
         self.init_obj_poses = []
+        self.init_rel_obj_poses = []
         self.camera_handles = []
         self.camera_envs = []
         self.camera_properties_list = []
@@ -309,6 +310,10 @@ class IsaacValidator:
         )
 
         self._setup_obj(env, obj_scale, test_rot, collision_idx=test_rotation_index)
+
+        self.init_rel_obj_poses.append(
+            self.init_hand_poses[-1].inverse() * self.init_obj_poses[-1]
+        )
 
         if record:
             self._setup_camera(env)
@@ -565,14 +570,14 @@ class IsaacValidator:
             hand_link_idx_to_name,
             obj_link_idx_to_name,
             obj_handle,
-            init_obj_pose,
+            init_rel_obj_pose,
         ) in enumerate(
             zip(
                 self.envs,
                 self.hand_link_idx_to_name_dicts,
                 self.obj_link_idx_to_name_dicts,
                 self.obj_handles,
-                self.init_obj_poses,
+                self.init_rel_obj_poses,
             )
         ):
             contacts = gym.get_env_rigid_contacts(env)
@@ -604,28 +609,47 @@ class IsaacValidator:
             not_allowed_contacts = set(hand_link_contact_count.keys()) - set(
                 self.allowed_contact_link_names
             )
+            final_hand_pose = gymapi.Transform()
+            final_hand_pose.p, final_hand_pose.r = gym.get_actor_rigid_body_states(
+                env, self.hand_handles[i], gymapi.STATE_POS
+            )[6][
+                "pose"
+            ]  # pull '6' here for the palm link.
 
-            obj_pose = gym.get_actor_rigid_body_states(
+            final_obj_pose = gymapi.Transform()
+            final_obj_pose.p, final_obj_pose.r = gym.get_actor_rigid_body_states(
                 env, obj_handle, gymapi.STATE_POS
             )[0]["pose"]
-            init_obj_pos = torch.tensor(
-                [init_obj_pose.p.x, init_obj_pose.p.y, init_obj_pose.p.z]
+            init_rel_obj_pos = torch.tensor(
+                [init_rel_obj_pose.p.x, init_rel_obj_pose.p.y, init_rel_obj_pose.p.z]
             )
-            init_obj_quat = torch.tensor(
+            init_rel_obj_quat = torch.tensor(
                 [
-                    init_obj_pose.r.x,
-                    init_obj_pose.r.y,
-                    init_obj_pose.r.z,
-                    init_obj_pose.r.w,
+                    init_rel_obj_pose.r.x,
+                    init_rel_obj_pose.r.y,
+                    init_rel_obj_pose.r.z,
+                    init_rel_obj_pose.r.w,
                 ]
             )
-            obj_pos = torch.tensor([obj_pose["p"][s] for s in "xyz"])
-            obj_quat = torch.tensor([obj_pose["r"][s] for s in "xyzw"])
+            final_rel_obj_pose = final_hand_pose.inverse() * final_obj_pose
+
+            final_rel_obj_pos = torch.tensor(
+                [final_rel_obj_pose.p.x, final_rel_obj_pose.p.y, final_rel_obj_pose.p.z]
+            )
+            final_rel_obj_quat = torch.tensor(
+                [
+                    final_rel_obj_pose.r.x,
+                    final_rel_obj_pose.r.y,
+                    final_rel_obj_pose.r.z,
+                    final_rel_obj_pose.r.w,
+                ]
+            )
 
             quat_diff = torch_utils.quat_mul(
-                obj_quat, torch_utils.quat_conjugate(init_obj_quat)
+                final_rel_obj_quat, torch_utils.quat_conjugate(init_rel_obj_quat)
             )
-            pos_change = torch.linalg.norm(obj_pos - init_obj_pos).item()
+            pos_change = torch.linalg.norm(final_rel_obj_pos - init_rel_obj_pos).item()
+
             euler_change = torch.stack(
                 torch_utils.get_euler_xyz(quat_diff[None, ...])
             ).abs()
@@ -643,7 +667,7 @@ class IsaacValidator:
 
             successes.append(success)
 
-            DEBUG = False
+            DEBUG = True
             if DEBUG and len(hand_object_contacts) > 0:
                 print(f"i = {i}")
                 print(f"success = {success}")
@@ -792,7 +816,7 @@ class IsaacValidator:
             gym.destroy_env(env)
         gym.destroy_sim(self.sim)
         if self.has_viewer:
-            gym.destroy_viewer(self.sim)
+            gym.destroy_viewer(self.sim.viewer)
             self.viewer = gym.create_viewer(self.sim, self.camera_props)
         self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
         self.envs = []
@@ -806,6 +830,9 @@ class IsaacValidator:
         self.video_frames = []
         self.hand_asset = None
         self.obj_asset = None
+        self.init_obj_poses = []
+        self.init_hand_poses = []
+        self.init_rel_obj_poses = []
 
         # Recreate hand asset in new sim.
         self.hand_asset = gym.load_asset(

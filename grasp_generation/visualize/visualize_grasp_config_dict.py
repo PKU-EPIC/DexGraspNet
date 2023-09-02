@@ -42,6 +42,7 @@ class VisualizeGraspConfigDictArgumentParser(Tap):
     idx_to_visualize: int = 0
     visualize_joint_angle_targets: bool = False
     save_to_html: bool = False
+    meshdata_root_path: str = "../data/meshdata"
 
 
 def main(args: VisualizeGraspConfigDictArgumentParser):
@@ -59,7 +60,9 @@ def main(args: VisualizeGraspConfigDictArgumentParser):
     )
     grasp_config_dict = grasp_config_dicts[args.idx_to_visualize]
     hand_pose = qpos_to_pose(
-        qpos=grasp_config_dict["qpos"], joint_names=joint_names, unsqueeze_batch_dim=True
+        qpos=grasp_config_dict["qpos"],
+        joint_names=joint_names,
+        unsqueeze_batch_dim=True,
     ).to(device)
     hand_pose_start = (
         qpos_to_pose(
