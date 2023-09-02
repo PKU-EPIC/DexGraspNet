@@ -112,7 +112,7 @@ def create_config_dict_figs_from_folder(
         [
             path.name
             for path in input_hand_config_dicts_mid_optimization_path.iterdir()
-            if path.is_dir()
+            if path.is_dir() and path.name.isdigit() and (path / filename).exists()
         ],
         key=int,
     )
