@@ -35,7 +35,7 @@ from utils.parse_object_code_and_scale import parse_object_code_and_scale
 
 class VisualizeConfigDictOptimizationArgumentParser(Tap):
     """Expects a folder with the following structure:
-    - <input_hand_config_dicts_mid_optimization_path>
+    - <input_config_dicts_mid_optimization_path>
         - 0
             - <object_code_and_scale_str>.npy
         - x
@@ -47,8 +47,8 @@ class VisualizeConfigDictOptimizationArgumentParser(Tap):
         ...
     """
 
-    input_hand_config_dicts_mid_optimization_path: pathlib.Path = pathlib.Path(
-        "../data/hand_config_dicts_mid_optimization"
+    input_config_dicts_mid_optimization_path: pathlib.Path = pathlib.Path(
+        "../data/config_dicts_mid_optimization"
     )
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     object_code_and_scale_str: str = (
@@ -62,15 +62,15 @@ class VisualizeConfigDictOptimizationArgumentParser(Tap):
     skip_visualize_grasp_config_dict: bool = False
 
 
-def get_hand_model_from_hand_config_dicts(
-    hand_config_dict: Dict[str, Any],
+def get_hand_model_from_config_dicts(
+    config_dict: Dict[str, Any],
     device: str,
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
 ) -> HandModel:
     joint_names = handmodeltype_to_joint_names[hand_model_type]
 
     hand_pose = qpos_to_pose(
-        qpos=hand_config_dict["qpos"],
+        qpos=config_dict["qpos"],
         joint_names=joint_names,
         unsqueeze_batch_dim=True,
     ).to(device)
@@ -99,7 +99,7 @@ def get_object_model(
 
 
 def create_config_dict_figs_from_folder(
-    input_hand_config_dicts_mid_optimization_path: pathlib.Path,
+    input_config_dicts_mid_optimization_path: pathlib.Path,
     meshdata_root_path: pathlib.Path,
     object_code_and_scale_str: str,
     idx_to_visualize: int,
@@ -111,7 +111,7 @@ def create_config_dict_figs_from_folder(
     sorted_mid_folders = sorted(
         [
             path.name
-            for path in input_hand_config_dicts_mid_optimization_path.iterdir()
+            for path in input_config_dicts_mid_optimization_path.iterdir()
             if path.is_dir() and path.name.isdigit() and (path / filename).exists()
         ],
         key=int,
@@ -126,15 +126,15 @@ def create_config_dict_figs_from_folder(
 
     figs = []
     for mid_folder in tqdm(sorted_mid_folders, desc="Going through folders..."):
-        filepath = input_hand_config_dicts_mid_optimization_path / mid_folder / filename
+        filepath = input_config_dicts_mid_optimization_path / mid_folder / filename
         assert filepath.exists(), f"{filepath} does not exist"
 
         # Read in data
-        hand_config_dicts: List[Dict[str, Any]] = np.load(filepath, allow_pickle=True)
-        hand_config_dict = hand_config_dicts[idx_to_visualize]
+        config_dicts: List[Dict[str, Any]] = np.load(filepath, allow_pickle=True)
+        config_dict = config_dicts[idx_to_visualize]
 
-        hand_model = get_hand_model_from_hand_config_dicts(
-            hand_config_dict=hand_config_dict, device=device
+        hand_model = get_hand_model_from_config_dicts(
+            config_dict=config_dict, device=device
         )
         object_model = get_object_model(
             meshdata_root_path=meshdata_root_path,
@@ -144,7 +144,7 @@ def create_config_dict_figs_from_folder(
 
         # Create figure
         fig = create_config_dict_fig(
-            config_dict=hand_config_dict,
+            config_dict=config_dict,
             hand_model=hand_model,
             object_model=object_model,
             skip_visualize_qpos_start=True,
@@ -177,7 +177,7 @@ def main(args: VisualizeConfigDictOptimizationArgumentParser):
     print("=" * 80 + "\n")
 
     input_figs, visualization_freq = create_config_dict_figs_from_folder(
-        input_hand_config_dicts_mid_optimization_path=args.input_hand_config_dicts_mid_optimization_path,
+        input_config_dicts_mid_optimization_path=args.input_config_dicts_mid_optimization_path,
         meshdata_root_path=args.meshdata_root_path,
         object_code_and_scale_str=args.object_code_and_scale_str,
         idx_to_visualize=args.idx_to_visualize,
