@@ -612,7 +612,7 @@ class IsaacValidator:
 
             # palm_link_idx
             palm_link_idxs = [idx for idx, name in hand_link_idx_to_name.items() if name == "palm_link"]
-            assert len(palm_link_idxs) == 0, f"len(palm_link_idxs) = {len(palm_link_idxs)}"
+            assert len(palm_link_idxs) == 1, f"len(palm_link_idxs) = {len(palm_link_idxs)}"
             palm_link_idx = palm_link_idxs[0]
 
             final_hand_pose = gymapi.Transform()
