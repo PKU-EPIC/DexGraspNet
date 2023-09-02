@@ -16,12 +16,21 @@ from tap import Tap
 import numpy as np
 from visualize_optimization_helper import (
     create_figure_with_buttons_and_slider,
-    get_hand_model_from_hand_config_dicts,
-    get_object_model,
-    create_grasp_fig,
 )
+from visualize_config_dict_helper import create_config_dict_fig
 
 import pathlib
+
+import torch
+import numpy as np
+from utils.qpos_pose_conversion import qpos_to_pose
+from utils.hand_model_type import (
+    HandModelType,
+    handmodeltype_to_joint_names,
+)
+from utils.hand_model import HandModel
+from utils.object_model import ObjectModel
+from utils.parse_object_code_and_scale import parse_object_code_and_scale
 
 
 class VisualizeHandConfigDictOptimizationArgumentParser(Tap):
@@ -52,7 +61,43 @@ class VisualizeHandConfigDictOptimizationArgumentParser(Tap):
     save_to_html: bool = False
 
 
-def get_grasp_figs_from_folder(
+def get_hand_model_from_hand_config_dicts(
+    hand_config_dict: Dict[str, Any],
+    device: str,
+    hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
+) -> HandModel:
+    joint_names = handmodeltype_to_joint_names[hand_model_type]
+
+    hand_pose = qpos_to_pose(
+        qpos=hand_config_dict["qpos"],
+        joint_names=joint_names,
+        unsqueeze_batch_dim=True,
+    ).to(device)
+    hand_model = HandModel(hand_model_type=hand_model_type, device=device)
+    hand_model.set_parameters(hand_pose)
+    return hand_model
+
+
+def get_object_model(
+    meshdata_root_path: pathlib.Path,
+    object_code_and_scale_str: str,
+    device: str,
+) -> ObjectModel:
+    object_code, object_scale = parse_object_code_and_scale(object_code_and_scale_str)
+
+    # object model
+    object_model = ObjectModel(
+        meshdata_root_path=str(meshdata_root_path),
+        batch_size_each=1,
+        scale=object_scale,
+        num_samples=0,
+        device=device,
+    )
+    object_model.initialize(object_code)
+    return object_model
+
+
+def create_config_dict_figs_from_folder(
     input_hand_config_dicts_mid_optimization_path: pathlib.Path,
     meshdata_root_path: pathlib.Path,
     object_code_and_scale_str: str,
@@ -81,6 +126,7 @@ def get_grasp_figs_from_folder(
         # Read in data
         hand_config_dicts: List[Dict[str, Any]] = np.load(filepath, allow_pickle=True)
         hand_config_dict = hand_config_dicts[idx_to_visualize]
+
         hand_model = get_hand_model_from_hand_config_dicts(
             hand_config_dict=hand_config_dict, device=device
         )
@@ -91,10 +137,12 @@ def get_grasp_figs_from_folder(
         )
 
         # Create figure
-        fig = create_grasp_fig(
+        fig = create_config_dict_fig(
+            config_dict=hand_config_dict,
             hand_model=hand_model,
             object_model=object_model,
-            idx_to_visualize=idx_to_visualize,
+            skip_visualize_qpos_start=True,
+            title=f"{object_code_and_scale_str} {idx_to_visualize}",
         )
         figs.append(fig)
 
@@ -121,7 +169,7 @@ def main(args: VisualizeHandConfigDictOptimizationArgumentParser):
     print(f"args = {args}")
     print("=" * 80 + "\n")
 
-    input_figs, visualization_freq = get_grasp_figs_from_folder(
+    input_figs, visualization_freq = create_config_dict_figs_from_folder(
         input_hand_config_dicts_mid_optimization_path=args.input_hand_config_dicts_mid_optimization_path,
         meshdata_root_path=args.meshdata_root_path,
         object_code_and_scale_str=args.object_code_and_scale_str,
