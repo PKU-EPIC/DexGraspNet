@@ -109,7 +109,11 @@ def create_config_dict_figs_from_folder(
     filename = f"{object_code_and_scale_str}.npy"
 
     sorted_mid_folders = sorted(
-        [path.name for path in input_hand_config_dicts_mid_optimization_path.iterdir()],
+        [
+            path.name
+            for path in input_hand_config_dicts_mid_optimization_path.iterdir()
+            if path.is_dir()
+        ],
         key=int,
     )
 
