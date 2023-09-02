@@ -137,23 +137,19 @@ def create_grasp_fig(
 
 
 def get_hand_model_from_hand_config_dicts(
-    hand_config_dicts: List[Dict[str, Any]],
+    hand_config_dict: Dict[str, Any],
     device: str,
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
 ) -> HandModel:
     joint_names = handmodeltype_to_joint_names[hand_model_type]
-    batch_size = len(hand_config_dicts)
 
-    hand_pose_array = []
-    for i in range(batch_size):
-        qpos = hand_config_dicts[i]["qpos"]
-        hand_pose_array.append(
-            qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
-        )
-    hand_pose_array = torch.stack(hand_pose_array).to(device)
-
+    hand_pose = qpos_to_pose(
+        qpos=hand_config_dict["qpos"],
+        joint_names=joint_names,
+        unsqueeze_batch_dim=True,
+    ).to(device)
     hand_model = HandModel(hand_model_type=hand_model_type, device=device)
-    hand_model.set_parameters(hand_pose_array)
+    hand_model.set_parameters(hand_pose)
     return hand_model
 
 
@@ -168,7 +164,7 @@ def get_object_model(
     # object model
     object_model = ObjectModel(
         meshdata_root_path=str(meshdata_root_path),
-        batch_size_each=batch_size,
+        batch_size_each=1,
         scale=object_scale,
         num_samples=0,
         device=device,

@@ -43,6 +43,10 @@ class VisualizeConfigDictArgumentParser(Tap):
     save_to_html: bool = False
     device: str = "cpu"
 
+    # Detailed args
+    object_model_num_sampled_pts: int = 2000
+    skip_visualize_qpos_start: bool = False
+
 
 def get_hand_config_dict_plotly_data_list(
     hand_model: HandModel,
@@ -200,73 +204,51 @@ def get_grasp_config_dict_plotly_data_list(
     )
 
 
-def main(args: VisualizeConfigDictArgumentParser):
-    object_code, object_scale = parse_object_code_and_scale(
-        args.object_code_and_scale_str
-    )
-
-    # load results
-    config_dicts: List[Dict[str, Any]] = np.load(
-        args.input_config_dicts_path / f"{args.object_code_and_scale_str}.npy",
-        allow_pickle=True,
-    )
-    config_dict = config_dicts[args.idx_to_visualize]
-
-    # hand model: be careful with this, as it is stateful
-    hand_model = HandModel(hand_model_type=args.hand_model_type, device=args.device)
-
-    # object model
-    object_model = ObjectModel(
-        meshdata_root_path=str(args.meshdata_root_path),
-        batch_size_each=1,
-        scale=object_scale,
-        num_samples=2000,
-        device=args.device,
-    )
-    object_model.initialize(object_code)
+def create_config_dict_fig(
+    config_dict: Dict[str, Any],
+    hand_model: HandModel,
+    object_model: ObjectModel,
+    skip_visualize_qpos_start: bool,
+    title: str,
+) -> go.Figure:
     object_plotly = object_model.get_plotly_data(
         i=0, color="lightgreen", opacity=0.5, with_surface_points=True
     )
 
     # hand pose
-    joint_names = handmodeltype_to_joint_names[args.hand_model_type]
+    joint_names = handmodeltype_to_joint_names[hand_model.hand_model_type]
     hand_pose = qpos_to_pose(
         qpos=config_dict["qpos"],
         joint_names=joint_names,
         unsqueeze_batch_dim=True,
-    ).to(args.device)
+    ).to(hand_model.device)
 
     # hand pose start
-    if "qpos_start" in config_dict:
+    if "qpos_start" in config_dict and not skip_visualize_qpos_start:
         hand_pose_start = qpos_to_pose(
             qpos=config_dict["qpos_start"],
             joint_names=joint_names,
             unsqueeze_batch_dim=True,
-        ).to(args.device)
+        ).to(hand_model.device)
     else:
         hand_pose_start = None
 
     # hand config dict
-    print("Plotting hand config dict part")
     hand_config_dict_plotly_data_list = get_hand_config_dict_plotly_data_list(
         hand_model=hand_model,
         hand_pose=hand_pose,
         hand_pose_start=hand_pose_start,
     )
-    print("Done")
 
     # grasp config dict
-    print("Plotting grasp config dict part")
     grasp_config_dict_plotly_data_list = get_grasp_config_dict_plotly_data_list(
         hand_model=hand_model,
         hand_pose=hand_pose,
         config_dict=config_dict,
-        device=args.device,
+        device=hand_model.device,
     )
-    print("Done")
 
     # Create fig
-    print("Creating fig")
     fig = go.Figure(
         data=(
             object_plotly
@@ -306,13 +288,48 @@ def main(args: VisualizeConfigDictArgumentParser):
 
     fig.update_layout()
     fig.update_layout(
-        title=f"{args.object_code_and_scale_str} {args.idx_to_visualize}",
+        title=title,
         scene=dict(
             xaxis=dict(title="X"),
             yaxis=dict(title="Y"),
             zaxis=dict(title="Z"),
             aspectmode="data",
         ),
+    )
+    return fig
+
+
+def main(args: VisualizeConfigDictArgumentParser):
+    object_code, object_scale = parse_object_code_and_scale(
+        args.object_code_and_scale_str
+    )
+
+    # load results
+    config_dicts: List[Dict[str, Any]] = np.load(
+        args.input_config_dicts_path / f"{args.object_code_and_scale_str}.npy",
+        allow_pickle=True,
+    )
+    config_dict = config_dicts[args.idx_to_visualize]
+
+    # hand model: be careful with this, as it is stateful
+    hand_model = HandModel(hand_model_type=args.hand_model_type, device=args.device)
+
+    # object model
+    object_model = ObjectModel(
+        meshdata_root_path=str(args.meshdata_root_path),
+        batch_size_each=1,
+        scale=object_scale,
+        num_samples=args.object_model_num_sampled_pts,
+        device=args.device,
+    )
+    object_model.initialize(object_code)
+
+    fig = create_config_dict_fig(
+        config_dict=config_dict,
+        hand_model=hand_model,
+        object_model=object_model,
+        skip_visualize_qpos_start=args.skip_visualize_qpos_start,
+        title=f"{args.object_code_and_scale_str} {args.idx_to_visualize}",
     )
 
     # Output

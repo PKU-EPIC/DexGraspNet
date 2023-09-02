@@ -80,14 +80,14 @@ def get_grasp_figs_from_folder(
 
         # Read in data
         hand_config_dicts: List[Dict[str, Any]] = np.load(filepath, allow_pickle=True)
+        hand_config_dict = hand_config_dicts[idx_to_visualize]
         hand_model = get_hand_model_from_hand_config_dicts(
-            hand_config_dicts=hand_config_dicts, device=device
+            hand_config_dict=hand_config_dict, device=device
         )
         object_model = get_object_model(
             meshdata_root_path=meshdata_root_path,
             object_code_and_scale_str=object_code_and_scale_str,
             device=device,
-            batch_size=len(hand_config_dicts),
         )
 
         # Create figure
