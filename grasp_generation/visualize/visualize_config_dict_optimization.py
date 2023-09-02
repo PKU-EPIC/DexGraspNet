@@ -33,7 +33,7 @@ from utils.object_model import ObjectModel
 from utils.parse_object_code_and_scale import parse_object_code_and_scale
 
 
-class VisualizeHandConfigDictOptimizationArgumentParser(Tap):
+class VisualizeConfigDictOptimizationArgumentParser(Tap):
     """Expects a folder with the following structure:
     - <input_hand_config_dicts_mid_optimization_path>
         - 0
@@ -164,7 +164,7 @@ def get_visualization_freq_from_folder(input_folder: str) -> int:
     return visualization_freq
 
 
-def main(args: VisualizeHandConfigDictOptimizationArgumentParser):
+def main(args: VisualizeConfigDictOptimizationArgumentParser):
     print("=" * 80)
     print(f"args = {args}")
     print("=" * 80 + "\n")
@@ -201,4 +201,4 @@ def main(args: VisualizeHandConfigDictOptimizationArgumentParser):
 
 
 if __name__ == "__main__":
-    main(VisualizeHandConfigDictOptimizationArgumentParser().parse_args())
+    main(VisualizeConfigDictOptimizationArgumentParser().parse_args())
