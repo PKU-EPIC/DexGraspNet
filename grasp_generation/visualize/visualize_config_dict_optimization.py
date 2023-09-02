@@ -59,6 +59,7 @@ class VisualizeConfigDictOptimizationArgumentParser(Tap):
     transition_duration: int = 100
     device: str = "cpu"
     save_to_html: bool = False
+    skip_visualize_grasp_config_dict: bool = False
 
 
 def get_hand_model_from_hand_config_dicts(
@@ -103,6 +104,7 @@ def create_config_dict_figs_from_folder(
     object_code_and_scale_str: str,
     idx_to_visualize: int,
     device: str,
+    skip_visualize_grasp_config_dict: bool,
 ) -> Tuple[List[go.Figure], int]:
     filename = f"{object_code_and_scale_str}.npy"
 
@@ -142,6 +144,7 @@ def create_config_dict_figs_from_folder(
             hand_model=hand_model,
             object_model=object_model,
             skip_visualize_qpos_start=True,
+            skip_visualize_grasp_config_dict=skip_visualize_grasp_config_dict,
             title=f"{object_code_and_scale_str} {idx_to_visualize}",
         )
         figs.append(fig)
@@ -175,6 +178,7 @@ def main(args: VisualizeConfigDictOptimizationArgumentParser):
         object_code_and_scale_str=args.object_code_and_scale_str,
         idx_to_visualize=args.idx_to_visualize,
         device=args.device,
+        skip_visualize_grasp_config_dict=args.skip_visualize_grasp_config_dict,
     )
 
     print("Making figure with buttons and slider...")

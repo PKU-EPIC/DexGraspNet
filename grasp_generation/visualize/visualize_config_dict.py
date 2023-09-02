@@ -41,6 +41,7 @@ class VisualizeConfigDictArgumentParser(Tap):
     # Detailed args
     object_model_num_sampled_pts: int = 2000
     skip_visualize_qpos_start: bool = False
+    skip_visualize_grasp_config_dict: bool = False
 
 
 def main(args: VisualizeConfigDictArgumentParser):
@@ -73,6 +74,7 @@ def main(args: VisualizeConfigDictArgumentParser):
         hand_model=hand_model,
         object_model=object_model,
         skip_visualize_qpos_start=args.skip_visualize_qpos_start,
+        skip_visualize_grasp_config_dict=args.skip_visualize_grasp_config_dict,
         title=f"{args.object_code_and_scale_str} {args.idx_to_visualize}",
     )
 

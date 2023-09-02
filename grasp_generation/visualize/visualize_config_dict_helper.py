@@ -180,6 +180,7 @@ def create_config_dict_fig(
     hand_model: HandModel,
     object_model: ObjectModel,
     skip_visualize_qpos_start: bool,
+    skip_visualize_grasp_config_dict: bool,
     title: str,
 ) -> go.Figure:
     object_plotly = object_model.get_plotly_data(
@@ -212,12 +213,16 @@ def create_config_dict_fig(
     )
 
     # grasp config dict
-    grasp_config_dict_plotly_data_list = get_grasp_config_dict_plotly_data_list(
-        hand_model=hand_model,
-        hand_pose=hand_pose,
-        config_dict=config_dict,
-        device=hand_model.device,
-    )
+    if not skip_visualize_grasp_config_dict:
+        # Slowest part of this function
+        grasp_config_dict_plotly_data_list = get_grasp_config_dict_plotly_data_list(
+            hand_model=hand_model,
+            hand_pose=hand_pose,
+            config_dict=config_dict,
+            device=hand_model.device,
+        )
+    else:
+        grasp_config_dict_plotly_data_list = []
 
     # Create fig
     fig = go.Figure(
