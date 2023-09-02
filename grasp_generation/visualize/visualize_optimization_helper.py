@@ -116,8 +116,13 @@ def get_bounds(fig: go.Figure):
     )
 
 
-def get_title(idx: int, visualization_freq: int):
-    return f"Grasp Optimization Step {idx * visualization_freq}"
+def get_title(fig: go.Figure, idx: int, visualization_freq: int):
+    try:
+        original_title = fig.layout.title.text
+    except AttributeError:
+        original_title = ""
+
+    return f"Grasp Optimization Step {idx * visualization_freq} {original_title}"
 
 
 def get_fig_name(idx: int):
@@ -212,7 +217,9 @@ def create_figure_with_buttons_and_slider(
         layout=go.Layout(
             scene=get_scene_dict(bounds),
             title=get_title(
-                idx=FIG_TO_SHOW_FIRST, visualization_freq=visualization_freq
+                fig=input_figs[FIG_TO_SHOW_FIRST],
+                idx=FIG_TO_SHOW_FIRST,
+                visualization_freq=visualization_freq,
             ),
             showlegend=True,
             updatemenus=[
@@ -235,7 +242,9 @@ def create_figure_with_buttons_and_slider(
                 data=fig.data,
                 layout=go.Layout(
                     scene=get_scene_dict(bounds),
-                    title=get_title(idx=fig_idx, visualization_freq=visualization_freq),
+                    title=get_title(
+                        fig=fig, idx=fig_idx, visualization_freq=visualization_freq
+                    ),
                     showlegend=True,
                 ),
                 name=get_fig_name(fig_idx),  # Important to match with slider label
