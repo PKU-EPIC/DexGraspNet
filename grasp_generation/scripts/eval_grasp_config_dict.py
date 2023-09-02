@@ -189,6 +189,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             hand_model_type=args.hand_model_type,
             gpu=args.gpu,
             validation_type=args.validation_type,
+            mode="gui" if args.use_gui else "headless",
             start_with_step_mode=args.start_with_step_mode,
         )
         sim.set_obj_asset(
