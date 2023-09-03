@@ -478,6 +478,8 @@ class IsaacValidator:
         return
 
     def run_sim(self):
+        gym.prepare_sim(self.sim)  # TODO: Check if this is needed?
+
         sim_step_idx = 0
         default_desc = "Simulating"
         pbar = tqdm(total=self.num_sim_steps, desc=default_desc, dynamic_ncols=True)
@@ -492,6 +494,7 @@ class IsaacValidator:
             # Step physics if not paused
             if not self.is_paused:
                 gym.simulate(self.sim)
+                gym.fetch_results(self.sim, True)  # TODO: Check if this slows things down
 
                 if self.camera_handles and sim_step_idx > 0:
                     gym.step_graphics(self.sim)
