@@ -925,7 +925,8 @@ class IsaacValidator:
         generate_depth: bool = False,
     ) -> None:
         assert len(self.envs) == 1
-        self._setup_cameras(self.envs[0], radius=2 * obj_scale)
+        camera_radius = 3 * obj_scale
+        self._setup_cameras(self.envs[0], radius=camera_radius)
 
         gym.step_graphics(self.sim)
         gym.render_all_camera_sensors(self.sim)
