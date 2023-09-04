@@ -26,6 +26,7 @@ class EvalAllGraspConfigDictsArgumentParser(Tap):
         "../data/grasp_config_dicts"
     )
     use_gui: bool = False
+    use_cpu: bool = False  # NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     output_evaled_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/evaled_grasp_config_dicts"
@@ -111,6 +112,9 @@ def main(args: EvalAllGraspConfigDictsArgumentParser):
 
         if args.use_gui:
             command += " --use_gui"
+
+        if args.use_cpu:
+            command += " --use_cpu"
 
         print(f"Running command: {command}")
 

@@ -40,7 +40,6 @@ class EvalGraspConfigDictArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
     gpu: int = 0
-    seed: int = 1
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     input_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/grasp_config_dicts"
@@ -54,7 +53,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     debug_index: Optional[int] = None
     start_with_step_mode: bool = False
     use_gui: bool = False
-    use_gpu: bool = True  # NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer
+    use_cpu: bool = False  # NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer
     penetration_threshold: Optional[float] = None
     record_indices: List[int] = []
     optimized: bool = False
@@ -192,7 +191,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             validation_type=args.validation_type,
             mode="gui" if args.use_gui else "headless",
             start_with_step_mode=args.start_with_step_mode,
-            use_gpu=args.use_gpu,
+            use_cpu=args.use_cpu,
         )
         sim.set_obj_asset(
             obj_root=str(args.meshdata_root_path / object_code / "coacd"),
@@ -218,7 +217,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         gpu=args.gpu,
         validation_type=args.validation_type,
         mode="gui" if args.use_gui else "headless",
-        use_gpu=args.use_gpu,
+        use_cpu=args.use_cpu,
     )
     # Run validation on all grasps
     batch_size = len(grasp_config_dicts)

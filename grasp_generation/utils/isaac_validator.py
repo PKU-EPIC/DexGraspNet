@@ -117,7 +117,7 @@ class IsaacValidator:
         debug_interval: float = 0.05,
         start_with_step_mode: bool = False,
         validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING,
-        use_gpu: bool = True,
+        use_cpu: bool = True,
     ) -> None:
         self.hand_friction = hand_friction
         self.obj_friction = obj_friction
@@ -182,7 +182,7 @@ class IsaacValidator:
         print('~' * 80)
         print("NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer")
         print('~' * 80 + '\n')
-        self.sim_params.physx.use_gpu = use_gpu
+        self.sim_params.physx.use_gpu = not use_cpu
 
         self.sim_params.physx.solver_type = 1
         self.sim_params.physx.num_position_iterations = 8
