@@ -824,7 +824,7 @@ class IsaacValidator:
             gym.destroy_env(env)
         gym.destroy_sim(self.sim)
         if self.has_viewer:
-            gym.destroy_viewer(self.sim.viewer)
+            gym.destroy_viewer(self.viewer)
             self.viewer = gym.create_viewer(self.sim, self.camera_props)
         self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
         self.envs = []
