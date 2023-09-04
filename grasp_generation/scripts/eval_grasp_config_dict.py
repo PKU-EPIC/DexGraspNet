@@ -54,6 +54,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     debug_index: Optional[int] = None
     start_with_step_mode: bool = False
     use_gui: bool = False
+    use_gpu: bool = True  # NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer
     penetration_threshold: Optional[float] = None
     record_indices: List[int] = []
     optimized: bool = False
@@ -191,6 +192,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             validation_type=args.validation_type,
             mode="gui" if args.use_gui else "headless",
             start_with_step_mode=args.start_with_step_mode,
+            use_gpu=args.use_gpu,
         )
         sim.set_obj_asset(
             obj_root=str(args.meshdata_root_path / object_code / "coacd"),
@@ -216,6 +218,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         gpu=args.gpu,
         validation_type=args.validation_type,
         mode="gui" if args.use_gui else "headless",
+        use_gpu=args.use_gpu,
     )
     # Run validation on all grasps
     batch_size = len(grasp_config_dicts)
