@@ -33,6 +33,8 @@ from utils.joint_angle_targets import (
 from utils.parse_object_code_and_scale import (
     parse_object_code_and_scale,
 )
+from utils.energy import _cal_hand_object_penetration
+from utils.object_model import ObjectModel
 import pathlib
 
 
@@ -54,7 +56,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     start_with_step_mode: bool = False
     use_gui: bool = False
     use_cpu: bool = False  # NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer
-    penetration_threshold: Optional[float] = None
+    penetration_threshold: Optional[float] = 0.001  # From original DGN
     record_indices: List[int] = []
     optimized: bool = False
 
@@ -253,7 +255,24 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
     # TODO: add penetration check E_pen
     print("WARNING: penetration check is not implemented yet")
-    passed_penetration_threshold = np.ones(batch_size, dtype=np.bool8)
+    if args.penetration_threshold is None:
+        passed_penetration_threshold = np.ones(batch_size, dtype=np.bool8)
+    else:
+        device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+        hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
+        hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
+        object_model = ObjectModel(
+            meshdata_root_path=str(args.meshdata_root_path),
+            batch_size_each=len(hand_pose_array),
+            scale=object_scale,
+            num_samples=2000,
+            device=device,
+        )
+        object_model.initialize(object_code)
+        E_pen_array = _cal_hand_object_penetration(
+            hand_model=hand_model, object_model=object_model
+        )
+        passed_penetration_threshold = (E_pen_array < args.penetration_threshold).cpu().numpy()
 
     passed_eval = passed_simulation * passed_penetration_threshold
     print("=" * 80)
