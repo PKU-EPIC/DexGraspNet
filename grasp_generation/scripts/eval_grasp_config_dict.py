@@ -224,8 +224,20 @@ def main(args: EvalGraspConfigDictArgumentParser):
     # Run validation on all grasps
     batch_size = len(grasp_config_dicts)
 
+    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+    hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
+    object_model = ObjectModel(
+        meshdata_root_path=str(args.meshdata_root_path),
+        batch_size_each=len(hand_pose_array),
+        scale=object_scale,
+        num_samples=2000,
+        device=device,
+    )
+    object_model.initialize(object_code)
+
     # Run for loop over minibatches of grasps.
     successes = []
+    E_pen_array = []
     pbar = tqdm(range(math.ceil(batch_size / args.max_grasps_per_batch)))
     for i in pbar:
         start_index = i * args.max_grasps_per_batch
@@ -248,31 +260,24 @@ def main(args: EvalGraspConfigDictArgumentParser):
         sim.reset_simulator()
         pbar.set_description(f"mean_success = {np.mean(successes)}")
 
+        hand_model.set_parameters(torch.stack(hand_pose_array[start_index:end_index]).to(device))
+        batch_E_pen_array = _cal_hand_object_penetration(
+            hand_model=hand_model, object_model=object_model
+        )
+        E_pen_array.extend(batch_E_pen_array.flatten().tolist())
+
     # Aggregate results
     successes = np.array(successes)
     assert len(successes) == batch_size
     passed_simulation = np.array(successes)
+    E_pen_array = np.array(E_pen_array)
+    assert len(E_pen_array) == batch_size
 
-    # TODO: add penetration check E_pen
-    print("WARNING: penetration check is not implemented yet")
     if args.penetration_threshold is None:
+        print("WARNING: penetration check skipped")
         passed_penetration_threshold = np.ones(batch_size, dtype=np.bool8)
     else:
-        device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
-        hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
-        hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
-        object_model = ObjectModel(
-            meshdata_root_path=str(args.meshdata_root_path),
-            batch_size_each=len(hand_pose_array),
-            scale=object_scale,
-            num_samples=2000,
-            device=device,
-        )
-        object_model.initialize(object_code)
-        E_pen_array = _cal_hand_object_penetration(
-            hand_model=hand_model, object_model=object_model
-        )
-        passed_penetration_threshold = (E_pen_array < args.penetration_threshold).cpu().numpy()
+        passed_penetration_threshold = E_pen_array < args.penetration_threshold
 
     passed_eval = passed_simulation * passed_penetration_threshold
     print("=" * 80)
