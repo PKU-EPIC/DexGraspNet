@@ -287,7 +287,10 @@ def main(args: EvalGraspConfigDictArgumentParser):
         evaled_grasp_config_dicts.append(
             {
                 **grasp_config_dicts[i],
+                "passed_penetration_threshold": passed_penetration_threshold[i],
+                "passed_simulation": passed_simulation[i],
                 "passed_eval": passed_eval[i],
+                "penetration": E_pen_array[i],
             }
         )
 
