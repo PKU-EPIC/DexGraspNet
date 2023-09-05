@@ -80,18 +80,12 @@ def compute_grasp_orientations(
     return grasp_orientations
 
 
-def main(args: GenerateGraspConfigDictsArgumentParser):
-    print("=" * 80)
-    print(f"args = {args}")
-    print("=" * 80 + "\n")
-
+def generate_grasp_config_dicts(
+    hand_config_dict_paths: List[pathlib.Path],
+    args: GenerateGraspConfigDictsArgumentParser,
+    output_grasp_config_dicts_path: pathlib.Path,
+) -> None:
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
-    os.environ.pop("CUDA_VISIBLE_DEVICES")
-
-    hand_config_dict_paths = [
-        path for path in list(args.input_hand_config_dicts_path.glob("*.npy"))
-    ]
-
     print(f"len(hand_config_dict_paths): {len(hand_config_dict_paths)}")
     print(f"First 10: {[path for path in hand_config_dict_paths[:10]]}")
     random.Random(args.seed).shuffle(hand_config_dict_paths)
@@ -112,20 +106,6 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
         hand_config_dicts: List[Dict[str, Any]] = list(
             np.load(hand_config_dict_path, allow_pickle=True)
         )
-
-        # Load mid-optimization grasp configs for this grasp
-        if args.mid_optimization_steps:
-            for mid_optimization_step in args.mid_optimization_steps:
-                mid_optimization_hand_config_dict_path = (
-                    hand_config_dict_path.parent
-                    / "mid_optimization"
-                    / f"{mid_optimization_step}"
-                    / f"{object_code_and_scale_str}.npy"
-                )
-                curr_iter_hand_config_dicts = list(
-                    np.load(mid_optimization_hand_config_dict_path, allow_pickle=True)
-                )
-                hand_config_dicts.extend(curr_iter_hand_config_dicts)
 
         batch_size = len(hand_config_dicts)
         hand_pose_array = []
@@ -155,11 +135,46 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
                 }
             )
 
-        args.output_grasp_config_dicts_path.mkdir(parents=True, exist_ok=True)
+        output_grasp_config_dicts_path.mkdir(parents=True, exist_ok=True)
         np.save(
-            args.output_grasp_config_dicts_path / f"{object_code_and_scale_str}.npy",
+            output_grasp_config_dicts_path / f"{object_code_and_scale_str}.npy",
             grasp_config_dicts,
             allow_pickle=True,
+        )
+
+
+def main(args: GenerateGraspConfigDictsArgumentParser):
+    print("=" * 80)
+    print(f"args = {args}")
+    print("=" * 80 + "\n")
+
+    os.environ.pop("CUDA_VISIBLE_DEVICES")
+
+    hand_config_dict_paths = [
+        path for path in list(args.input_hand_config_dicts_path.glob("*.npy"))
+    ]
+    generate_grasp_config_dicts(
+        hand_config_dict_paths=hand_config_dict_paths,
+        args=args,
+        output_grasp_config_dicts_path=args.output_grasp_config_dicts_path,
+    )
+
+    for mid_optimization_step in args.mid_optimization_steps:
+        mid_optimization_hand_config_dict_paths = [
+            hand_config_dict_path.parent
+            / "mid_optimization"
+            / f"{mid_optimization_step}"
+            for hand_config_dict_path in hand_config_dict_paths
+        ]
+        mid_optimization_output_grasp_config_dicts_path = (
+            args.output_grasp_config_dicts_path
+            / "mid_optimization"
+            / f"{mid_optimization_step}"
+        )
+        generate_grasp_config_dicts(
+            hand_config_dict_paths=mid_optimization_hand_config_dict_paths,
+            args=args,
+            output_grasp_config_dicts_path=mid_optimization_output_grasp_config_dicts_path,
         )
 
 
