@@ -338,13 +338,15 @@ def generate(
             assert (
                 use_penetration_energy
             ), f"On step {step}, use_penetration_energy is {use_penetration_energy} but should be True"
-            energy, unweighted_energy_matrix, weighted_energy_matrix = cal_energy(
+            updated_energy, updated_unweighted_energy_matrix, updated_weighted_energy_matrix = cal_energy(
                 hand_model,
                 object_model,
                 energy_name_to_weight_dict=energy_name_to_weight_dict,
                 use_penetration_energy=use_penetration_energy,
             )
-            energy.sum().backward(retain_graph=True)
+            energy[:] = updated_energy
+            unweighted_energy_matrix[:] = updated_unweighted_energy_matrix
+            weighted_energy_matrix[:] = updated_weighted_energy_matrix
 
         s = optimizer.try_step()
 
