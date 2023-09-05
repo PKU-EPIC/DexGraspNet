@@ -182,6 +182,7 @@ def create_config_dict_fig(
     skip_visualize_qpos_start: bool,
     skip_visualize_grasp_config_dict: bool,
     title: str,
+    idx_to_visualize: int,
 ) -> go.Figure:
     object_plotly = object_model.get_plotly_data(
         i=0, color="lightgreen", opacity=0.5, with_surface_points=True
@@ -190,7 +191,7 @@ def create_config_dict_fig(
     # hand pose
     joint_names = handmodeltype_to_joint_names[hand_model.hand_model_type]
     hand_pose = qpos_to_pose(
-        qpos=config_dict["qpos"],
+        qpos=config_dict["qpos"][idx_to_visualize],
         joint_names=joint_names,
         unsqueeze_batch_dim=True,
     ).to(hand_model.device)
@@ -276,7 +277,9 @@ def create_config_dict_fig(
     if "penetration" in config_dict:
         penetration = config_dict["penetration"]
         penetration_str = f"Penetration: {round(penetration, 5)}"
-        fig.add_annotation(text=penetration_str, x=0.5, y=0.15, xref="paper", yref="paper")
+        fig.add_annotation(
+            text=penetration_str, x=0.5, y=0.15, xref="paper", yref="paper"
+        )
         # For some reason, annotations not showing up in the multi fig plot
         title += f" | {penetration_str}"
 

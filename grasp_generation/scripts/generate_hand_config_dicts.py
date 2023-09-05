@@ -22,7 +22,7 @@ from utils.initializations import initialize_convex_hull
 from utils.energy import cal_energy, ENERGY_NAMES, ENERGY_NAME_TO_SHORTHAND_DICT
 from utils.optimizer import Annealing
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
-from utils.qpos_pose_conversion import pose_to_qpos
+from utils.qpos_pose_conversion import pose_to_hand_config
 from utils.seed import set_seed
 from utils.parse_object_code_and_scale import object_code_and_scale_to_str
 
@@ -104,6 +104,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
 
     # verbose (grasps throughout)
     store_grasps_mid_optimization_freq: Optional[int] = 50
+    store_grasps_mid_optimization_iters: Optional[List[int]] = None
 
 
 def create_visualization_figure(
@@ -191,44 +192,40 @@ def save_hand_config_dicts(
 
     joint_names = handmodeltype_to_joint_names[hand_model.hand_model_type]
     for object_i, object_code in enumerate(object_code_list):
-        qpos_list = []
         qpos_start_list = []
         energy_dict = {}
         for energy_name in ENERGY_NAMES:
             energy_dict[energy_name] = []
 
-        for object_grasp_j in range(num_grasps_per_object):
-            grasp_idx = object_i * num_grasps_per_object + object_grasp_j
+        trans, rot, joint_angles = pose_to_hand_config(
+            hand_pose=hand_model.hand_pose.detach().cpu(),
+        )
+        trans_start, rot_start, joint_angles_start = pose_to_hand_config(
+            hand_pose=hand_pose_start.detach().cpu(),
+        )
 
-            qpos = pose_to_qpos(
-                hand_pose=hand_model.hand_pose[grasp_idx].detach().cpu(),
-                joint_names=joint_names,
+        for k, energy_name in enumerate(ENERGY_NAMES):
+            energy_dict[energy_name].append(
+                unweighted_energy_matrix[:, k].detach().cpu().numpy()
             )
-            qpos_start = pose_to_qpos(
-                hand_pose=hand_pose_start[grasp_idx].detach().cpu(),
-                joint_names=joint_names,
-            )
-
-            qpos_list.append(qpos)
-            qpos_start_list.append(qpos_start)
-            for energy_name, k in enumerate(ENERGY_NAMES):
-                energy_dict[energy_name].append(
-                    unweighted_energy_matrix[grasp_idx, k].item()
-                )
 
         object_code_and_scale_str = object_code_and_scale_to_str(
             object_code, object_scale
         )
 
-        # Stack lists of arrays into batches.
-        qpos = np.stack(qpos_list)
-        qpos_start = np.stack(qpos_start_list)
-        energy_dict = {k: np.stack(v) for k, v in energy_dict.items()}
-        hand_config_dict = {"qpos": qpos, "qpos_start": qpos_start, **energy_dict}
+        hand_config_dict = {
+            "trans": trans,
+            "rot": rot,
+            "joint_angles": joint_angles,
+            "trans_start": trans_start,
+            "rot_start": rot_start,
+            "joint_angles_start": joint_angles_start,
+            **energy_dict,
+        }
 
         np.save(
             output_folder_path / f"{object_code_and_scale_str}.npy",
-            hand_config_dict
+            hand_config_dict,
             allow_pickle=True,
         )
 
@@ -338,9 +335,10 @@ def generate(
         # Else the current energy will appear artificially better than all new energies
         # So optimizer will stop accepting new energies
         if step == step_first_compute_penetration_energy:
-            assert (
-                use_penetration_energy
-            ), f"On step {step}, use_penetration_energy is {use_penetration_energy} but should be True"
+            if args.use_penetration_energy:
+                assert (
+                    use_penetration_energy
+                ), f"On step {step}, use_penetration_energy is {use_penetration_energy} but should be True"
             (
                 updated_energy,
                 updated_unweighted_energy_matrix,
@@ -380,8 +378,12 @@ def generate(
 
         # Store grasps mid optimization
         if (
-            args.store_grasps_mid_optimization_freq is not None
+            args.store_grasps_mid_optimization_iters is not None
+            and args.store_grasps_mid_optimization_freq is not None
             and step % args.store_grasps_mid_optimization_freq == 0
+        ) or (
+            args.store_grasps_mid_optimization_iters is not None
+            and step in args.store_grasps_mid_optimization_iters
         ):
             new_output_folder = (
                 pathlib.Path(f"{args.output_hand_config_dicts_path}")

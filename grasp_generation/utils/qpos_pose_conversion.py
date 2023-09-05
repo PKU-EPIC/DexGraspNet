@@ -5,45 +5,57 @@ import torch
 import numpy as np
 from typing import List, Dict, Any, Tuple
 
+# TODO: rename this module to just `pose_conversion.py`
 
-def pose_to_qpos(
+
+def pose_to_hand_config(
     hand_pose: torch.Tensor,
-    joint_names: List[str],
 ) -> Dict[str, Any]:
-    assert len(hand_pose.shape) == 1
+    if len(hand_pose.shape) == 0:
+        hand_pose = hand_pose.unsqueeze(0)  # Make sure hand pose at least 2d.
 
-    qpos = dict(zip(joint_names, hand_pose[9:].tolist()))
-    rot = robust_compute_rotation_matrix_from_ortho6d(hand_pose[3:9].unsqueeze(0))[0]
-    euler = transforms3d.euler.mat2euler(rot, axes="sxyz")
-    qpos.update(dict(zip(rot_names, euler)))
-    qpos.update(dict(zip(translation_names, hand_pose[:3].tolist())))
-    return qpos
+    batch_size = hand_pose.shape[0]
+
+    joint_angles = hand_pose[:, 9:].cpu().numpy()
+    rot = robust_compute_rotation_matrix_from_ortho6d(hand_pose[:, 3:9])
+    trans = hand_pose[:, :3].cpu().numpy()
+
+    assert trans.shape == (batch_size, 3)
+    assert rot.shape == (batch_size, 3, 3)
+    assert joint_angles.shape == (batch_size, 16)
+
+    return trans, rot, joint_angles
 
 
-def qpos_to_pose(
-    qpos: Dict[str, Any], joint_names: List[str], unsqueeze_batch_dim: bool = True
+def hand_config_to_pose(
+    trans: np.ndarray,
+    rot: np.ndarray,
+    joint_angles: np.ndarray,
 ) -> torch.Tensor:
-    rot = np.array(transforms3d.euler.euler2mat(*[qpos[name] for name in rot_names]))
-    rot = rot[:, :2].T.ravel().tolist()
-    hand_pose = torch.tensor(
-        [qpos[name] for name in translation_names]
-        + rot
-        + [qpos[name] for name in joint_names],
-        dtype=torch.float,
-    )
+    # Unsqueeze if no batch dim.
+    if len(trans.shape) == 1:
+        assert rot.shape == (3, 3)
+        assert joint_angles.shape == (16,)
+        trans = trans[None, :]
+        rot = rot[None, :, :]
+        joint_angles = joint_angles[None, :]
 
-    if unsqueeze_batch_dim:
-        hand_pose = hand_pose.unsqueeze(0)
-        assert len(hand_pose.shape) == 2
-    else:
-        assert len(hand_pose.shape) == 1
+    # Shape checks.
+    batch_size = trans.shape[0]
+    assert trans.shape == (batch_size, 3)
+    assert rot.shape == (batch_size, 3, 3)
+    assert joint_angles.shape == (batch_size, 16)
+
+    # Convert rotation matrix batch to rot6d tensors.
+    rot6d = torch.tensor(rot[:, :, :2].T.ravel())
+    assert rot6d.shape == (batch_size, 6)
+
+    # Convert trans and joint angles to tensors.
+    trans = torch.tensor(trans)
+    joint_angles = torch.tensor(joint_angles)
+
+    hand_pose = torch.cat([trans, rot6d, joint_angles], dim=1).float()
+
+    assert hand_pose.shape == (batch_size, 25)
+
     return hand_pose
-
-
-def qpos_to_translation_quaternion_jointangles(
-    qpos: Dict[str, Any], joint_names: List[str]
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    translation = np.array([qpos[name] for name in translation_names])
-    quaternion = transforms3d.euler.euler2quat(*[qpos[name] for name in rot_names])
-    joint_angles = np.array([qpos[name] for name in joint_names])
-    return translation, quaternion, joint_angles
