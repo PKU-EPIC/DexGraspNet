@@ -40,7 +40,7 @@ def get_object_code_and_scale_strs_to_process(
     output_evaled_grasp_config_dicts_path: pathlib.Path,
 ) -> list:
     input_object_code_and_scale_strs = [
-        path.stem for path in input_grasp_config_dicts_path.iterdir()
+        path.stem for path in list(input_grasp_config_dicts_path.glob("*.npy"))
     ]
 
     print(
@@ -49,7 +49,10 @@ def get_object_code_and_scale_strs_to_process(
 
     # Compare input and output directories
     existing_object_code_and_scale_strs = (
-        [path.stem for path in output_evaled_grasp_config_dicts_path.iterdir()]
+        [
+            path.stem
+            for path in list(output_evaled_grasp_config_dicts_path.glob("*.npy"))
+        ]
         if output_evaled_grasp_config_dicts_path.exists()
         else []
     )
