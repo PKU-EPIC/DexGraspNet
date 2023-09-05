@@ -12,7 +12,7 @@ from utils.joint_angle_targets import OptimizationMethod
 from utils.parse_object_code_and_scale import parse_object_code_and_scale
 
 from tap import Tap
-from typing import Optional
+from typing import Optional, List
 import pathlib
 
 
@@ -32,27 +32,29 @@ class EvalAllGraspConfigDictsArgumentParser(Tap):
         "../data/evaled_grasp_config_dicts"
     )
     randomize_order_seed: Optional[int] = None
+    mid_optimization_steps: List[int] = []
 
 
 def get_object_code_and_scale_strs_to_process(
-    args: EvalAllGraspConfigDictsArgumentParser,
+    input_grasp_config_dicts_path: pathlib.Path,
+    output_evaled_grasp_config_dicts_path: pathlib.Path,
 ) -> list:
     input_object_code_and_scale_strs = [
-        path.stem for path in args.input_grasp_config_dicts_path.iterdir()
+        path.stem for path in input_grasp_config_dicts_path.iterdir()
     ]
 
     print(
-        f"Found {len(input_object_code_and_scale_strs)} object codes in args.input_grasp_config_dicts_path ({args.input_grasp_config_dicts_path})"
+        f"Found {len(input_object_code_and_scale_strs)} object codes in input_grasp_config_dicts_path ({input_grasp_config_dicts_path})"
     )
 
     # Compare input and output directories
     existing_object_code_and_scale_strs = (
-        [path.stem for path in args.output_evaled_grasp_config_dicts_path.iterdir()]
-        if args.output_evaled_grasp_config_dicts_path.exists()
+        [path.stem for path in output_evaled_grasp_config_dicts_path.iterdir()]
+        if output_evaled_grasp_config_dicts_path.exists()
         else []
     )
     print(
-        f"Found {len(existing_object_code_and_scale_strs)} object codes in {args.output_evaled_grasp_config_dicts_path}"
+        f"Found {len(existing_object_code_and_scale_strs)} object codes in {output_evaled_grasp_config_dicts_path}"
     )
 
     # Sanity check that we are going into the right folder
@@ -71,20 +73,24 @@ def get_object_code_and_scale_strs_to_process(
     return list(only_in_input)
 
 
-def main(args: EvalAllGraspConfigDictsArgumentParser):
-    print("=" * 80)
-    print(f"args = {args}")
-    print("=" * 80 + "\n")
-
+def eval_all_grasp_config_dicts(
+    args: EvalAllGraspConfigDictsArgumentParser,
+    input_grasp_config_dicts_path: pathlib.Path,
+    output_evaled_grasp_config_dicts_path: pathlib.Path,
+) -> None:
     # Check if script exists
     script_to_run = pathlib.Path("scripts/eval_grasp_config_dict.py")
     assert script_to_run.exists(), f"Script {script_to_run} does not exist"
 
-    input_object_code_and_scale_strs = get_object_code_and_scale_strs_to_process(args)
+    input_object_code_and_scale_strs = get_object_code_and_scale_strs_to_process(
+        input_grasp_config_dicts_path=input_grasp_config_dicts_path,
+        output_evaled_grasp_config_dicts_path=output_evaled_grasp_config_dicts_path,
+    )
     if args.randomize_order_seed is not None:
         random.Random(args.randomize_order_seed).shuffle(
             input_object_code_and_scale_strs
         )
+
     print(f"Processing {len(input_object_code_and_scale_strs)} object codes")
     print(f"First 10 object codes: {input_object_code_and_scale_strs[:10]}")
 
@@ -100,8 +106,8 @@ def main(args: EvalAllGraspConfigDictsArgumentParser):
                 f"--validation_type {args.validation_type.name}",
                 f"--gpu {args.gpu}",
                 f"--meshdata_root_path {args.meshdata_root_path}",
-                f"--input_grasp_config_dicts_path {args.input_grasp_config_dicts_path}",
-                f"--output_evaled_grasp_config_dicts_path {args.output_evaled_grasp_config_dicts_path}",
+                f"--input_grasp_config_dicts_path {input_grasp_config_dicts_path}",
+                f"--output_evaled_grasp_config_dicts_path {output_evaled_grasp_config_dicts_path}",
                 f"--object_code_and_scale_str {object_code_and_scale_str}",
                 f"--max_grasps_per_batch {args.max_grasps_per_batch}",
             ]
@@ -124,6 +130,38 @@ def main(args: EvalAllGraspConfigDictsArgumentParser):
             print(f"Exception: {e}")
             print(f"Skipping {object_code_and_scale_str} and continuing")
             continue
+
+
+def main(args: EvalAllGraspConfigDictsArgumentParser):
+    print("=" * 80)
+    print(f"args = {args}")
+    print("=" * 80 + "\n")
+
+    eval_all_grasp_config_dicts(
+        args=args,
+        input_grasp_config_dicts_path=args.input_grasp_config_dicts_path,
+        output_evaled_grasp_config_dicts_path=args.output_evaled_grasp_config_dicts_path,
+    )
+
+    for mid_optimization_step in args.mid_optimization_steps:
+        print("!" * 80)
+        print(f"Running mid_optimization_step: {mid_optimization_step}")
+        print("!" * 80 + "\n")
+        mid_optimization_input_grasp_config_dict_paths = [
+            args.input_grasp_config_dicts_path
+            / "mid_optimization"
+            / f"{mid_optimization_step}"
+        ]
+        mid_optimization_output_grasp_config_dicts_path = (
+            args.output_evaled_grasp_config_dicts_path
+            / "mid_optimization"
+            / f"{mid_optimization_step}"
+        )
+        eval_all_grasp_config_dicts(
+            args=args,
+            input_grasp_config_dicts_path=mid_optimization_input_grasp_config_dict_paths,
+            output_evaled_grasp_config_dicts_path=mid_optimization_output_grasp_config_dicts_path,
+        )
 
 
 if __name__ == "__main__":

@@ -81,18 +81,18 @@ def compute_grasp_orientations(
 
 
 def generate_grasp_config_dicts(
-    hand_config_dict_paths: List[pathlib.Path],
     args: GenerateGraspConfigDictsArgumentParser,
+    input_hand_config_dict_paths: List[pathlib.Path],
     output_grasp_config_dicts_path: pathlib.Path,
 ) -> None:
     joint_names = handmodeltype_to_joint_names[args.hand_model_type]
-    print(f"len(hand_config_dict_paths): {len(hand_config_dict_paths)}")
-    print(f"First 10: {[path for path in hand_config_dict_paths[:10]]}")
-    random.Random(args.seed).shuffle(hand_config_dict_paths)
+    print(f"len(input_hand_config_dict_paths): {len(input_hand_config_dict_paths)}")
+    print(f"First 10: {[path for path in input_hand_config_dict_paths[:10]]}")
+    random.Random(args.seed).shuffle(input_hand_config_dict_paths)
 
     set_seed(42)  # Want this fixed so deterministic computation
     pbar = tqdm(
-        hand_config_dict_paths,
+        input_hand_config_dict_paths,
         desc="Generating grasp_config_dicts",
         dynamic_ncols=True,
     )
@@ -150,21 +150,21 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
 
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
-    hand_config_dict_paths = [
+    input_hand_config_dict_paths = [
         path for path in list(args.input_hand_config_dicts_path.glob("*.npy"))
     ]
     generate_grasp_config_dicts(
-        hand_config_dict_paths=hand_config_dict_paths,
         args=args,
+        input_hand_config_dict_paths=input_hand_config_dict_paths,
         output_grasp_config_dicts_path=args.output_grasp_config_dicts_path,
     )
 
     for mid_optimization_step in args.mid_optimization_steps:
-        mid_optimization_hand_config_dict_paths = [
+        mid_optimization_input_hand_config_dict_paths = [
             hand_config_dict_path.parent
             / "mid_optimization"
             / f"{mid_optimization_step}"
-            for hand_config_dict_path in hand_config_dict_paths
+            for hand_config_dict_path in input_hand_config_dict_paths
         ]
         mid_optimization_output_grasp_config_dicts_path = (
             args.output_grasp_config_dicts_path
@@ -172,8 +172,8 @@ def main(args: GenerateGraspConfigDictsArgumentParser):
             / f"{mid_optimization_step}"
         )
         generate_grasp_config_dicts(
-            hand_config_dict_paths=mid_optimization_hand_config_dict_paths,
             args=args,
+            input_hand_config_dict_paths=mid_optimization_input_hand_config_dict_paths,
             output_grasp_config_dicts_path=mid_optimization_output_grasp_config_dicts_path,
         )
 

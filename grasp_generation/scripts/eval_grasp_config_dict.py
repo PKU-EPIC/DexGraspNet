@@ -53,12 +53,11 @@ class EvalGraspConfigDictArgumentParser(Tap):
     )
     # if debug_index is received, then the debug mode is on
     debug_index: Optional[int] = None
-    start_with_step_mode: bool = False
+    start_with_step_mode: bool = False  # with use_gui, starts sim paused in step mode, press S to step 1 sim step, press space to toggle pause
     use_gui: bool = False
     use_cpu: bool = False  # NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer
     penetration_threshold: Optional[float] = 0.001  # From original DGN
     record_indices: List[int] = []
-    optimized: bool = False
 
 
 def compute_joint_angle_targets(
@@ -152,15 +151,9 @@ def main(args: EvalGraspConfigDictArgumentParser):
     set_seed(42)  # Want this fixed so deterministic computation
 
     # Read in data
-    if args.optimized:
-        grasp_config_dict_path = (
-            args.input_grasp_config_dicts_path
-            / f"{args.object_code_and_scale_str}_optimized.npy"  # BRITTLE AF.
-        )
-    else:
-        grasp_config_dict_path = (
-            args.input_grasp_config_dicts_path / f"{args.object_code_and_scale_str}.npy"
-        )
+    grasp_config_dict_path = (
+        args.input_grasp_config_dicts_path / f"{args.object_code_and_scale_str}.npy"
+    )
 
     print(f"Loading grasp config dicts from: {grasp_config_dict_path}")
 
@@ -260,7 +253,9 @@ def main(args: EvalGraspConfigDictArgumentParser):
         sim.reset_simulator()
         pbar.set_description(f"mean_success = {np.mean(successes)}")
 
-        hand_model.set_parameters(torch.stack(hand_pose_array[start_index:end_index]).to(device))
+        hand_model.set_parameters(
+            torch.stack(hand_pose_array[start_index:end_index]).to(device)
+        )
         batch_E_pen_array = _cal_hand_object_penetration(
             hand_model=hand_model, object_model=object_model
         )
