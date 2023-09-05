@@ -258,11 +258,42 @@ def create_config_dict_fig(
         # For some reason, annotations not showing up in the multi fig plot
         title += f" | {passed_eval_str}"
 
+    if "passed_penetration_threshold" in config_dict:
+        passed_penetration_threshold = config_dict["passed_penetration_threshold"]
+        passed_penetration_threshold_str = (
+            f"Passed penetration threshold: {passed_penetration_threshold}"
+        )
+        fig.add_annotation(
+            text=passed_penetration_threshold_str,
+            x=0.5,
+            y=0.1,
+            xref="paper",
+            yref="paper",
+        )
+        # For some reason, annotations not showing up in the multi fig plot
+        title += f" | {passed_penetration_threshold_str}"
+
+    if "penetration" in config_dict:
+        penetration = config_dict["penetration"]
+        penetration_str = f"Penetration: {round(penetration, 5)}"
+        fig.add_annotation(text=penetration_str, x=0.5, y=0.15, xref="paper", yref="paper")
+        # For some reason, annotations not showing up in the multi fig plot
+        title += f" | {penetration_str}"
+
+    if "passed_simulation" in config_dict:
+        passed_simulation = config_dict["passed_simulation"]
+        passed_simulation_str = f"Passed simulation: {passed_simulation}"
+        fig.add_annotation(
+            text=passed_simulation_str, x=0.5, y=0.2, xref="paper", yref="paper"
+        )
+        # For some reason, annotations not showing up in the multi fig plot
+        title += f" | {passed_simulation_str}"
+
     # score
     if "score" in config_dict:
         score = round(config_dict["score"], 3)
         score_str = f"Score: {score}"
-        fig.add_annotation(text=score_str, x=0.5, y=0.0, xref="paper", yref="paper")
+        fig.add_annotation(text=score_str, x=0.5, y=0.25, xref="paper", yref="paper")
         title += f" | {score_str}"
 
     fig.update_layout(
@@ -275,4 +306,3 @@ def create_config_dict_fig(
         ),
     )
     return fig
-

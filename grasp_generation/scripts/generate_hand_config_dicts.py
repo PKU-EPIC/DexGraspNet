@@ -220,7 +220,9 @@ def save_hand_config_dicts(
 
             hand_config_dicts.append(hand_config_dict)
 
-        object_code_and_scale_str = object_code_and_scale_to_str(object_code, object_scale)
+        object_code_and_scale_str = object_code_and_scale_to_str(
+            object_code, object_scale
+        )
         np.save(
             output_folder_path / f"{object_code_and_scale_str}.npy",
             hand_config_dicts,
@@ -316,10 +318,35 @@ def generate(
     energy.sum().backward(retain_graph=True)
 
     idx_to_visualize = 0
+    step_first_compute_penetration_energy = int(
+        args.n_iter * args.penetration_iters_frac
+    )
     pbar = tqdm(range(args.n_iter), desc="optimizing", dynamic_ncols=True)
     for step in pbar:
         wandb_log_dict = {}
         wandb_log_dict["optimization_step"] = step
+
+        use_penetration_energy = (
+            args.use_penetration_energy
+            and step >= step_first_compute_penetration_energy
+        )
+
+        # When we start using penetration energy, we must recompute the current energy with penetration energy
+        # Else the current energy will appear artificially better than all new energies
+        # So optimizer will stop accepting new energies
+        if step == step_first_compute_penetration_energy:
+            assert (
+                use_penetration_energy
+            ), f"On step {step}, use_penetration_energy is {use_penetration_energy} but should be True"
+            updated_energy, updated_unweighted_energy_matrix, updated_weighted_energy_matrix = cal_energy(
+                hand_model,
+                object_model,
+                energy_name_to_weight_dict=energy_name_to_weight_dict,
+                use_penetration_energy=use_penetration_energy,
+            )
+            energy[:] = updated_energy
+            unweighted_energy_matrix[:] = updated_unweighted_energy_matrix
+            weighted_energy_matrix[:] = updated_weighted_energy_matrix
 
         s = optimizer.try_step()
 
@@ -333,8 +360,7 @@ def generate(
             hand_model,
             object_model,
             energy_name_to_weight_dict=energy_name_to_weight_dict,
-            use_penetration_energy=args.use_penetration_energy
-            and (step / args.n_iter) > args.penetration_iters_frac,
+            use_penetration_energy=use_penetration_energy,
         )
         new_energy.sum().backward(retain_graph=True)
 
