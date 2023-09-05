@@ -147,11 +147,11 @@ def main(args: EvalAllGraspConfigDictsArgumentParser):
         print("!" * 80)
         print(f"Running mid_optimization_step: {mid_optimization_step}")
         print("!" * 80 + "\n")
-        mid_optimization_input_grasp_config_dict_paths = [
+        mid_optimization_input_grasp_config_dicts_path = (
             args.input_grasp_config_dicts_path
             / "mid_optimization"
             / f"{mid_optimization_step}"
-        ]
+        )
         mid_optimization_output_grasp_config_dicts_path = (
             args.output_evaled_grasp_config_dicts_path
             / "mid_optimization"
@@ -159,7 +159,7 @@ def main(args: EvalAllGraspConfigDictsArgumentParser):
         )
         eval_all_grasp_config_dicts(
             args=args,
-            input_grasp_config_dicts_path=mid_optimization_input_grasp_config_dict_paths,
+            input_grasp_config_dicts_path=mid_optimization_input_grasp_config_dicts_path,
             output_evaled_grasp_config_dicts_path=mid_optimization_output_grasp_config_dicts_path,
         )
 
