@@ -240,12 +240,12 @@ def main(args: EvalGraspConfigDictArgumentParser):
                 record=index in args.record_indices,
             )
         batch_successes = sim.run_sim()
-        successes.append(batch_successes)
+        successes.extend(batch_successes)
         sim.reset_simulator()
         pbar.set_description(f"mean_success = {np.mean(successes)}")
 
     # Aggregate results
-    successes = np.concatenate(successes, axis=0)
+    successes = np.array(successes)
     assert len(successes) == batch_size
     passed_simulation = np.array(successes)
 
