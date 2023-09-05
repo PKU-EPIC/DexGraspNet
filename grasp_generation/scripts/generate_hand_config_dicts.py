@@ -191,7 +191,12 @@ def save_hand_config_dicts(
 
     joint_names = handmodeltype_to_joint_names[hand_model.hand_model_type]
     for object_i, object_code in enumerate(object_code_list):
-        hand_config_dicts = []
+        qpos_list = []
+        qpos_start_list = []
+        energy_dict = {}
+        for energy_name in ENERGY_NAMES:
+            energy_dict[energy_name] = []
+
         for object_grasp_j in range(num_grasps_per_object):
             grasp_idx = object_i * num_grasps_per_object + object_grasp_j
 
@@ -203,29 +208,27 @@ def save_hand_config_dicts(
                 hand_pose=hand_pose_start[grasp_idx].detach().cpu(),
                 joint_names=joint_names,
             )
-            hand_config_dict = dict(
-                qpos=qpos,
-                qpos_start=qpos_start,
-                energy=energy[grasp_idx].item(),
-            )
 
-            hand_config_dict.update(
-                {
-                    ENERGY_NAME_TO_SHORTHAND_DICT[
-                        energy_name
-                    ]: unweighted_energy_matrix[grasp_idx, k].item()
-                    for k, energy_name in enumerate(ENERGY_NAMES)
-                }
-            )
-
-            hand_config_dicts.append(hand_config_dict)
+            qpos_list.append(qpos)
+            qpos_start_list.append(qpos_start)
+            for energy_name, k in enumerate(ENERGY_NAMES):
+                energy_dict[energy_name].append(
+                    unweighted_energy_matrix[grasp_idx, k].item()
+                )
 
         object_code_and_scale_str = object_code_and_scale_to_str(
             object_code, object_scale
         )
+
+        # Stack lists of arrays into batches.
+        qpos = np.stack(qpos_list)
+        qpos_start = np.stack(qpos_start_list)
+        energy_dict = {k: np.stack(v) for k, v in energy_dict.items()}
+        hand_config_dict = {"qpos": qpos, "qpos_start": qpos_start, **energy_dict}
+
         np.save(
             output_folder_path / f"{object_code_and_scale_str}.npy",
-            hand_config_dicts,
+            hand_config_dict
             allow_pickle=True,
         )
 
@@ -338,7 +341,11 @@ def generate(
             assert (
                 use_penetration_energy
             ), f"On step {step}, use_penetration_energy is {use_penetration_energy} but should be True"
-            updated_energy, updated_unweighted_energy_matrix, updated_weighted_energy_matrix = cal_energy(
+            (
+                updated_energy,
+                updated_unweighted_energy_matrix,
+                updated_weighted_energy_matrix,
+            ) = cal_energy(
                 hand_model,
                 object_model,
                 energy_name_to_weight_dict=energy_name_to_weight_dict,
