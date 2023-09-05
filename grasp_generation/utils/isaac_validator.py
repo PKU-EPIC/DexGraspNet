@@ -117,6 +117,7 @@ class IsaacValidator:
         debug_interval: float = 0.05,
         start_with_step_mode: bool = False,
         validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING,
+        use_cpu: bool = True,
     ) -> None:
         self.hand_friction = hand_friction
         self.obj_friction = obj_friction
@@ -178,7 +179,11 @@ class IsaacValidator:
         self.sim_params.gravity = gymapi.Vec3(0.0, -9.8, 0)
 
         # set PhysX-specific parameters
-        self.sim_params.physx.use_gpu = True
+        print('~' * 80)
+        print("NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer")
+        print('~' * 80 + '\n')
+        self.sim_params.physx.use_gpu = not use_cpu
+
         self.sim_params.physx.solver_type = 1
         self.sim_params.physx.num_position_iterations = 8
         self.sim_params.physx.num_velocity_iterations = 0
@@ -824,7 +829,7 @@ class IsaacValidator:
             gym.destroy_env(env)
         gym.destroy_sim(self.sim)
         if self.has_viewer:
-            gym.destroy_viewer(self.sim.viewer)
+            gym.destroy_viewer(self.viewer)
             self.viewer = gym.create_viewer(self.sim, self.camera_props)
         self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
         self.envs = []

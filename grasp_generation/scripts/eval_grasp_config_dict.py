@@ -33,6 +33,8 @@ from utils.joint_angle_targets import (
 from utils.parse_object_code_and_scale import (
     parse_object_code_and_scale,
 )
+from utils.energy import _cal_hand_object_penetration
+from utils.object_model import ObjectModel
 import pathlib
 
 
@@ -40,7 +42,6 @@ class EvalGraspConfigDictArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
     gpu: int = 0
-    seed: int = 1
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     input_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/grasp_config_dicts"
@@ -54,7 +55,8 @@ class EvalGraspConfigDictArgumentParser(Tap):
     debug_index: Optional[int] = None
     start_with_step_mode: bool = False
     use_gui: bool = False
-    penetration_threshold: Optional[float] = None
+    use_cpu: bool = False  # NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer
+    penetration_threshold: Optional[float] = 0.001  # From original DGN
     record_indices: List[int] = []
     optimized: bool = False
 
@@ -191,6 +193,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             validation_type=args.validation_type,
             mode="gui" if args.use_gui else "headless",
             start_with_step_mode=args.start_with_step_mode,
+            use_cpu=args.use_cpu,
         )
         sim.set_obj_asset(
             obj_root=str(args.meshdata_root_path / object_code / "coacd"),
@@ -216,12 +219,25 @@ def main(args: EvalGraspConfigDictArgumentParser):
         gpu=args.gpu,
         validation_type=args.validation_type,
         mode="gui" if args.use_gui else "headless",
+        use_cpu=args.use_cpu,
     )
     # Run validation on all grasps
     batch_size = len(grasp_config_dicts)
 
+    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+    hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
+    object_model = ObjectModel(
+        meshdata_root_path=str(args.meshdata_root_path),
+        batch_size_each=len(hand_pose_array),
+        scale=object_scale,
+        num_samples=2000,
+        device=device,
+    )
+    object_model.initialize(object_code)
+
     # Run for loop over minibatches of grasps.
     successes = []
+    E_pen_array = []
     pbar = tqdm(range(math.ceil(batch_size / args.max_grasps_per_batch)))
     for i in pbar:
         start_index = i * args.max_grasps_per_batch
@@ -244,14 +260,24 @@ def main(args: EvalGraspConfigDictArgumentParser):
         sim.reset_simulator()
         pbar.set_description(f"mean_success = {np.mean(successes)}")
 
+        hand_model.set_parameters(torch.stack(hand_pose_array[start_index:end_index]).to(device))
+        batch_E_pen_array = _cal_hand_object_penetration(
+            hand_model=hand_model, object_model=object_model
+        )
+        E_pen_array.extend(batch_E_pen_array.flatten().tolist())
+
     # Aggregate results
     successes = np.array(successes)
     assert len(successes) == batch_size
     passed_simulation = np.array(successes)
+    E_pen_array = np.array(E_pen_array)
+    assert len(E_pen_array) == batch_size
 
-    # TODO: add penetration check E_pen
-    print("WARNING: penetration check is not implemented yet")
-    passed_penetration_threshold = np.ones(batch_size, dtype=np.bool8)
+    if args.penetration_threshold is None:
+        print("WARNING: penetration check skipped")
+        passed_penetration_threshold = np.ones(batch_size, dtype=np.bool8)
+    else:
+        passed_penetration_threshold = E_pen_array < args.penetration_threshold
 
     passed_eval = passed_simulation * passed_penetration_threshold
     print("=" * 80)
