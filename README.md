@@ -4,6 +4,58 @@ This is the official repository of [DexGraspNet: A Large-Scale Robotic Dexterous
 
 [[project page]](https://pku-epic.github.io/DexGraspNet/)
 
+## Saved Data Format (Last Updated 2023-09-05)
+
+From the DexGraspNet pipeline, we need to read and write grasp data to files. Here, we specify what the file format should look like. Each stored file will be in the form <object_code_and_scale_str>.npy (eg. mug_0_1000.npy), which stores a config dict. Each config dict contains grasp information for a batch of grasps associated with this object and object scale.
+
+You can read in this file like so:
+
+```
+config_dict = np.load('../data/2023-09-05_config_dicts/mug_0_1000.npy', allow_pickle=True).item()
+config_dict.keys()
+```
+
+There are a few types of config_dicts that typically stack upon one another:
+
+### Hand Config Dict
+Specify the wrist pose and joint angles of the hand:
+
+```
+hand_config_dict['trans'].shape == (batch_size, 3)
+hand_config_dict['rot'].shape == (batch_size, 3, 3)
+hand_config_dict['joint_angles'].shape == (batch_size, 16)
+```
+
+It may also have the start wrist pose and joint angles, which refers to what those values were from the start of optimization. This is the same as the above, but with keys ending in '_start'
+
+## Grasp Config Dict
+Has the same as the hand_config_dict, but also has:
+
+```
+grasp_config_dict['grasp_orientations'].shape == (batch_size, n_fingers, 3, 3)
+```
+
+Note that `grasp_orientations` refer to rotation matrices that specify the direction and orientation that each finger should move along to complete a grasp, with the z-dim along the grasp approach direction and the y-dim along the finger to fingertip direction (modified to be perpendicular to z).
+
+## Evaled Grasp Config Dict
+Has the same as the grasp_config_dict, but also has:
+
+```
+evaled_grasp_config_dict['passed_eval'].shape == (batch_size,)
+evaled_grasp_config_dict['passed_simulation'].shape == (batch_size,)
+evaled_grasp_config_dict['passed_penetration_threshold'].shape == (batch_size,)
+evaled_grasp_config_dict['penetration'].shape == (batch_size,)
+```
+
+## Optimized Grasp Config Dict
+Has the same as the grasp_config_dict, but also has:
+
+```
+evaled_grasp_config_dict['scores'].shape == (batch_size,)
+```
+
+Where scores refer to failure probabilities (1 is bad, 0 is good)
+
 ## Roughly How to Run Pipeline (Updated by Tyler 2023-06-13)
 
 ### 0. Setup Env
