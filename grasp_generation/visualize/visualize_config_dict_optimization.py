@@ -23,7 +23,7 @@ import pathlib
 
 import torch
 import numpy as np
-from utils.qpos_pose_conversion import hand_config_to_pose
+from utils.pose_conversion import hand_config_to_pose
 from utils.hand_model_type import (
     HandModelType,
     handmodeltype_to_joint_names,

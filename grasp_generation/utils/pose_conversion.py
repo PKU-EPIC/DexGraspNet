@@ -33,6 +33,10 @@ def hand_config_to_pose(
     joint_angles: np.ndarray,
 ) -> torch.Tensor:
     # Unsqueeze if no batch dim.
+
+    # TODO(pculbert): Handle case when trans/rot/joint_angles are already tensors
+    # to suppress torch warning.
+
     if len(trans.shape) == 1:
         assert rot.shape == (3, 3)
         assert joint_angles.shape == (16,)

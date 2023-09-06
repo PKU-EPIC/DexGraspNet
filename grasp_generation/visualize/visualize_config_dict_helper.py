@@ -12,7 +12,7 @@ import numpy as np
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 from utils.hand_model_type import handmodeltype_to_joint_names
-from utils.qpos_pose_conversion import hand_config_to_pose
+from utils.pose_conversion import hand_config_to_pose
 from utils.joint_angle_targets import (
     computer_fingertip_targets,
     compute_fingertip_mean_contact_positions,
