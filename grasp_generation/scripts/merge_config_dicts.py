@@ -1,6 +1,8 @@
 import numpy as np
 import pathlib
 from tap import Tap
+from collections import defaultdict
+
 
 
 class MergeConfigDictsArgumentsParser(Tap):
@@ -26,6 +28,7 @@ def main(args: MergeConfigDictsArgumentsParser) -> None:
         ]
         print(f"Found {len(filepaths_with_filename)} files with filename {filename}")
 
+        # Append all
         num_grasps = 0
         combined_grasp_config_dict = None
         for filepath in filepaths_with_filename:
