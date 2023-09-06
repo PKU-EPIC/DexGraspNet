@@ -7,11 +7,12 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import torch
 import plotly.graph_objects as go
 from typing import Dict, Any, Optional
+import numpy as np
 
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 from utils.hand_model_type import handmodeltype_to_joint_names
-from utils.qpos_pose_conversion import qpos_to_pose
+from utils.pose_conversion import hand_config_to_pose
 from utils.joint_angle_targets import (
     computer_fingertip_targets,
     compute_fingertip_mean_contact_positions,
@@ -55,7 +56,8 @@ def get_hand_config_dict_plotly_data_list(
 def get_grasp_config_dict_plotly_data_list(
     hand_model: HandModel,
     hand_pose: torch.Tensor,
-    config_dict: Dict[str, Any],
+    config_dict: Dict[str, np.ndarray],
+    idx_to_visualize: int,
     device: str,
 ) -> list:
     if "grasp_orientations" not in config_dict:
@@ -87,7 +89,7 @@ def get_grasp_config_dict_plotly_data_list(
     # fingertip targets
     grasp_orientations = torch.tensor(
         config_dict["grasp_orientations"], dtype=torch.float, device=device
-    )
+    )[idx_to_visualize]
     assert grasp_orientations.shape == (hand_model.num_fingers, 3, 3)
     fingertip_targets = computer_fingertip_targets(
         joint_angles_start=joint_angles,
@@ -182,25 +184,29 @@ def create_config_dict_fig(
     skip_visualize_qpos_start: bool,
     skip_visualize_grasp_config_dict: bool,
     title: str,
+    idx_to_visualize: int,
 ) -> go.Figure:
     object_plotly = object_model.get_plotly_data(
         i=0, color="lightgreen", opacity=0.5, with_surface_points=True
     )
 
     # hand pose
-    joint_names = handmodeltype_to_joint_names[hand_model.hand_model_type]
-    hand_pose = qpos_to_pose(
-        qpos=config_dict["qpos"],
-        joint_names=joint_names,
-        unsqueeze_batch_dim=True,
-    ).to(hand_model.device)
+    hand_pose = (
+        hand_config_to_pose(
+            trans=config_dict["trans"],
+            rot=config_dict["rot"],
+            joint_angles=config_dict["joint_angles"],
+        )[idx_to_visualize]
+        .to(hand_model.device)
+        .unsqueeze(0)
+    )
 
     # hand pose start
     if "qpos_start" in config_dict and not skip_visualize_qpos_start:
-        hand_pose_start = qpos_to_pose(
-            qpos=config_dict["qpos_start"],
-            joint_names=joint_names,
-            unsqueeze_batch_dim=True,
+        hand_pose_start = hand_config_to_pose(
+            trans=config_dict["trans_start"],
+            rot=config_dict["rot_start"],
+            joint_angles=config_dict["joint_angles_start"],
         ).to(hand_model.device)
     else:
         hand_pose_start = None
@@ -219,6 +225,7 @@ def create_config_dict_fig(
             hand_model=hand_model,
             hand_pose=hand_pose,
             config_dict=config_dict,
+            idx_to_visualize=idx_to_visualize,
             device=hand_model.device,
         )
     else:
@@ -237,7 +244,7 @@ def create_config_dict_fig(
     if "energy" in config_dict:
         energy = config_dict["energy"]
         energy_terms_to_values = {
-            key: round(value, 3)
+            key: round(value[idx_to_visualize], 3)
             for key, value in config_dict.items()
             if key.startswith("E_")
         }
@@ -250,7 +257,7 @@ def create_config_dict_fig(
 
     # passed_eval
     if "passed_eval" in config_dict:
-        passed_eval = config_dict["passed_eval"]
+        passed_eval = config_dict["passed_eval"][idx_to_visualize]
         passed_eval_str = f"Passed eval: {passed_eval}"
         fig.add_annotation(
             text=passed_eval_str, x=0.5, y=0.05, xref="paper", yref="paper"
@@ -259,7 +266,9 @@ def create_config_dict_fig(
         title += f" | {passed_eval_str}"
 
     if "passed_penetration_threshold" in config_dict:
-        passed_penetration_threshold = config_dict["passed_penetration_threshold"]
+        passed_penetration_threshold = config_dict["passed_penetration_threshold"][
+            idx_to_visualize
+        ]
         passed_penetration_threshold_str = (
             f"Passed penetration threshold: {passed_penetration_threshold}"
         )
@@ -274,14 +283,16 @@ def create_config_dict_fig(
         title += f" | {passed_penetration_threshold_str}"
 
     if "penetration" in config_dict:
-        penetration = config_dict["penetration"]
+        penetration = config_dict["penetration"][idx_to_visualize]
         penetration_str = f"Penetration: {round(penetration, 5)}"
-        fig.add_annotation(text=penetration_str, x=0.5, y=0.15, xref="paper", yref="paper")
+        fig.add_annotation(
+            text=penetration_str, x=0.5, y=0.15, xref="paper", yref="paper"
+        )
         # For some reason, annotations not showing up in the multi fig plot
         title += f" | {penetration_str}"
 
     if "passed_simulation" in config_dict:
-        passed_simulation = config_dict["passed_simulation"]
+        passed_simulation = config_dict["passed_simulation"][idx_to_visualize]
         passed_simulation_str = f"Passed simulation: {passed_simulation}"
         fig.add_annotation(
             text=passed_simulation_str, x=0.5, y=0.2, xref="paper", yref="paper"
@@ -291,7 +302,7 @@ def create_config_dict_fig(
 
     # score
     if "score" in config_dict:
-        score = round(config_dict["score"], 3)
+        score = round(config_dict["score"][idx_to_visualize], 3)
         score_str = f"Score: {score}"
         fig.add_annotation(text=score_str, x=0.5, y=0.25, xref="paper", yref="paper")
         title += f" | {score_str}"

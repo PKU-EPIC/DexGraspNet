@@ -23,7 +23,7 @@ import pathlib
 
 import torch
 import numpy as np
-from utils.qpos_pose_conversion import qpos_to_pose
+from utils.pose_conversion import hand_config_to_pose
 from utils.hand_model_type import (
     HandModelType,
     handmodeltype_to_joint_names,
@@ -60,19 +60,19 @@ class VisualizeConfigDictOptimizationArgumentParser(Tap):
     device: str = "cpu"
     save_to_html: bool = False
     skip_visualize_grasp_config_dict: bool = False
+    uneven_diffs_ok: bool = False
 
 
 def get_hand_model_from_config_dicts(
     config_dict: Dict[str, Any],
     device: str,
+    idx_to_visualize: int,
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
 ) -> HandModel:
-    joint_names = handmodeltype_to_joint_names[hand_model_type]
-
-    hand_pose = qpos_to_pose(
-        qpos=config_dict["qpos"],
-        joint_names=joint_names,
-        unsqueeze_batch_dim=True,
+    hand_pose = hand_config_to_pose(
+        trans=config_dict["trans"][idx_to_visualize],
+        rot=config_dict["rot"][idx_to_visualize],
+        joint_angles=config_dict["joint_angles"][idx_to_visualize],
     ).to(device)
     hand_model = HandModel(hand_model_type=hand_model_type, device=device)
     hand_model.set_parameters(hand_pose)
@@ -105,6 +105,7 @@ def create_config_dict_figs_from_folder(
     idx_to_visualize: int,
     device: str,
     skip_visualize_grasp_config_dict: bool,
+    uneven_diffs_ok: bool,
 ) -> Tuple[List[go.Figure], int]:
     filename = f"{object_code_and_scale_str}.npy"
 
@@ -122,7 +123,8 @@ def create_config_dict_figs_from_folder(
     for first, second in zip(sorted_mid_folders[:-1], sorted_mid_folders[1:]):
         assert first.isdigit() and second.isdigit(), f"{first}, {second}"
         diffs.append(int(second) - int(first))
-    assert all(diff == diffs[0] for diff in diffs), f"diffs = {diffs}"
+    if not uneven_diffs_ok:
+        assert all(diff == diffs[0] for diff in diffs), f"diffs = {diffs}"
 
     figs = []
     for mid_folder in tqdm(sorted_mid_folders, desc="Going through folders..."):
@@ -130,11 +132,10 @@ def create_config_dict_figs_from_folder(
         assert filepath.exists(), f"{filepath} does not exist"
 
         # Read in data
-        config_dicts: List[Dict[str, Any]] = np.load(filepath, allow_pickle=True)
-        config_dict = config_dicts[idx_to_visualize]
+        config_dict = np.load(filepath, allow_pickle=True).item()
 
         hand_model = get_hand_model_from_config_dicts(
-            config_dict=config_dict, device=device
+            config_dict=config_dict, device=device, idx_to_visualize=idx_to_visualize
         )
         object_model = get_object_model(
             meshdata_root_path=meshdata_root_path,
@@ -149,6 +150,7 @@ def create_config_dict_figs_from_folder(
             object_model=object_model,
             skip_visualize_qpos_start=True,
             skip_visualize_grasp_config_dict=skip_visualize_grasp_config_dict,
+            idx_to_visualize=idx_to_visualize,
             title=f"{object_code_and_scale_str} {idx_to_visualize}",
         )
         figs.append(fig)
@@ -183,6 +185,7 @@ def main(args: VisualizeConfigDictOptimizationArgumentParser):
         idx_to_visualize=args.idx_to_visualize,
         device=args.device,
         skip_visualize_grasp_config_dict=args.skip_visualize_grasp_config_dict,
+        uneven_diffs_ok=args.uneven_diffs_ok,
     )
 
     print("Making figure with buttons and slider...")

@@ -22,7 +22,7 @@ from utils.initializations import initialize_convex_hull
 from utils.energy import cal_energy, ENERGY_NAMES, ENERGY_NAME_TO_SHORTHAND_DICT
 from utils.optimizer import Annealing
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
-from utils.qpos_pose_conversion import pose_to_qpos
+from utils.pose_conversion import pose_to_hand_config
 from utils.seed import set_seed
 from utils.parse_object_code_and_scale import object_code_and_scale_to_str
 
@@ -104,6 +104,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
 
     # verbose (grasps throughout)
     store_grasps_mid_optimization_freq: Optional[int] = 50
+    store_grasps_mid_optimization_iters: Optional[List[int]] = None
 
 
 def create_visualization_figure(
@@ -176,56 +177,47 @@ def save_hand_config_dicts(
     Save results to output_folder_path
         * <output_folder_path>/<object_code>_<object_scale>.npy
 
-    Each file is a list of hand_config_dict, where each hand_config_dict is a dict with keys:
-        * qpos: {<joint_1.0>: x, <joint_1.1>: y, ...,
-                 <translation_x>: x, <translation_y>: y, <translation_z>: z,
-                 <rotation_x>: x, <rotation_y>: y, <rotation_z>: z}
-        * qpos_start: ^ but for the starting pose
-        * energy: float
-        * E_{name}: float for each energy name
+    TODO: update docstring.
     """
     num_objects, num_grasps_per_object = object_model.object_scale_tensor.shape
     assert len(object_code_list) == num_objects
     assert hand_pose_start.shape[0] == num_objects * num_grasps_per_object
     assert (object_model.object_scale_tensor == object_scale).all()
 
-    joint_names = handmodeltype_to_joint_names[hand_model.hand_model_type]
-    for object_i, object_code in enumerate(object_code_list):
-        hand_config_dicts = []
-        for object_grasp_j in range(num_grasps_per_object):
-            grasp_idx = object_i * num_grasps_per_object + object_grasp_j
+    for _, object_code in enumerate(object_code_list):
+        energy_dict = {}
+        for energy_name in ENERGY_NAMES:
+            energy_dict[energy_name] = []
 
-            qpos = pose_to_qpos(
-                hand_pose=hand_model.hand_pose[grasp_idx].detach().cpu(),
-                joint_names=joint_names,
-            )
-            qpos_start = pose_to_qpos(
-                hand_pose=hand_pose_start[grasp_idx].detach().cpu(),
-                joint_names=joint_names,
-            )
-            hand_config_dict = dict(
-                qpos=qpos,
-                qpos_start=qpos_start,
-                energy=energy[grasp_idx].item(),
-            )
+        trans, rot, joint_angles = pose_to_hand_config(
+            hand_pose=hand_model.hand_pose.detach().cpu(),
+        )
+        trans_start, rot_start, joint_angles_start = pose_to_hand_config(
+            hand_pose=hand_pose_start.detach().cpu(),
+        )
 
-            hand_config_dict.update(
-                {
-                    ENERGY_NAME_TO_SHORTHAND_DICT[
-                        energy_name
-                    ]: unweighted_energy_matrix[grasp_idx, k].item()
-                    for k, energy_name in enumerate(ENERGY_NAMES)
-                }
+        for k, energy_name in enumerate(ENERGY_NAMES):
+            energy_dict[energy_name].append(
+                unweighted_energy_matrix[:, k].detach().cpu().numpy()
             )
-
-            hand_config_dicts.append(hand_config_dict)
 
         object_code_and_scale_str = object_code_and_scale_to_str(
             object_code, object_scale
         )
+
+        hand_config_dict = {
+            "trans": trans,
+            "rot": rot,
+            "joint_angles": joint_angles,
+            "trans_start": trans_start,
+            "rot_start": rot_start,
+            "joint_angles_start": joint_angles_start,
+            **energy_dict,
+        }
+
         np.save(
             output_folder_path / f"{object_code_and_scale_str}.npy",
-            hand_config_dicts,
+            hand_config_dict,
             allow_pickle=True,
         )
 
@@ -335,10 +327,15 @@ def generate(
         # Else the current energy will appear artificially better than all new energies
         # So optimizer will stop accepting new energies
         if step == step_first_compute_penetration_energy:
-            assert (
-                use_penetration_energy
-            ), f"On step {step}, use_penetration_energy is {use_penetration_energy} but should be True"
-            updated_energy, updated_unweighted_energy_matrix, updated_weighted_energy_matrix = cal_energy(
+            if args.use_penetration_energy:
+                assert (
+                    use_penetration_energy
+                ), f"On step {step}, use_penetration_energy is {use_penetration_energy} but should be True"
+            (
+                updated_energy,
+                updated_unweighted_energy_matrix,
+                updated_weighted_energy_matrix,
+            ) = cal_energy(
                 hand_model,
                 object_model,
                 energy_name_to_weight_dict=energy_name_to_weight_dict,
@@ -373,8 +370,12 @@ def generate(
 
         # Store grasps mid optimization
         if (
-            args.store_grasps_mid_optimization_freq is not None
+            args.store_grasps_mid_optimization_iters is not None
+            and args.store_grasps_mid_optimization_freq is not None
             and step % args.store_grasps_mid_optimization_freq == 0
+        ) or (
+            args.store_grasps_mid_optimization_iters is not None
+            and step in args.store_grasps_mid_optimization_iters
         ):
             new_output_folder = (
                 pathlib.Path(f"{args.output_hand_config_dicts_path}")
