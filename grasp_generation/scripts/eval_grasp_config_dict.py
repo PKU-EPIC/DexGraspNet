@@ -65,13 +65,12 @@ def compute_joint_angle_targets(
     hand_pose: torch.Tensor,
     grasp_orientations: torch.Tensor,
 ) -> np.ndarray:
-    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
-
-    hand_pose = hand_pose.to(device)
-    grasp_orientations = grasp_orientations.to(device)
+    grasp_orientations = grasp_orientations.to(hand_pose.device)
 
     # hand model
-    hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
+    hand_model = HandModel(
+        hand_model_type=args.hand_model_type, device=hand_pose.device
+    )
     hand_model.set_parameters(hand_pose)
 
     # Optimization
@@ -96,8 +95,7 @@ def get_data(
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
     trans = torch.tensor(grasp_config_dict["trans"], device=device, dtype=torch.float)
     rot = torch.tensor(grasp_config_dict["rot"], device=device, dtype=torch.float)
-    quaternion = matrix_to_quaternion(rot)  # Cast rotation matrix to quat for IG.
-    # NOTE: quaternion is (w, x, y, z), need to flip order for IG convention.
+    quat_wxyz = matrix_to_quaternion(rot)  #
     joint_angles = torch.tensor(
         grasp_config_dict["joint_angles"], device=device, dtype=torch.float
     )
@@ -109,7 +107,7 @@ def get_data(
     )
     return (
         trans,
-        quaternion,
+        quat_wxyz,
         joint_angles,
         hand_pose,
         grasp_orientations,
@@ -140,7 +138,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
     ).item()
     (
         trans,
-        quaternion,
+        quat_wxyz,
         joint_angles,
         hand_pose,
         grasp_orientations,
@@ -172,7 +170,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         )
         index = args.debug_index
         sim.add_env_single_test_rotation(
-            hand_quaternion=quaternion[index],
+            hand_quaternion=quat_wxyz[index],
             hand_translation=trans[index],
             hand_qpos=joint_angles[index],
             obj_scale=object_scale,
@@ -199,7 +197,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
     hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
 
     # Some final shape checking.
-    assert quaternion.shape == (batch_size, 4)
+    assert quat_wxyz.shape == (batch_size, 4)
     assert joint_angles.shape == (batch_size, 16)
     assert hand_pose.shape == (batch_size, 3 + 6 + 16)
     assert grasp_orientations.shape == (batch_size, hand_model.num_fingers, 3, 3)
@@ -226,7 +224,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         )
         for index in range(start_index, end_index):
             sim.add_env_single_test_rotation(
-                hand_quaternion=quaternion[index],
+                hand_quaternion=quat_wxyz[index],
                 hand_translation=trans[index],
                 hand_qpos=joint_angles[index],
                 obj_scale=object_scale,

@@ -5,8 +5,6 @@ import torch
 import numpy as np
 from typing import List, Dict, Any, Tuple
 
-# TODO: rename this module to just `pose_conversion.py`
-
 
 def pose_to_hand_config(
     hand_pose: torch.Tensor,
