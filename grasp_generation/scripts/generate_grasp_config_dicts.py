@@ -57,6 +57,9 @@ def compute_grasp_orientations(
 ) -> torch.Tensor:
     batch_size = hand_pose.shape[0]
 
+    device = torch.device(f"cuda:{args.gpu}") if torch.cuda.is_available() else "cpu"
+    hand_pose = hand_pose.to(device)
+
     # hand model
     hand_model = HandModel(
         hand_model_type=args.hand_model_type, device=hand_pose.device
