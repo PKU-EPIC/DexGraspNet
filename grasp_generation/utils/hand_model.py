@@ -522,7 +522,9 @@ class HandModel:
         contact_point_indices: (B, `n_contact`) [Optional]torch.LongTensor
             indices of contact candidates
         """
-        assert len(hand_pose.shape) == 2
+        assert len(hand_pose.shape) <= 2
+        if len(hand_pose.shape) == 1:
+            hand_pose = hand_pose.unsqueeze(0)
         assert hand_pose.shape[1] == 3 + 6 + self.n_dofs
 
         self.hand_pose = hand_pose
@@ -715,12 +717,18 @@ class HandModel:
 
     def cal_finger_finger_distance_energy(self):
         batch_size = self.contact_points.shape[0]
-        finger_finger_distance_energy = -torch.cdist(self.contact_points, self.contact_points, p=2).reshape(batch_size, -1).sum(dim=-1)
+        finger_finger_distance_energy = (
+            -torch.cdist(self.contact_points, self.contact_points, p=2)
+            .reshape(batch_size, -1)
+            .sum(dim=-1)
+        )
         return finger_finger_distance_energy
 
     def cal_palm_finger_distance_energy(self):
         palm_position = self.global_translation[:, None, :]
-        palm_finger_distance_energy = -(palm_position - self.contact_points).norm(dim=-1).sum(dim=-1)
+        palm_finger_distance_energy = (
+            -(palm_position - self.contact_points).norm(dim=-1).sum(dim=-1)
+        )
         return palm_finger_distance_energy
 
     def get_surface_points(self):
@@ -923,9 +931,7 @@ class HandModel:
             )
 
         if with_penetration_keypoints:
-            penetration_keypoints = (
-                self.get_penetration_keypoints()[i].detach().cpu()
-            )
+            penetration_keypoints = self.get_penetration_keypoints()[i].detach().cpu()
             if pose is not None:
                 penetration_keypoints = (
                     penetration_keypoints @ pose[:3, :3].T + pose[:3, 3]

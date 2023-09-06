@@ -69,12 +69,10 @@ def get_hand_model_from_config_dicts(
     idx_to_visualize: int,
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
 ) -> HandModel:
-    joint_names = handmodeltype_to_joint_names[hand_model_type]
-
     hand_pose = hand_config_to_pose(
-        qpos=config_dict["qpos"][idx_to_visualize],
-        joint_names=joint_names,
-        unsqueeze_batch_dim=True,
+        trans=config_dict["trans"][idx_to_visualize],
+        rot=config_dict["rot"][idx_to_visualize],
+        joint_angles=config_dict["joint_angles"][idx_to_visualize],
     ).to(device)
     hand_model = HandModel(hand_model_type=hand_model_type, device=device)
     hand_model.set_parameters(hand_pose)
@@ -134,7 +132,7 @@ def create_config_dict_figs_from_folder(
         assert filepath.exists(), f"{filepath} does not exist"
 
         # Read in data
-        config_dict = np.load(filepath, allow_pickle=True)
+        config_dict = np.load(filepath, allow_pickle=True).item()
 
         hand_model = get_hand_model_from_config_dicts(
             config_dict=config_dict, device=device, idx_to_visualize=idx_to_visualize
@@ -152,6 +150,7 @@ def create_config_dict_figs_from_folder(
             object_model=object_model,
             skip_visualize_qpos_start=True,
             skip_visualize_grasp_config_dict=skip_visualize_grasp_config_dict,
+            idx_to_visualize=idx_to_visualize,
             title=f"{object_code_and_scale_str} {idx_to_visualize}",
         )
         figs.append(fig)

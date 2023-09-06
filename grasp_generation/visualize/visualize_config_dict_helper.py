@@ -11,7 +11,7 @@ from typing import Dict, Any, Optional
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 from utils.hand_model_type import handmodeltype_to_joint_names
-from utils.qpos_pose_conversion import qpos_to_pose
+from utils.qpos_pose_conversion import hand_config_to_pose
 from utils.joint_angle_targets import (
     computer_fingertip_targets,
     compute_fingertip_mean_contact_positions,
@@ -189,19 +189,18 @@ def create_config_dict_fig(
     )
 
     # hand pose
-    joint_names = handmodeltype_to_joint_names[hand_model.hand_model_type]
-    hand_pose = qpos_to_pose(
-        qpos=config_dict["qpos"][idx_to_visualize],
-        joint_names=joint_names,
-        unsqueeze_batch_dim=True,
-    ).to(hand_model.device)
+    hand_pose = hand_config_to_pose(
+        trans=config_dict["trans"],
+        rot=config_dict["rot"],
+        joint_angles=config_dict["joint_angles"],
+    )[idx_to_visualize].to(hand_model.device)
 
     # hand pose start
     if "qpos_start" in config_dict and not skip_visualize_qpos_start:
-        hand_pose_start = qpos_to_pose(
-            qpos=config_dict["qpos_start"],
-            joint_names=joint_names,
-            unsqueeze_batch_dim=True,
+        hand_pose_start = hand_config_to_pose(
+            trans=config_dict["trans_start"],
+            rot=config_dict["rot_start"],
+            joint_angles=config_dict["joint_angles_start"],
         ).to(hand_model.device)
     else:
         hand_pose_start = None
@@ -238,7 +237,7 @@ def create_config_dict_fig(
     if "energy" in config_dict:
         energy = config_dict["energy"]
         energy_terms_to_values = {
-            key: round(value, 3)
+            key: round(value[idx_to_visualize], 3)
             for key, value in config_dict.items()
             if key.startswith("E_")
         }
@@ -251,7 +250,7 @@ def create_config_dict_fig(
 
     # passed_eval
     if "passed_eval" in config_dict:
-        passed_eval = config_dict["passed_eval"]
+        passed_eval = config_dict["passed_eval"][idx_to_visualize]
         passed_eval_str = f"Passed eval: {passed_eval}"
         fig.add_annotation(
             text=passed_eval_str, x=0.5, y=0.05, xref="paper", yref="paper"
@@ -260,7 +259,9 @@ def create_config_dict_fig(
         title += f" | {passed_eval_str}"
 
     if "passed_penetration_threshold" in config_dict:
-        passed_penetration_threshold = config_dict["passed_penetration_threshold"]
+        passed_penetration_threshold = config_dict["passed_penetration_threshold"][
+            idx_to_visualize
+        ]
         passed_penetration_threshold_str = (
             f"Passed penetration threshold: {passed_penetration_threshold}"
         )
@@ -275,7 +276,7 @@ def create_config_dict_fig(
         title += f" | {passed_penetration_threshold_str}"
 
     if "penetration" in config_dict:
-        penetration = config_dict["penetration"]
+        penetration = config_dict["penetration"][idx_to_visualize]
         penetration_str = f"Penetration: {round(penetration, 5)}"
         fig.add_annotation(
             text=penetration_str, x=0.5, y=0.15, xref="paper", yref="paper"
@@ -284,7 +285,7 @@ def create_config_dict_fig(
         title += f" | {penetration_str}"
 
     if "passed_simulation" in config_dict:
-        passed_simulation = config_dict["passed_simulation"]
+        passed_simulation = config_dict["passed_simulation"][idx_to_visualize]
         passed_simulation_str = f"Passed simulation: {passed_simulation}"
         fig.add_annotation(
             text=passed_simulation_str, x=0.5, y=0.2, xref="paper", yref="paper"
@@ -294,7 +295,7 @@ def create_config_dict_fig(
 
     # score
     if "score" in config_dict:
-        score = round(config_dict["score"], 3)
+        score = round(config_dict["score"][idx_to_visualize], 3)
         score_str = f"Score: {score}"
         fig.add_annotation(text=score_str, x=0.5, y=0.25, xref="paper", yref="paper")
         title += f" | {score_str}"
