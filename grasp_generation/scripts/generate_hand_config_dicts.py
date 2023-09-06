@@ -370,8 +370,7 @@ def generate(
 
         # Store grasps mid optimization
         if (
-            args.store_grasps_mid_optimization_iters is not None
-            and args.store_grasps_mid_optimization_freq is not None
+            args.store_grasps_mid_optimization_freq is not None
             and step % args.store_grasps_mid_optimization_freq == 0
         ) or (
             args.store_grasps_mid_optimization_iters is not None
