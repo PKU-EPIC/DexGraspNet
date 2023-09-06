@@ -20,10 +20,10 @@ from utils.hand_model_type import (
     HandModelType,
     handmodeltype_to_joint_names,
 )
-from utils.qpos_pose_conversion import (
-    qpos_to_pose,
-    qpos_to_translation_quaternion_jointangles,
+from utils.pose_conversion import (
+    hand_config_to_pose,
 )
+from pytorch3d.transforms import matrix_to_quaternion
 from typing import List, Optional, Tuple, Dict, Any
 import math
 from utils.seed import set_seed
@@ -62,15 +62,17 @@ class EvalGraspConfigDictArgumentParser(Tap):
 
 def compute_joint_angle_targets(
     args: EvalGraspConfigDictArgumentParser,
-    hand_pose_array: List[torch.Tensor],
-    grasp_orientations_array: List[torch.Tensor],
+    hand_pose: torch.Tensor,
+    grasp_orientations: torch.Tensor,
 ) -> np.ndarray:
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
-    grasp_orientations = torch.stack(grasp_orientations_array, dim=0).to(device)
+
+    hand_pose = hand_pose.to(device)
+    grasp_orientations = grasp_orientations.to(device)
 
     # hand model
     hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
-    hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
+    hand_model.set_parameters(hand_pose)
 
     # Optimization
     (
@@ -89,52 +91,28 @@ def compute_joint_angle_targets(
 
 
 def get_data(
-    args: EvalGraspConfigDictArgumentParser, grasp_config_dicts: List[Dict[str, Any]]
-) -> Tuple[
-    List[np.ndarray],
-    List[np.ndarray],
-    List[np.ndarray],
-    List[torch.Tensor],
-    List[torch.Tensor],
-]:
+    args: EvalGraspConfigDictArgumentParser, grasp_config_dict: Dict[str, np.ndarray]
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,]:
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
-    joint_names = handmodeltype_to_joint_names[args.hand_model_type]
-    batch_size = len(grasp_config_dicts)
-    translation_array = []
-    quaternion_array = []
-    joint_angles_array = []
-    hand_pose_array = []
-    grasp_orientations_array = []
-    for i in range(batch_size):
-        grasp_config_dict = grasp_config_dicts[i]
-        qpos = grasp_config_dict["qpos"]
-
-        (
-            translation,
-            quaternion,
-            joint_angles,
-        ) = qpos_to_translation_quaternion_jointangles(
-            qpos=qpos, joint_names=joint_names
-        )
-        translation_array.append(translation)
-        quaternion_array.append(quaternion)
-        joint_angles_array.append(joint_angles)
-        hand_pose_array.append(
-            qpos_to_pose(qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False)
-        )
-        grasp_orientations_array.append(
-            torch.tensor(
-                grasp_config_dict["grasp_orientations"],
-                dtype=torch.float,
-                device=device,
-            )
-        )
+    trans = torch.tensor(grasp_config_dict["trans"], device=device, dtype=torch.float)
+    rot = torch.tensor(grasp_config_dict["rot"], device=device, dtype=torch.float)
+    quaternion = matrix_to_quaternion(rot)  # Cast rotation matrix to quat for IG.
+    # NOTE: quaternion is (w, x, y, z), need to flip order for IG convention.
+    joint_angles = torch.tensor(
+        grasp_config_dict["joint_angles"], device=device, dtype=torch.float
+    )
+    hand_pose = hand_config_to_pose(trans, rot, joint_angles)
+    grasp_orientations = torch.tensor(
+        grasp_config_dict["grasp_orientations"],
+        dtype=torch.float,
+        device=device,
+    )
     return (
-        translation_array,
-        quaternion_array,
-        joint_angles_array,
-        hand_pose_array,
-        grasp_orientations_array,
+        trans,
+        quaternion,
+        joint_angles,
+        hand_pose,
+        grasp_orientations,
     )
 
 
@@ -157,25 +135,25 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
     print(f"Loading grasp config dicts from: {grasp_config_dict_path}")
 
-    grasp_config_dicts: List[Dict[str, Any]] = np.load(
+    grasp_config_dict: Dict[str, Any] = np.load(
         grasp_config_dict_path, allow_pickle=True
-    )
+    ).item()
     (
-        translation_array,
-        quaternion_array,
-        joint_angles_array,
-        hand_pose_array,
-        grasp_orientations_array,
+        trans,
+        quaternion,
+        joint_angles,
+        hand_pose,
+        grasp_orientations,
     ) = get_data(
         args=args,
-        grasp_config_dicts=grasp_config_dicts,
+        grasp_config_dict=grasp_config_dict,
     )
 
     # Compute joint angle targets
     joint_angle_targets_array = compute_joint_angle_targets(
         args=args,
-        hand_pose_array=hand_pose_array,
-        grasp_orientations_array=grasp_orientations_array,
+        hand_pose=hand_pose,
+        grasp_orientations=grasp_orientations,
     )
 
     # Debug with single grasp
@@ -194,9 +172,9 @@ def main(args: EvalGraspConfigDictArgumentParser):
         )
         index = args.debug_index
         sim.add_env_single_test_rotation(
-            hand_quaternion=quaternion_array[index],
-            hand_translation=translation_array[index],
-            hand_qpos=joint_angles_array[index],
+            hand_quaternion=quaternion[index],
+            hand_translation=trans[index],
+            hand_qpos=joint_angles[index],
             obj_scale=object_scale,
             target_qpos=joint_angle_targets_array[index],
             record=index in args.record_indices,
@@ -215,13 +193,20 @@ def main(args: EvalGraspConfigDictArgumentParser):
         use_cpu=args.use_cpu,
     )
     # Run validation on all grasps
-    batch_size = len(grasp_config_dicts)
+    batch_size = trans.shape[0]
 
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
     hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
+
+    # Some final shape checking.
+    assert quaternion.shape == (batch_size, 4)
+    assert joint_angles.shape == (batch_size, 16)
+    assert hand_pose.shape == (batch_size, 3 + 6 + 16)
+    assert grasp_orientations.shape == (batch_size, hand_model.num_fingers, 3, 3)
+
     object_model = ObjectModel(
         meshdata_root_path=str(args.meshdata_root_path),
-        batch_size_each=len(hand_pose_array),
+        batch_size_each=batch_size,
         scale=object_scale,
         num_samples=2000,
         device=device,
@@ -241,9 +226,9 @@ def main(args: EvalGraspConfigDictArgumentParser):
         )
         for index in range(start_index, end_index):
             sim.add_env_single_test_rotation(
-                hand_quaternion=quaternion_array[index],
-                hand_translation=translation_array[index],
-                hand_qpos=joint_angles_array[index],
+                hand_quaternion=quaternion[index],
+                hand_translation=trans[index],
+                hand_qpos=joint_angles[index],
                 obj_scale=object_scale,
                 target_qpos=joint_angle_targets_array[index],
                 record=index in args.record_indices,
@@ -253,9 +238,8 @@ def main(args: EvalGraspConfigDictArgumentParser):
         sim.reset_simulator()
         pbar.set_description(f"mean_success = {np.mean(successes)}")
 
-        hand_model.set_parameters(
-            torch.stack(hand_pose_array[start_index:end_index]).to(device)
-        )
+        hand_model.set_parameters(hand_pose[start_index:end_index])
+
         batch_E_pen_array = _cal_hand_object_penetration(
             hand_model=hand_model, object_model=object_model
         )
@@ -282,23 +266,19 @@ def main(args: EvalGraspConfigDictArgumentParser):
         f"passed_eval = passed_simulation * passed_penetration_threshold: {passed_eval.sum().item()}/{batch_size}"
     )
     print("=" * 80)
-    evaled_grasp_config_dicts = []
-    for i in range(batch_size):
-        evaled_grasp_config_dicts.append(
-            {
-                **grasp_config_dicts[i],
-                "passed_penetration_threshold": passed_penetration_threshold[i],
-                "passed_simulation": passed_simulation[i],
-                "passed_eval": passed_eval[i],
-                "penetration": E_pen_array[i],
-            }
-        )
+    evaled_grasp_config_dict = {
+        **grasp_config_dict,
+        "passed_penetration_threshold": passed_penetration_threshold,
+        "passed_simulation": passed_simulation,
+        "passed_eval": passed_eval,
+        "penetration": E_pen_array,
+    }
 
     args.output_evaled_grasp_config_dicts_path.mkdir(parents=True, exist_ok=True)
     np.save(
         args.output_evaled_grasp_config_dicts_path
         / f"{args.object_code_and_scale_str}.npy",
-        evaled_grasp_config_dicts,
+        evaled_grasp_config_dict,
         allow_pickle=True,
     )
 

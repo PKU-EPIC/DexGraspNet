@@ -22,7 +22,7 @@ from utils.initializations import initialize_convex_hull
 from utils.energy import cal_energy, ENERGY_NAMES, ENERGY_NAME_TO_SHORTHAND_DICT
 from utils.optimizer import Annealing
 from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
-from utils.qpos_pose_conversion import pose_to_hand_config
+from utils.pose_conversion import pose_to_hand_config
 from utils.seed import set_seed
 from utils.parse_object_code_and_scale import object_code_and_scale_to_str
 
@@ -177,22 +177,14 @@ def save_hand_config_dicts(
     Save results to output_folder_path
         * <output_folder_path>/<object_code>_<object_scale>.npy
 
-    Each file is a list of hand_config_dict, where each hand_config_dict is a dict with keys:
-        * qpos: {<joint_1.0>: x, <joint_1.1>: y, ...,
-                 <translation_x>: x, <translation_y>: y, <translation_z>: z,
-                 <rotation_x>: x, <rotation_y>: y, <rotation_z>: z}
-        * qpos_start: ^ but for the starting pose
-        * energy: float
-        * E_{name}: float for each energy name
+    TODO: update docstring.
     """
     num_objects, num_grasps_per_object = object_model.object_scale_tensor.shape
     assert len(object_code_list) == num_objects
     assert hand_pose_start.shape[0] == num_objects * num_grasps_per_object
     assert (object_model.object_scale_tensor == object_scale).all()
 
-    joint_names = handmodeltype_to_joint_names[hand_model.hand_model_type]
-    for object_i, object_code in enumerate(object_code_list):
-        qpos_start_list = []
+    for _, object_code in enumerate(object_code_list):
         energy_dict = {}
         for energy_name in ENERGY_NAMES:
             energy_dict[energy_name] = []
