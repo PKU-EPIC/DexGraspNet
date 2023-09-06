@@ -28,7 +28,7 @@ hand_config_dict['joint_angles'].shape == (batch_size, 16)
 
 It may also have the start wrist pose and joint angles, which refers to what those values were from the start of optimization. This is the same as the above, but with keys ending in '_start'
 
-## Grasp Config Dict
+### Grasp Config Dict
 Has the same as the hand_config_dict, but also has:
 
 ```
@@ -37,7 +37,7 @@ grasp_config_dict['grasp_orientations'].shape == (batch_size, n_fingers, 3, 3)
 
 Note that `grasp_orientations` refer to rotation matrices that specify the direction and orientation that each finger should move along to complete a grasp, with the z-dim along the grasp approach direction and the y-dim along the finger to fingertip direction (modified to be perpendicular to z).
 
-## Evaled Grasp Config Dict
+### Evaled Grasp Config Dict
 Has the same as the grasp_config_dict, but also has:
 
 ```
@@ -47,11 +47,11 @@ evaled_grasp_config_dict['passed_penetration_threshold'].shape == (batch_size,)
 evaled_grasp_config_dict['penetration'].shape == (batch_size,)
 ```
 
-## Optimized Grasp Config Dict
+### Optimized Grasp Config Dict
 Has the same as the grasp_config_dict, but also has:
 
 ```
-evaled_grasp_config_dict['scores'].shape == (batch_size,)
+optimized_grasp_config_dict['scores'].shape == (batch_size,)
 ```
 
 Where scores refer to failure probabilities (1 is bad, 0 is good)
