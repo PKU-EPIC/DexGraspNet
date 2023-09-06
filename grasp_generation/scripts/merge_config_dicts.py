@@ -31,6 +31,7 @@ def main(args: MergeConfigDictsArgumentsParser) -> None:
         for filepath in filepaths_with_filename:
             if combined_grasp_config_dict is None:
                 combined_grasp_config_dict = np.load(filepath, allow_pickle=True).item()
+                num_grasps += combined_grasp_config_dict["trans"].shape[0]
             else:
                 grasp_config_dict = np.load(filepath, allow_pickle=True).item()
                 num_grasps += grasp_config_dict["trans"].shape[0]

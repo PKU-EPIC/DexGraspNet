@@ -186,8 +186,6 @@ def save_hand_config_dicts(
 
     for _, object_code in enumerate(object_code_list):
         energy_dict = {}
-        for energy_name in ENERGY_NAMES:
-            energy_dict[energy_name] = []
 
         trans, rot, joint_angles = pose_to_hand_config(
             hand_pose=hand_model.hand_pose.detach().cpu(),
@@ -197,7 +195,7 @@ def save_hand_config_dicts(
         )
 
         for k, energy_name in enumerate(ENERGY_NAMES):
-            energy_dict[energy_name].append(
+            energy_dict[energy_name] = (
                 unweighted_energy_matrix[:, k].detach().cpu().numpy()
             )
 
