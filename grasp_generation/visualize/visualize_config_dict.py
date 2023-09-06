@@ -50,11 +50,10 @@ def main(args: VisualizeConfigDictArgumentParser):
     )
 
     # load results
-    config_dicts: List[Dict[str, Any]] = np.load(
+    config_dict: Dict[str, np.ndarray] = np.load(
         args.input_config_dicts_path / f"{args.object_code_and_scale_str}.npy",
         allow_pickle=True,
-    )
-    config_dict = config_dicts[args.idx_to_visualize]
+    ).item()
 
     # hand model: be careful with this, as it is stateful
     hand_model = HandModel(hand_model_type=args.hand_model_type, device=args.device)
@@ -75,6 +74,7 @@ def main(args: VisualizeConfigDictArgumentParser):
         object_model=object_model,
         skip_visualize_qpos_start=args.skip_visualize_qpos_start,
         skip_visualize_grasp_config_dict=args.skip_visualize_grasp_config_dict,
+        idx_to_visualize=args.idx_to_visualize,
         title=f"{args.object_code_and_scale_str} {args.idx_to_visualize}",
     )
 

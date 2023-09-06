@@ -17,7 +17,7 @@ def pose_to_hand_config(
     batch_size = hand_pose.shape[0]
 
     joint_angles = hand_pose[:, 9:].cpu().numpy()
-    rot = robust_compute_rotation_matrix_from_ortho6d(hand_pose[:, 3:9])
+    rot = robust_compute_rotation_matrix_from_ortho6d(hand_pose[:, 3:9]).cpu().numpy()
     trans = hand_pose[:, :3].cpu().numpy()
 
     assert trans.shape == (batch_size, 3)

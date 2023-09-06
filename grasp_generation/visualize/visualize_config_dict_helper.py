@@ -7,6 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import torch
 import plotly.graph_objects as go
 from typing import Dict, Any, Optional
+import numpy as np
 
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
@@ -55,7 +56,8 @@ def get_hand_config_dict_plotly_data_list(
 def get_grasp_config_dict_plotly_data_list(
     hand_model: HandModel,
     hand_pose: torch.Tensor,
-    config_dict: Dict[str, Any],
+    config_dict: Dict[str, np.ndarray],
+    idx_to_visualize: int,
     device: str,
 ) -> list:
     if "grasp_orientations" not in config_dict:
@@ -87,7 +89,7 @@ def get_grasp_config_dict_plotly_data_list(
     # fingertip targets
     grasp_orientations = torch.tensor(
         config_dict["grasp_orientations"], dtype=torch.float, device=device
-    )
+    )[idx_to_visualize]
     assert grasp_orientations.shape == (hand_model.num_fingers, 3, 3)
     fingertip_targets = computer_fingertip_targets(
         joint_angles_start=joint_angles,
@@ -189,11 +191,15 @@ def create_config_dict_fig(
     )
 
     # hand pose
-    hand_pose = hand_config_to_pose(
-        trans=config_dict["trans"],
-        rot=config_dict["rot"],
-        joint_angles=config_dict["joint_angles"],
-    )[idx_to_visualize].to(hand_model.device)
+    hand_pose = (
+        hand_config_to_pose(
+            trans=config_dict["trans"],
+            rot=config_dict["rot"],
+            joint_angles=config_dict["joint_angles"],
+        )[idx_to_visualize]
+        .to(hand_model.device)
+        .unsqueeze(0)
+    )
 
     # hand pose start
     if "qpos_start" in config_dict and not skip_visualize_qpos_start:
@@ -219,6 +225,7 @@ def create_config_dict_fig(
             hand_model=hand_model,
             hand_pose=hand_pose,
             config_dict=config_dict,
+            idx_to_visualize=idx_to_visualize,
             device=hand_model.device,
         )
     else:

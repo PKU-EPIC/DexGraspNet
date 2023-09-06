@@ -22,7 +22,7 @@ from utils.hand_model_type import (
     handmodeltype_to_joint_names,
 )
 from utils.qpos_pose_conversion import (
-    qpos_to_pose,
+    hand_config_to_pose,
 )
 from typing import List, Dict, Any, Tuple
 from utils.seed import set_seed
@@ -56,11 +56,12 @@ def compute_grasp_orientations(
     object_scale: float,
 ) -> torch.Tensor:
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
-    batch_size = len(hand_pose_array)
+
+    batch_size = hand_pose_array.shape[0]
 
     # hand model
     hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
-    hand_model.set_parameters(torch.stack(hand_pose_array).to(device))
+    hand_model.set_parameters(hand_pose_array.to(device))
 
     # object model
     object_model = ObjectModel(
@@ -85,8 +86,6 @@ def generate_grasp_config_dicts(
     input_hand_config_dicts_path: pathlib.Path,
     output_grasp_config_dicts_path: pathlib.Path,
 ) -> None:
-    joint_names = handmodeltype_to_joint_names[args.hand_model_type]
-
     hand_config_dict_filepaths = [
         path for path in list(input_hand_config_dicts_path.glob("*.npy"))
     ]
@@ -107,19 +106,15 @@ def generate_grasp_config_dicts(
         )
 
         # Read in data
-        hand_config_dicts: List[Dict[str, Any]] = list(
-            np.load(hand_config_dict_filepath, allow_pickle=True)
-        )
+        hand_config_dict: Dict[str, np.ndarray] = np.load(
+            hand_config_dict_filepath, allow_pickle=True
+        ).item()
 
-        batch_size = len(hand_config_dicts)
-        hand_pose_array = []
-        for i in range(batch_size):
-            qpos = hand_config_dicts[i]["qpos"]
-            hand_pose_array.append(
-                qpos_to_pose(
-                    qpos=qpos, joint_names=joint_names, unsqueeze_batch_dim=False
-                )
-            )
+        hand_pose_array = hand_config_to_pose(
+            hand_config_dict["trans"],
+            hand_config_dict["rot"],
+            hand_config_dict["joint_angles"],
+        )
 
         # Compute grasp_orientations
         grasp_orientations = compute_grasp_orientations(
@@ -127,22 +122,19 @@ def generate_grasp_config_dicts(
             hand_pose_array=hand_pose_array,
             object_code=object_code,
             object_scale=object_scale,
+        )  # shape = (batch_size, num_fingers, 3, 3)
+
+        grasp_config_dict = hand_config_dict.copy()
+        grasp_config_dict["grasp_orientations"] = (
+            grasp_orientations.detach().cpu().numpy()
         )
 
-        # Save grasp_config_dicts
-        grasp_config_dicts = []
-        for i in range(batch_size):
-            grasp_config_dicts.append(
-                {
-                    **hand_config_dicts[i],
-                    "grasp_orientations": grasp_orientations[i].tolist(),
-                }
-            )
+        # Save grasp_config_dict
 
         output_grasp_config_dicts_path.mkdir(parents=True, exist_ok=True)
         np.save(
             output_grasp_config_dicts_path / f"{object_code_and_scale_str}.npy",
-            grasp_config_dicts,
+            grasp_config_dict,
             allow_pickle=True,
         )
 
