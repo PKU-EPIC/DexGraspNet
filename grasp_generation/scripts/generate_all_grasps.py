@@ -44,12 +44,42 @@ def process_data(args: ArgParser):
     grasp_gen_command = (
         f"python scripts/generate_grasp_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
         + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'hand_config_dicts'}"
-        + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'grasp_config_dicts'}"
+        + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
         + f" --mid_optimization_steps {' '.join([str(x) for x in mid_opt_steps])}"
     )
 
     print(f"Running: {grasp_gen_command}")
     os.system(grasp_gen_command)
+
+    # Augment grasp configs.
+    augment_grasp_command = (
+        "python scripts/augment_grasp_config_dicts.py"
+        + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
+    )
+
+    print(f"Running: {augment_grasp_command}")
+    os.system(augment_grasp_command)
+
+    # Merge grasp configs.
+    merge_grasp_command = (
+        "python scripts/merge_config_dicts.py"
+        + f" --input_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
+        + f" --output_config_dicts_path {args.base_data_path / args.experiment_name / 'grasp_config_dicts'}"
+    )
+
+    print(f"Running: {merge_grasp_command}")
+    os.system(merge_grasp_command)
+
+    # Eval grasp configs.
+    eval_grasp_command = (
+        "python scripts/eval_all_grasp_config_dicts.py"
+        + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'grasp_config_dicts'}"
+        + f" --output_evaled_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'evaled_grasp_config_dicts'}"
+        + f" --meshdata_root_path {args.input_meshdata_path}"
+    )
+
+    print(f"Running: {eval_grasp_command}")
+    os.system(eval_grasp_command)
 
 
 if __name__ == "__main__":

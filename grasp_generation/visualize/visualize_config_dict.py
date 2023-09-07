@@ -67,8 +67,6 @@ def main(args: VisualizeConfigDictArgumentParser):
     )
     object_model.initialize(object_code, object_scale)
 
-    breakpoint()
-
     fig = create_config_dict_fig(
         config_dict=config_dict,
         hand_model=hand_model,
