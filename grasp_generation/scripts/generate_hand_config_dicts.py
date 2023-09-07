@@ -55,13 +55,13 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     rand_object_scale: bool = False
     object_scale: Optional[float] = 0.1
     min_object_scale: float = 0.075
-    max_object_scale: float = 0.2
+    max_object_scale: float = 0.15
     seed: Optional[int] = None
     batch_size_each_object: int = 500
     n_objects_per_batch: int = (
         5  # Runs batch_size_each_object * n_objects_per_batch grasps per GPU
     )
-    n_iter: int = 4000
+    n_iter: int = 250
     use_multiprocess: bool = False
 
     # Logging
@@ -81,17 +81,18 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     temperature_decay: float = 0.95
     n_contacts_per_finger: int = 1
     w_fc: float = 1.0
-    w_dis: float = 100.0
-    w_pen: float = 300.0
+    w_dis: float = 200.0
+    w_pen: float = 800.0
     w_spen: float = 100.0
     w_joints: float = 1.0
     w_ff: float = 3.0
     w_fp: float = 0.0
-    use_penetration_energy: bool = True
+    use_penetration_energy: bool = False
     penetration_iters_frac: float = (
-        0.5  # Fraction of iterations to perform penetration energy calculation
+        0.0  # Fraction of iterations to perform penetration energy calculation
     )
-    object_num_samples_for_penetration_energy: int = 200
+    object_num_surface_samples: int = 10000
+    object_num_samples_calc_penetration_energy: int = 500
 
     # initialization settings
     jitter_strength: float = 0.1
@@ -106,7 +107,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     thres_pen: float = 0.001
 
     # verbose (grasps throughout)
-    store_grasps_mid_optimization_freq: Optional[int] = 50
+    store_grasps_mid_optimization_freq: Optional[int] = None
     store_grasps_mid_optimization_iters: Optional[List[int]] = [10, 20, 50] + [
         int(ff * 2000) for ff in [0.1, 0.5, 0.9]
     ]
@@ -194,19 +195,35 @@ def save_hand_config_dicts(
     ).to(device=object_model.object_scale_tensor.device)
     assert (object_model.object_scale_tensor == correct_object_scales).all()
 
+    # Reshape hand poses and energy terms to be (num_objects, num_grasps_per_object, ...)
+    # an aside: it's absolutely ridiculous that we have to do this 🙃
+
+    hand_pose = (
+        hand_model.hand_pose.detach()
+        .cpu()
+        .reshape(num_objects, num_grasps_per_object, -1)
+    )
+
+    hand_pose_start = (
+        hand_pose_start.detach().cpu().reshape(num_objects, num_grasps_per_object, -1)
+    )
+
+    unweighted_energy_matrix = unweighted_energy_matrix.reshape(
+        num_objects, num_grasps_per_object, -1
+    )
+
     for ii, object_code in enumerate(object_code_list):
         energy_dict = {}
 
-        trans, rot, joint_angles = pose_to_hand_config(
-            hand_pose=hand_model.hand_pose.detach().cpu(),
-        )
+        trans, rot, joint_angles = pose_to_hand_config(hand_pose=hand_pose[ii])
+
         trans_start, rot_start, joint_angles_start = pose_to_hand_config(
-            hand_pose=hand_pose_start.detach().cpu(),
+            hand_pose=hand_pose_start[ii]
         )
 
         for k, energy_name in enumerate(ENERGY_NAMES):
             energy_dict[energy_name] = (
-                unweighted_energy_matrix[:, k].detach().cpu().numpy()
+                unweighted_energy_matrix[ii, :, k].detach().cpu().numpy()
             )
 
         object_code_and_scale_str = object_code_and_scale_to_str(
@@ -268,7 +285,8 @@ def generate(
     object_model = ObjectModel(
         meshdata_root_path=str(args.meshdata_root_path),
         batch_size_each=args.batch_size_each_object,
-        num_samples=args.object_num_samples_for_penetration_energy,
+        num_samples=args.object_num_surface_samples,
+        num_calc_samples=args.object_num_samples_calc_penetration_energy,
         device=device,
     )
     object_model.initialize(object_code_list, object_scales)

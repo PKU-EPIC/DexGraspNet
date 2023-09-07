@@ -62,11 +62,12 @@ def main(args: VisualizeConfigDictArgumentParser):
     object_model = ObjectModel(
         meshdata_root_path=str(args.meshdata_root_path),
         batch_size_each=1,
-        scale=object_scale,
         num_samples=args.object_model_num_sampled_pts,
         device=args.device,
     )
-    object_model.initialize(object_code)
+    object_model.initialize(object_code, object_scale)
+
+    breakpoint()
 
     fig = create_config_dict_fig(
         config_dict=config_dict,

@@ -11,7 +11,7 @@ import torch
 import pytorch3d.structures
 import pytorch3d.ops
 import numpy as np
-from typing import Union, List
+from typing import Union, List, Optional
 
 from torchsdf import index_vertices_by_faces, compute_sdf
 
@@ -22,6 +22,7 @@ class ObjectModel:
         meshdata_root_path: str,
         batch_size_each: int,
         num_samples: int = 250,
+        num_calc_samples: Optional[int] = None,
         device: str = "cuda",
     ):
         """
@@ -44,6 +45,11 @@ class ObjectModel:
         self.batch_size_each = batch_size_each
         self.num_samples = num_samples
         self.device = device
+
+        if num_calc_samples is None:
+            self.num_calc_samples = num_samples
+        else:
+            self.num_calc_samples = num_calc_samples
 
         self.object_code_list = None
         self.object_scale_list = None
@@ -119,14 +125,12 @@ class ObjectModel:
                 )[0][0]
                 surface_points.to(dtype=float, device=self.device)
                 self.surface_points_tensor.append(surface_points)
-        self.object_scale_tensor = self.object_scale_tensor.expand(
-            len(object_code_list), -1
-        )
         if self.num_samples != 0:
-            self.surface_points_tensor = torch.stack(
-                self.surface_points_tensor, dim=0
-            ).repeat_interleave(
-                self.batch_size_each, dim=0
+            self.surface_points_tensor = (
+                torch.stack(self.surface_points_tensor, dim=0)
+                .unsqueeze(1)
+                .expand(-1, self.batch_size_each, -1, -1)
+                .reshape(-1, self.num_samples, 3)
             )  # (n_objects * batch_size_each, num_samples, 3)
 
     def cal_distance(self, x, with_closest_points=False):

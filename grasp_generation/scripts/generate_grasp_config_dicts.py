@@ -46,7 +46,7 @@ class GenerateGraspConfigDictsArgumentParser(Tap):
         "../data/grasp_config_dicts"
     )
     mid_optimization_steps: List[int] = []
-    seed: int = 1
+    seed: int = 42
 
 
 def compute_grasp_orientations(
@@ -70,11 +70,10 @@ def compute_grasp_orientations(
     object_model = ObjectModel(
         meshdata_root_path=str(args.meshdata_root_path),
         batch_size_each=batch_size,
-        scale=object_scale,
         num_samples=0,
         device=hand_pose.device,
     )
-    object_model.initialize(object_code)
+    object_model.initialize(object_code, object_scale)
     grasp_orientations = compute_grasp_orientations_external(
         joint_angles_start=hand_model.hand_pose[:, 9:],
         hand_model=hand_model,

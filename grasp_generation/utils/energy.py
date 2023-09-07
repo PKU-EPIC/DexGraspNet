@@ -72,11 +72,33 @@ def _cal_force_closure(
 
 
 def _cal_hand_object_penetration(
-    hand_model: HandModel, object_model: ObjectModel
+    hand_model: HandModel,
+    object_model: ObjectModel,
 ) -> torch.Tensor:
-    object_scale = object_model.object_scale_tensor.flatten().unsqueeze(1).unsqueeze(2)
+    # Subsample object surface points
+    sample_inds = torch.randint(
+        0,
+        object_model.surface_points_tensor.shape[1],
+        (object_model.surface_points_tensor.shape[0], object_model.num_calc_samples),
+        device=object_model.surface_points_tensor.device,
+    )
+
+    # Slice out sampled surface points.
+    # Note that we need to use `torch.gather` instead of `torch.index_select` because
+    # `torch.index_select` only supports 1D indexing.
+
+    # (n_objects * batch_size_each, num_samples, 3)
+    sampled_surface_points = torch.gather(
+        object_model.surface_points_tensor,
+        1,
+        sample_inds.unsqueeze(-1).expand(-1, -1, 3),
+    )
+
+    object_scale = (
+        object_model.object_scale_tensor.reshape(-1).unsqueeze(-1).unsqueeze(-1)
+    )
     object_surface_points = (
-        object_model.surface_points_tensor * object_scale
+        sampled_surface_points * object_scale
     )  # (n_objects * batch_size_each, num_samples, 3)
     hand_to_object_surface_point_distances = hand_model.cal_distance(
         object_surface_points
