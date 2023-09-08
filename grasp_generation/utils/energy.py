@@ -74,6 +74,7 @@ def _cal_force_closure(
 def _cal_hand_object_penetration(
     hand_model: HandModel,
     object_model: ObjectModel,
+    reduction: str = "sum",
 ) -> torch.Tensor:
     # Subsample object surface points
     sample_inds = torch.randint(
@@ -106,7 +107,12 @@ def _cal_hand_object_penetration(
     hand_to_object_surface_point_distances[
         hand_to_object_surface_point_distances <= 0
     ] = 0
-    E_pen = hand_to_object_surface_point_distances.sum(-1)
+    if reduction == "sum":
+        E_pen = hand_to_object_surface_point_distances.sum(-1)
+    elif reduction == "max":
+        E_pen = hand_to_object_surface_point_distances.max(-1)[0]
+    else:
+        raise ValueError(f"Unknown reduction {reduction}")
     return E_pen
 
 

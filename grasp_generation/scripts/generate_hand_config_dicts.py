@@ -57,7 +57,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     min_object_scale: float = 0.05
     max_object_scale: float = 0.125
     seed: Optional[int] = None
-    batch_size_each_object: int = 500
+    batch_size_each_object: int = 100
     n_objects_per_batch: int = (
         5  # Runs batch_size_each_object * n_objects_per_batch grasps per GPU
     )
@@ -80,7 +80,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     annealing_period: int = 30
     temperature_decay: float = 0.95
     n_contacts_per_finger: int = 1
-    w_fc: float = 1.25
+    w_fc: float = 1.0
     w_dis: float = 200.0
     w_pen: float = 800.0
     w_spen: float = 100.0
@@ -91,7 +91,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     penetration_iters_frac: float = (
         0.0  # Fraction of iterations to perform penetration energy calculation
     )
-    object_num_surface_samples: int = 10000
+    object_num_surface_samples: int = 5000
     object_num_samples_calc_penetration_energy: int = 500
 
     # initialization settings
@@ -108,7 +108,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
 
     # verbose (grasps throughout)
     store_grasps_mid_optimization_freq: Optional[int] = None
-    store_grasps_mid_optimization_iters: Optional[List[int]] = [10, 20, 50] + [
+    store_grasps_mid_optimization_iters: Optional[List[int]] = [25] + [
         int(ff * 2000) for ff in [0.1, 0.5, 0.9]
     ]
 

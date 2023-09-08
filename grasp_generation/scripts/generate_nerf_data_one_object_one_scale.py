@@ -32,42 +32,53 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
     set_seed(42)
     os.environ.pop("CUDA_VISIBLE_DEVICES")
 
-    object_code_and_scale_str = object_code_and_scale_to_str(args.object_code, args.object_scale)
-    output_nerf_object_path = (
-        args.output_nerfdata_path
-        / object_code_and_scale_str
+    object_code_and_scale_str = object_code_and_scale_to_str(
+        args.object_code, args.object_scale
     )
+    output_nerf_object_path = args.output_nerfdata_path / object_code_and_scale_str
     if output_nerf_object_path.exists():
         print(f"{output_nerf_object_path} exists, skipping {object_code_and_scale_str}")
         return
+    from utils.timers import LoopTimer
+
+    loop_timer = LoopTimer()
 
     # Create sim
-    sim = IsaacValidator(
-        gpu=args.gpu,
-    )
+    with loop_timer.add_section_timer("create sim"):
+        sim = IsaacValidator(
+            gpu=args.gpu,
+        )
 
     # For each scale, create NeRF dataset
-    args.output_nerfdata_path.mkdir(parents=True, exist_ok=True)
-    sim.set_obj_asset(
-        obj_root=str(args.meshdata_root_path / args.object_code / "coacd"),
-        obj_file="coacd.urdf",
-    )
-    sim.add_env_nerf_data_collection(
-        obj_scale=args.object_scale,
-    )
+    with loop_timer.add_section_timer("set obj asset"):
+        args.output_nerfdata_path.mkdir(parents=True, exist_ok=True)
+        sim.set_obj_asset(
+            obj_root=str(args.meshdata_root_path / args.object_code / "coacd"),
+            obj_file="coacd.urdf",
+        )
+    with loop_timer.add_section_timer("add env"):
+        sim.add_env_nerf_data_collection(
+            obj_scale=args.object_scale,
+        )
 
     # ORIGINAL SCALING STRATEGY:
     # object scale = 0.1
     # camera radius = 0.3
-    sim.save_images_lightweight(
-        folder=str(output_nerf_object_path),
-        obj_scale=args.object_scale,
-        generate_seg=args.generate_seg,
-        generate_depth=args.generate_depth,
-    )
-    sim.create_no_split_data(folder=str(output_nerf_object_path))
-    sim.reset_simulator()
-    sim.destroy()
+    with loop_timer.add_section_timer("save images light"):
+        sim.save_images_lightweight(
+            folder=str(output_nerf_object_path),
+            obj_scale=args.object_scale,
+            generate_seg=args.generate_seg,
+            generate_depth=args.generate_depth,
+        )
+    with loop_timer.add_section_timer("create no split data"):
+        sim.create_no_split_data(folder=str(output_nerf_object_path))
+    with loop_timer.add_section_timer("destroy"):
+        sim.reset_simulator()
+        sim.destroy()
+
+    loop_timer.pretty_print_section_times()
+
 
 if __name__ == "__main__":
     args = GenerateNerfDataOneObjectOneScaleArgumentParser().parse_args()

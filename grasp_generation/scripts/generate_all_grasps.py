@@ -60,6 +60,16 @@ def process_data(args: ArgParser):
     print(f"Running: {augment_grasp_command}")
     os.system(augment_grasp_command)
 
+    # Relabel open hand grasps.
+    relabel_command = (
+        "python scripts/generate_grasp_config_dicts.py"
+        + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts' / 'opened_hand'}"
+        + f" --output_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts' / 'opened_hand'}"
+    )
+
+    print(f"Running: {relabel_command}")
+    os.system(relabel_command)
+
     # Merge grasp configs.
     merge_grasp_command = (
         "python scripts/merge_config_dicts.py"

@@ -14,10 +14,10 @@ class ArgParser(Tap):
     )
     output_grasp_config_dicts_path: Optional[pathlib.Path] = None
     add_open_grasps: bool = True
-    frac_open_grasps: float = 1.0
+    frac_open_grasps: float = 4.0
     """Relative fraction of grasps to add data for - e.g., frac_open_grasps=0.5 means add data for 50% of grasps."""
     add_closed_grasps: bool = True
-    frac_closed_grasps: float = 1.0
+    frac_closed_grasps: float = 2.0
     open_grasp_var: float = 0.075
     closed_grasp_var: float = 0.05
 

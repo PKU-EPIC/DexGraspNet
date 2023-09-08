@@ -238,7 +238,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         object_model.initialize(object_code, object_scale)
 
         batch_E_pen_array = _cal_hand_object_penetration(
-            hand_model=hand_model, object_model=object_model
+            hand_model=hand_model, object_model=object_model, reduction="max"
         )
         E_pen_array.extend(batch_E_pen_array.flatten().tolist())
 
