@@ -54,14 +54,14 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     )
     rand_object_scale: bool = False
     object_scale: Optional[float] = 0.1
-    min_object_scale: float = 0.05
+    min_object_scale: float = 0.075
     max_object_scale: float = 0.125
     seed: Optional[int] = None
-    batch_size_each_object: int = 100
+    batch_size_each_object: int = 250
     n_objects_per_batch: int = (
         5  # Runs batch_size_each_object * n_objects_per_batch grasps per GPU
     )
-    n_iter: int = 3000
+    n_iter: int = 5000
     use_multiprocess: bool = False
 
     # Logging
@@ -82,7 +82,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     n_contacts_per_finger: int = 1
     w_fc: float = 1.0
     w_dis: float = 200.0
-    w_pen: float = 800.0
+    w_pen: float = 200.0
     w_spen: float = 100.0
     w_joints: float = 1.0
     w_ff: float = 3.0

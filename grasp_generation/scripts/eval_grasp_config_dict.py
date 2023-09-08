@@ -46,7 +46,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     input_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/grasp_config_dicts"
     )
-    max_grasps_per_batch: int = 2500
+    max_grasps_per_batch: int = 5000
     object_code_and_scale_str: str = "core-bottle-2722bec1947151b86e22e2d2f64c8cef_0_10"
     output_evaled_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/evaled_grasp_config_dicts"
