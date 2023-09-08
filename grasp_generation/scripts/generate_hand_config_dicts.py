@@ -203,7 +203,6 @@ def save_hand_config_dicts(
         .cpu()
         .reshape(num_objects, num_grasps_per_object, -1)
     )
-
     hand_pose_start = (
         hand_pose_start.detach().cpu().reshape(num_objects, num_grasps_per_object, -1)
     )
@@ -213,7 +212,6 @@ def save_hand_config_dicts(
     )
 
     for ii, object_code in enumerate(object_code_list):
-        energy_dict = {}
 
         trans, rot, joint_angles = pose_to_hand_config(hand_pose=hand_pose[ii])
 
@@ -221,6 +219,7 @@ def save_hand_config_dicts(
             hand_pose=hand_pose_start[ii]
         )
 
+        energy_dict = {}
         for k, energy_name in enumerate(ENERGY_NAMES):
             energy_dict[energy_name] = (
                 unweighted_energy_matrix[ii, :, k].detach().cpu().numpy()
@@ -399,8 +398,7 @@ def generate(
 
         # Store grasps mid optimization
         if (
-            args.store_grasps_mid_optimization_iters is not None
-            and args.store_grasps_mid_optimization_freq is not None
+            args.store_grasps_mid_optimization_freq is not None
             and step % args.store_grasps_mid_optimization_freq == 0
         ) or (
             args.store_grasps_mid_optimization_iters is not None
