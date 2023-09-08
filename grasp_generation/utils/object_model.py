@@ -11,6 +11,7 @@ import torch
 import pytorch3d.structures
 import pytorch3d.ops
 import numpy as np
+from typing import Union, List, Optional
 
 from torchsdf import index_vertices_by_faces, compute_sdf
 
@@ -20,8 +21,8 @@ class ObjectModel:
         self,
         meshdata_root_path: str,
         batch_size_each: int,
-        scale: float,
         num_samples: int = 250,
+        num_calc_samples: Optional[int] = None,
         device: str = "cuda",
     ):
         """
@@ -33,29 +34,30 @@ class ObjectModel:
             directory to object meshes
         batch_size_each: int
             batch size for each objects
-        scale: float
+        scale: float or list of floats
             scale of object meshes
         num_samples: int
             numbers of object surface points, sampled with fps
         device: str | torch.Device
             device for torch tensors
         """
-
         self.meshdata_root_path = meshdata_root_path
         self.batch_size_each = batch_size_each
-        self.scale = scale
         self.num_samples = num_samples
         self.device = device
 
+        if num_calc_samples is None:
+            self.num_calc_samples = num_samples
+        else:
+            self.num_calc_samples = num_calc_samples
+
         self.object_code_list = None
+        self.object_scale_list = None
         self.object_scale_tensor = None
         self.object_mesh_list = None
         self.object_face_verts_list = None
-        self.scale_choice = torch.tensor(
-            [scale], dtype=torch.float, device=self.device
-        )  # Stick with just 1 scale for all
 
-    def initialize(self, object_code_list):
+    def initialize(self, object_code_list, object_scale_list):
         """
         Initialize Object Model with list of objects
 
@@ -69,21 +71,20 @@ class ObjectModel:
         if not isinstance(object_code_list, list):
             object_code_list = [object_code_list]
         self.object_code_list = object_code_list
-        self.object_scale_tensor = []
+        if isinstance(object_scale_list, float):
+            object_scale_list = [object_scale_list]
+        self.object_scale_list = object_scale_list
+
+        self.object_scale_tensor = (
+            torch.tensor(self.object_scale_list, dtype=torch.float, device=self.device)
+            .unsqueeze(-1)
+            .expand(-1, self.batch_size_each)
+        )
+
         self.object_mesh_list = []
         self.object_face_verts_list = []
         self.surface_points_tensor = []
         for object_code in object_code_list:
-            self.object_scale_tensor.append(
-                self.scale_choice[
-                    torch.randint(
-                        0,
-                        self.scale_choice.shape[0],
-                        (self.batch_size_each,),
-                        device=self.device,
-                    )
-                ]
-            )
             self.object_mesh_list.append(
                 tm.load(
                     os.path.join(
@@ -124,12 +125,12 @@ class ObjectModel:
                 )[0][0]
                 surface_points.to(dtype=float, device=self.device)
                 self.surface_points_tensor.append(surface_points)
-        self.object_scale_tensor = torch.stack(self.object_scale_tensor, dim=0)
         if self.num_samples != 0:
-            self.surface_points_tensor = torch.stack(
-                self.surface_points_tensor, dim=0
-            ).repeat_interleave(
-                self.batch_size_each, dim=0
+            self.surface_points_tensor = (
+                torch.stack(self.surface_points_tensor, dim=0)
+                .unsqueeze(1)
+                .expand(-1, self.batch_size_each, -1, -1)
+                .reshape(-1, self.num_samples, 3)
             )  # (n_objects * batch_size_each, num_samples, 3)
 
     def cal_distance(self, x, with_closest_points=False):

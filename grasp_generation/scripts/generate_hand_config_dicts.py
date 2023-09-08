@@ -27,7 +27,7 @@ from utils.seed import set_seed
 from utils.parse_object_code_and_scale import object_code_and_scale_to_str
 
 from torch.multiprocessing import set_start_method
-from typing import Tuple, List, Optional, Dict, Any
+from typing import Tuple, List, Optional, Dict, Any, Union
 import trimesh
 import plotly.graph_objects as go
 import wandb
@@ -52,13 +52,16 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     output_hand_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/hand_config_dicts"
     )
-    object_scale: float = 0.1
-    seed: int = 1
-    batch_size_each_object: int = 500
+    rand_object_scale: bool = False
+    object_scale: Optional[float] = 0.1
+    min_object_scale: float = 0.05
+    max_object_scale: float = 0.125
+    seed: Optional[int] = None
+    batch_size_each_object: int = 100
     n_objects_per_batch: int = (
-        2  # Runs batch_size_each_object * n_objects_per_batch grasps per GPU
+        5  # Runs batch_size_each_object * n_objects_per_batch grasps per GPU
     )
-    n_iter: int = 4000
+    n_iter: int = 3000
     use_multiprocess: bool = False
 
     # Logging
@@ -78,17 +81,18 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     temperature_decay: float = 0.95
     n_contacts_per_finger: int = 1
     w_fc: float = 1.0
-    w_dis: float = 100.0
-    w_pen: float = 300.0
+    w_dis: float = 200.0
+    w_pen: float = 800.0
     w_spen: float = 100.0
     w_joints: float = 1.0
     w_ff: float = 3.0
     w_fp: float = 0.0
     use_penetration_energy: bool = False
     penetration_iters_frac: float = (
-        0.7  # Fraction of iterations to perform penetration energy calculation
+        0.0  # Fraction of iterations to perform penetration energy calculation
     )
-    object_num_samples_for_penetration_energy: int = 2000
+    object_num_surface_samples: int = 5000
+    object_num_samples_calc_penetration_energy: int = 500
 
     # initialization settings
     jitter_strength: float = 0.1
@@ -103,8 +107,10 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     thres_pen: float = 0.001
 
     # verbose (grasps throughout)
-    store_grasps_mid_optimization_freq: Optional[int] = 50
-    store_grasps_mid_optimization_iters: Optional[List[int]] = None
+    store_grasps_mid_optimization_freq: Optional[int] = None
+    store_grasps_mid_optimization_iters: Optional[List[int]] = [25] + [
+        int(ff * 2000) for ff in [0.1, 0.5, 0.9]
+    ]
 
 
 def create_visualization_figure(
@@ -167,7 +173,7 @@ def save_hand_config_dicts(
     hand_model: HandModel,
     object_model: ObjectModel,
     object_code_list: List[str],
-    object_scale: float,
+    object_scales: List[float],
     hand_pose_start: torch.Tensor,
     energy: torch.Tensor,
     unweighted_energy_matrix: torch.Tensor,
@@ -182,25 +188,45 @@ def save_hand_config_dicts(
     num_objects, num_grasps_per_object = object_model.object_scale_tensor.shape
     assert len(object_code_list) == num_objects
     assert hand_pose_start.shape[0] == num_objects * num_grasps_per_object
-    assert (object_model.object_scale_tensor == object_scale).all()
+    correct_object_scales = (
+        torch.Tensor(object_scales)
+        .unsqueeze(-1)
+        .expand(-1, object_model.batch_size_each)
+    ).to(device=object_model.object_scale_tensor.device)
+    assert (object_model.object_scale_tensor == correct_object_scales).all()
 
-    for _, object_code in enumerate(object_code_list):
+    # Reshape hand poses and energy terms to be (num_objects, num_grasps_per_object, ...)
+    # an aside: it's absolutely ridiculous that we have to do this 🙃
 
-        trans, rot, joint_angles = pose_to_hand_config(
-            hand_pose=hand_model.hand_pose.detach().cpu(),
-        )
+    hand_pose = (
+        hand_model.hand_pose.detach()
+        .cpu()
+        .reshape(num_objects, num_grasps_per_object, -1)
+    )
+    hand_pose_start = (
+        hand_pose_start.detach().cpu().reshape(num_objects, num_grasps_per_object, -1)
+    )
+
+    unweighted_energy_matrix = unweighted_energy_matrix.reshape(
+        num_objects, num_grasps_per_object, -1
+    )
+
+    for ii, object_code in enumerate(object_code_list):
+
+        trans, rot, joint_angles = pose_to_hand_config(hand_pose=hand_pose[ii])
+
         trans_start, rot_start, joint_angles_start = pose_to_hand_config(
-            hand_pose=hand_pose_start.detach().cpu(),
+            hand_pose=hand_pose_start[ii]
         )
 
         energy_dict = {}
         for k, energy_name in enumerate(ENERGY_NAMES):
             energy_dict[energy_name] = (
-                unweighted_energy_matrix[:, k].detach().cpu().numpy()
+                unweighted_energy_matrix[ii, :, k].detach().cpu().numpy()
             )
 
         object_code_and_scale_str = object_code_and_scale_to_str(
-            object_code, object_scale
+            object_code, object_scales[ii]
         )
 
         hand_config_dict = {
@@ -221,9 +247,15 @@ def save_hand_config_dicts(
 
 
 def generate(
-    args_tuple: Tuple[GenerateHandConfigDictsArgumentParser, List[str], int, List[str]]
+    args_tuple: Tuple[
+        GenerateHandConfigDictsArgumentParser,
+        List[str],
+        int,
+        List[str],
+        List[float],
+    ]
 ) -> None:
-    args, object_code_list, id, gpu_list = args_tuple
+    args, object_code_list, id, gpu_list, object_scales = args_tuple
 
     # Log to wandb
     time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -235,8 +267,6 @@ def generate(
             name=name,
             config=args,
         )
-
-    set_seed(args.seed)
 
     # prepare models
     if args.use_multiprocess:
@@ -254,11 +284,11 @@ def generate(
     object_model = ObjectModel(
         meshdata_root_path=str(args.meshdata_root_path),
         batch_size_each=args.batch_size_each_object,
-        scale=args.object_scale,
-        num_samples=args.object_num_samples_for_penetration_energy,
+        num_samples=args.object_num_surface_samples,
+        num_calc_samples=args.object_num_samples_calc_penetration_energy,
         device=device,
     )
-    object_model.initialize(object_code_list)
+    object_model.initialize(object_code_list, object_scales)
 
     initialize_convex_hull(
         hand_model=hand_model,
@@ -384,7 +414,7 @@ def generate(
                 hand_model=hand_model,
                 object_model=object_model,
                 object_code_list=object_code_list,
-                object_scale=args.object_scale,
+                object_scales=object_scales,
                 hand_pose_start=hand_pose_start,
                 energy=energy,
                 unweighted_energy_matrix=unweighted_energy_matrix,
@@ -430,7 +460,7 @@ def generate(
         hand_model=hand_model,
         object_model=object_model,
         object_code_list=object_code_list,
-        object_scale=args.object_scale,
+        object_scales=object_scales,
         hand_pose_start=hand_pose_start,
         energy=energy,
         unweighted_energy_matrix=unweighted_energy_matrix,
@@ -447,7 +477,6 @@ def main(args: GenerateHandConfigDictsArgumentParser) -> None:
     print(f"gpu_list: {gpu_list}")
 
     # check whether arguments are valid and process arguments
-    set_seed(args.seed)
     args.output_hand_config_dicts_path.mkdir(parents=True, exist_ok=True)
 
     if not args.meshdata_root_path.exists():
@@ -458,16 +487,37 @@ def main(args: GenerateHandConfigDictsArgumentParser) -> None:
     print(f"len(object_code_list): {len(object_code_list)}")
 
     # generate
-    set_seed(args.seed)
+    if args.seed is not None:
+        set_seed(args.seed)
+    else:
+        set_seed(datetime.now().microsecond)
     random.shuffle(object_code_list)
     object_code_groups = [
         object_code_list[i : i + args.n_objects_per_batch]
         for i in range(0, len(object_code_list), args.n_objects_per_batch)
     ]
 
+    if args.rand_object_scale:
+        object_scales = np.random.uniform(
+            low=args.min_object_scale,
+            high=args.max_object_scale,
+            size=(len(object_code_list),),
+        )
+    else:
+        object_scales = np.ones((len(object_code_list),)) * args.object_scale
+
+    object_scale_groups = [
+        object_scales[i : i + args.n_objects_per_batch]
+        for i in range(0, len(object_scales), args.n_objects_per_batch)
+    ]
+
+    print(f"First 10 in object_scales: {object_scales[:10]}")
+
     process_args = []
     for id, object_code_group in enumerate(object_code_groups):
-        process_args.append((args, object_code_group, id + 1, gpu_list))
+        process_args.append(
+            (args, object_code_group, id + 1, gpu_list, object_scale_groups[id])
+        )
 
     if args.use_multiprocess:
         with multiprocessing.Pool(len(gpu_list)) as p:

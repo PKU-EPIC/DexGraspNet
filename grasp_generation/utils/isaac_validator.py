@@ -179,9 +179,11 @@ class IsaacValidator:
         self.sim_params.gravity = gymapi.Vec3(0.0, -9.8, 0)
 
         # set PhysX-specific parameters
-        print('~' * 80)
-        print("NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer")
-        print('~' * 80 + '\n')
+        print("~" * 80)
+        print(
+            "NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer"
+        )
+        print("~" * 80 + "\n")
         self.sim_params.physx.use_gpu = not use_cpu
 
         self.sim_params.physx.solver_type = 1
@@ -499,7 +501,9 @@ class IsaacValidator:
             # Step physics if not paused
             if not self.is_paused:
                 gym.simulate(self.sim)
-                gym.fetch_results(self.sim, True)  # TODO: Check if this slows things down
+                gym.fetch_results(
+                    self.sim, True
+                )  # TODO: Check if this slows things down
 
                 if self.camera_handles and sim_step_idx > 0:
                     gym.step_graphics(self.sim)
@@ -619,8 +623,14 @@ class IsaacValidator:
             )
 
             # palm_link_idx
-            palm_link_idxs = [idx for idx, name in hand_link_idx_to_name.items() if name == "palm_link"]
-            assert len(palm_link_idxs) == 1, f"len(palm_link_idxs) = {len(palm_link_idxs)}"
+            palm_link_idxs = [
+                idx
+                for idx, name in hand_link_idx_to_name.items()
+                if name == "palm_link"
+            ]
+            assert (
+                len(palm_link_idxs) == 1
+            ), f"len(palm_link_idxs) = {len(palm_link_idxs)}"
             palm_link_idx = palm_link_idxs[0]
 
             final_hand_pose = gymapi.Transform()
@@ -680,7 +690,7 @@ class IsaacValidator:
 
             successes.append(success)
 
-            DEBUG = True
+            DEBUG = False
             if DEBUG and len(hand_object_contacts) > 0:
                 print(f"i = {i}")
                 print(f"success = {success}")
@@ -1300,9 +1310,7 @@ class IsaacValidator:
                         }
                     )
 
-        with open(
-            os.path.join(folder, f"transforms.json"), "w"
-        ) as outfile:
+        with open(os.path.join(folder, f"transforms.json"), "w") as outfile:
             outfile.write(json.dumps(json_dict))
 
     ## NERF DATA COLLECTION END ##

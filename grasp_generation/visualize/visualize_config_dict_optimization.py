@@ -90,11 +90,10 @@ def get_object_model(
     object_model = ObjectModel(
         meshdata_root_path=str(meshdata_root_path),
         batch_size_each=1,
-        scale=object_scale,
         num_samples=0,
         device=device,
     )
-    object_model.initialize(object_code)
+    object_model.initialize(object_code, object_scale)
     return object_model
 
 

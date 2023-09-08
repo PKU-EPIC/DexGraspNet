@@ -89,7 +89,12 @@ def main(args: GenerateNerfDataArgumentParser):
             ]
         )
         print(f"Running command {i}: {command}")
-        subprocess.run(command, shell=True, check=True)
+        try:
+            subprocess.run(command, shell=True, check=True)
+        except Exception as e:
+            print(f"Exception: {e}")
+            print(f"Skipping {object_code} and continuing")
+            continue
         print(f"Finished command {i}")
 
 

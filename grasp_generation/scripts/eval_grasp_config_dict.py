@@ -202,15 +202,6 @@ def main(args: EvalGraspConfigDictArgumentParser):
     assert hand_pose.shape == (batch_size, 3 + 6 + 16)
     assert grasp_orientations.shape == (batch_size, hand_model.num_fingers, 3, 3)
 
-    object_model = ObjectModel(
-        meshdata_root_path=str(args.meshdata_root_path),
-        batch_size_each=batch_size,
-        scale=object_scale,
-        num_samples=2000,
-        device=device,
-    )
-    object_model.initialize(object_code)
-
     # Run for loop over minibatches of grasps.
     successes = []
     E_pen_array = []
@@ -238,8 +229,16 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
         hand_model.set_parameters(hand_pose[start_index:end_index])
 
+        object_model = ObjectModel(
+            meshdata_root_path=str(args.meshdata_root_path),
+            batch_size_each=end_index - start_index,
+            num_samples=2000,
+            device=device,
+        )
+        object_model.initialize(object_code, object_scale)
+
         batch_E_pen_array = _cal_hand_object_penetration(
-            hand_model=hand_model, object_model=object_model
+            hand_model=hand_model, object_model=object_model, reduction="max"
         )
         E_pen_array.extend(batch_E_pen_array.flatten().tolist())
 
