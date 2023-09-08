@@ -14,6 +14,7 @@ class ArgParser(Tap):
     base_data_path: pathlib.Path = pathlib.Path("../data")
     experiment_name: str = DATETIME_STR
     use_multiprocess: bool = True
+    generate_nerf_data: bool = False
 
 
 def process_data(args: ArgParser):
@@ -112,15 +113,16 @@ def process_data(args: ArgParser):
     os.system(eval_grasp_command)
 
     # Generate NeRF data.
-    nerf_data_command = (
-        "python scripts/generate_nerf_data.py"
-        + f" --meshdata_root_path {args.input_meshdata_path}"
-        + f" --output_nerfdata_path {args.base_data_path / args.experiment_name / 'nerfdata'}"
-        + f" --only_objects_in_this_path {args.base_data_path / args.experiment_name / 'evaled_grasp_config_dicts'}"
-    )
+    if args.generate_nerf_data:
+        nerf_data_command = (
+            "python scripts/generate_nerf_data.py"
+            + f" --meshdata_root_path {args.input_meshdata_path}"
+            + f" --output_nerfdata_path {args.base_data_path / args.experiment_name / 'nerfdata'}"
+            + f" --only_objects_in_this_path {args.base_data_path / args.experiment_name / 'evaled_grasp_config_dicts'}"
+        )
 
-    print(f"Running: {nerf_data_command}")
-    os.system(nerf_data_command)
+        print(f"Running: {nerf_data_command}")
+        os.system(nerf_data_command)
 
     print("Done!")
 
