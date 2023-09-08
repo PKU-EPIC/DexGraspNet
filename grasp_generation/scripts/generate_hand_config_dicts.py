@@ -185,6 +185,7 @@ def save_hand_config_dicts(
     assert (object_model.object_scale_tensor == object_scale).all()
 
     for _, object_code in enumerate(object_code_list):
+
         trans, rot, joint_angles = pose_to_hand_config(
             hand_pose=hand_model.hand_pose.detach().cpu(),
         )
