@@ -8,6 +8,10 @@ import pickle
 import datetime
 
 DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+EXPERIMENT_DIR_PATH_ON_BUCKET = "experiments"
+EXPERIMENT_DIR_PATH_LOCAL = pathlib.Path("../data/experiments")
+
+ALL_MESHDATA_PATH_ON_BUCKET = "all_meshdata"
 
 
 class ArgParser(Tap):
@@ -54,21 +58,22 @@ def main() -> None:
         gcp_instance_names=args.gcp_instance_names,
         seed=args.seed,
     )
-    experiment_dict_filename = f"{args.experiment_name}.pkl"
-    with open(experiment_dict_filename, "wb") as handle:
+    EXPERIMENT_DIR_PATH_LOCAL.mkdir(parents=True, exist_ok=True)
+    experiment_file = EXPERIMENT_DIR_PATH_LOCAL / f"{args.experiment_name}.pkl"
+    with open(experiment_file, "wb") as handle:
         pickle.dump(
             instance_name_to_object_codes_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
         )
 
-    # Upload meshdata and instance_name_to_object_codes_dict to GCP
-    # TODO: Check that these paths work
+    # Upload meshdata and instance_name_to_object_codes_dict to GCP if needed (will do nothing if up to date)
+    # Both source and destination paths must be directories
     subprocess.run(
-        f"gsutil -m rsync -r {args.input_meshdata_path} gs://learned-nerf-grasping",
+        f"gsutil -m rsync -r {str(args.input_meshdata_path)} gs://learned-nerf-grasping/{ALL_MESHDATA_PATH_ON_BUCKET}",
         shell=True,
         check=True,
     )
     subprocess.run(
-        f"gsutil -m rsync -r {experiment_dict_filename} gs://learned-nerf-grasping",
+        f"gsutil -m rsync -r {str(EXPERIMENT_DIR_PATH_LOCAL)} gs://learned-nerf-grasping/{EXPERIMENT_DIR_PATH_ON_BUCKET}",
         shell=True,
         check=True,
     )
