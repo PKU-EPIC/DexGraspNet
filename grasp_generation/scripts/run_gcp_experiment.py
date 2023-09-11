@@ -63,8 +63,8 @@ def main() -> None:
                 " ".join(
                     [
                         "ln -s",
-                        str(ALL_MESHDATA_PATH_LOCAL / object_code),
-                        str(new_input_meshdata_path / object_code),
+                        str((ALL_MESHDATA_PATH_LOCAL / object_code).resolve()),
+                        str((new_input_meshdata_path / object_code).resolve()),
                     ]
                 ),
             )
