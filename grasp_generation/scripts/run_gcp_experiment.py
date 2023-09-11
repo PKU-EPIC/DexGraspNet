@@ -35,6 +35,7 @@ def main() -> None:
     # Don't run command to download meshdata unless needed, takes ~5min to check if synced
     if not ALL_MESHDATA_PATH_LOCAL.exists():
         print(f"ALL_MESHDATA_PATH_LOCAL = {ALL_MESHDATA_PATH_LOCAL} does not exist, downloading...")
+        ALL_MESHDATA_PATH_LOCAL.mkdir(parents=True, exist_ok=True)  # Must make dir before populating the dir with rsync
         print_and_run(
             f"gsutil -m rsync -r gs://learned-nerf-grasping/{ALL_MESHDATA_PATH_ON_BUCKET} {str(ALL_MESHDATA_PATH_LOCAL)}",
         )
