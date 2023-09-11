@@ -30,14 +30,16 @@ def main() -> None:
     args = ArgParser().parse_args()
 
     instance_name = socket.gethostname()
-
-    # Download experiment files and meshdata if needed (will do nothing if up to date)
+    # Download experiment files (instance_name_to_object_codes_dicts) from GCP
     # Both source and destination paths must be directories
+    # Don't run command to download meshdata unless needed, takes ~5min to check if synced
+    if not ALL_MESHDATA_PATH_LOCAL.exists():
+        print(f"ALL_MESHDATA_PATH_LOCAL = {ALL_MESHDATA_PATH_LOCAL} does not exist, downloading...")
+        print_and_run(
+            f"gsutil -m rsync -r gs://learned-nerf-grasping/{ALL_MESHDATA_PATH_ON_BUCKET} {str(ALL_MESHDATA_PATH_LOCAL)}",
+        )
     print_and_run(
         f"gsutil -m rsync -r gs://learned-nerf-grasping/{EXPERIMENT_DIR_PATH_ON_BUCKET} {str(EXPERIMENT_DIR_PATH_LOCAL)}"
-    )
-    print_and_run(
-        f"gsutil -m rsync -r gs://learned-nerf-grasping/{ALL_MESHDATA_PATH_ON_BUCKET} {str(ALL_MESHDATA_PATH_LOCAL)}",
     )
 
     # Get object_codes

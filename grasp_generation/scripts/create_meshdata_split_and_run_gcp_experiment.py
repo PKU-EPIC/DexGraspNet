@@ -74,9 +74,11 @@ def main() -> None:
             instance_name_to_object_codes_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
         )
 
-    # Upload meshdata and instance_name_to_object_codes_dict to GCP if needed (will do nothing if up to date)
+    # Upload experiment_dir (instance_name_to_object_codes_dicts) to GCP
     # Both source and destination paths must be directories
-    print_and_run(f"gsutil -m rsync -r {str(args.input_meshdata_path)} gs://learned-nerf-grasping/{ALL_MESHDATA_PATH_ON_BUCKET}")
+    # Don't upload meshdata, should already be there and takes ~5min to check if synced
+    # Also, don't sync with input_meshdata_path, this could be subset, ALL_MESHDATA_PATH_ON_BUCKET should have all meshes
+    # If need to upload, run "gsutil -m rsync -r ../data/meshdata gs://learned-nerf-grasping/meshdata"
     print_and_run(f"gsutil -m rsync -r {str(EXPERIMENT_DIR_PATH_LOCAL)} gs://learned-nerf-grasping/{EXPERIMENT_DIR_PATH_ON_BUCKET}")
 
     # Run experiment on GCP
