@@ -14,12 +14,13 @@ class ArgParser(Tap):
     )
     output_grasp_config_dicts_path: Optional[pathlib.Path] = None
     add_open_grasps: bool = True
-    frac_open_grasps: float = 2.0
+    frac_open_grasps: float = 5.0
     """Relative fraction of grasps to add data for - e.g., frac_open_grasps=0.5 means add data for 50% of grasps."""
     add_closed_grasps: bool = True
-    frac_closed_grasps: float = 2.0
-    open_grasp_var: float = 0.1
+    frac_closed_grasps: float = 1.0
+    open_grasp_var: float = 0.075
     closed_grasp_var: float = 0.05
+    augment_only_successes: bool = False
 
 
 def generate_open_or_closed_grasps(
@@ -27,13 +28,19 @@ def generate_open_or_closed_grasps(
     frac_grasps: float,
     grasp_var: float,
     open_grasp: bool,
+    augment_only_successes: bool,
 ) -> Dict[str, np.ndarray]:
     # Compute how many times we need to copy the dataset to get the desired fraction of open grasps.
     orig_batch_size = grasp_config_dict["grasp_orientations"].shape[0]
-    num_copies = 1 + int(frac_grasps)
+    num_grasps_needed = (1 + int(frac_grasps)) * orig_batch_size
+    if augment_only_successes:
+        assert "passed_simulation" in grasp_config_dict.keys()
+        success_inds = np.argwhere(grasp_config_dict["passed_simulation"])
+    else:
+        success_inds = np.arange(orig_batch_size)
+
     sample_inds = np.random.choice(
-        np.repeat(np.arange(orig_batch_size), num_copies),
-        int(frac_grasps * orig_batch_size),
+        success_inds.flatten(), size=num_grasps_needed, replace=True
     )
 
     # Build new grasp config dict.
@@ -85,6 +92,7 @@ def main(args: ArgParser):
                 frac_grasps=args.frac_open_grasps,
                 grasp_var=args.open_grasp_var,
                 open_grasp=True,
+                augment_only_successes=args.augment_only_successes,
             )
 
             open_grasp_config_dict_path = (
@@ -107,6 +115,7 @@ def main(args: ArgParser):
                 frac_grasps=args.frac_closed_grasps,
                 grasp_var=args.closed_grasp_var,
                 open_grasp=False,
+                augment_only_successes=args.augment_only_successes,
             )
 
             closed_grasp_config_dict_path = (

@@ -56,7 +56,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     start_with_step_mode: bool = False  # with use_gui, starts sim paused in step mode, press S to step 1 sim step, press space to toggle pause
     use_gui: bool = False
     use_cpu: bool = False  # NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer
-    penetration_threshold: Optional[float] = 0.001  # From original DGN
+    penetration_threshold: Optional[float] = 5e-3  # From original DGN
     record_indices: List[int] = []
 
 
@@ -256,11 +256,14 @@ def main(args: EvalGraspConfigDictArgumentParser):
         passed_penetration_threshold = E_pen_array < args.penetration_threshold
 
     passed_eval = passed_simulation * passed_penetration_threshold
+    pen_frac = np.mean(passed_penetration_threshold)
+    sim_frac = np.mean(passed_simulation)
+    eval_frac = np.mean(passed_eval)
     print("=" * 80)
     print(
-        f"passed_penetration_threshold: {passed_penetration_threshold.sum().item()}/{batch_size}, "
-        f"passed_simulation: {passed_simulation.sum().item()}/{batch_size}, "
-        f"passed_eval = passed_simulation * passed_penetration_threshold: {passed_eval.sum().item()}/{batch_size}"
+        f"passed_penetration_threshold: {passed_penetration_threshold.sum().item()}/{batch_size} ({100*pen_frac:.2f}%),"
+        f"passed_simulation: {passed_simulation.sum().item()}/{batch_size} ({100 * sim_frac:.2f}%),"
+        f"passed_eval = passed_simulation * passed_penetration_threshold: {passed_eval.sum().item()}/{batch_size} ({100 * eval_frac:.2f}%)"
     )
     print("=" * 80)
     evaled_grasp_config_dict = {

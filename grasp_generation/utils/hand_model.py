@@ -120,7 +120,7 @@ class HandModel:
     def _init_allegro(
         self,
         urdf_path="allegro_hand_description/allegro_hand_description_right.urdf",
-        contact_points_path="allegro_hand_description/contact_points_precision_grasp.json",
+        contact_points_path="allegro_hand_description/contact_points_precision_grasp_dense.json",
         penetration_points_path="allegro_hand_description/penetration_points.json",
         n_surface_points=0,
     ):

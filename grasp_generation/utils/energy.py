@@ -121,6 +121,7 @@ def cal_energy(
     object_model: ObjectModel,
     energy_name_to_weight_dict: Dict[str, float],
     use_penetration_energy: bool = False,
+    thres_dis: float = 0.005,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     assert set(energy_name_to_weight_dict.keys()) == set(ENERGY_NAMES)
 
@@ -139,8 +140,12 @@ def cal_energy(
         contact_points=hand_model.contact_points,
         device=device,
     )
+    thresholded_distances = torch.maximum(
+        object_to_hand_contact_point_distances.abs() - thres_dis,
+        torch.zeros_like(object_to_hand_contact_point_distances),
+    )
     energy_dict["Hand Contact Point to Object Distance"] = torch.sum(
-        object_to_hand_contact_point_distances.abs(), dim=-1, dtype=torch.float
+        thresholded_distances, dim=-1, dtype=torch.float
     ).to(device)
 
     if use_penetration_energy:
