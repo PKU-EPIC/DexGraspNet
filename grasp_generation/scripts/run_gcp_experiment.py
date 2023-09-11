@@ -56,16 +56,29 @@ def main() -> None:
         pathlib.Path("../data") / args.experiment_name / instance_name / "meshdata"
     )
     new_input_meshdata_path.mkdir(parents=True, exist_ok=True)
+    CREATE_SYMLINKS = True
     for object_code in object_codes:
-        print_and_run(
-            " ".join(
-                [
-                    "cp -r",
-                    str(ALL_MESHDATA_PATH_LOCAL / object_code),
-                    str(new_input_meshdata_path / object_code),
-                ]
-            ),
-        )
+        if CREATE_SYMLINKS:
+            print_and_run(
+                " ".join(
+                    [
+                        "ln -s",
+                        str(ALL_MESHDATA_PATH_LOCAL / object_code),
+                        str(new_input_meshdata_path / object_code),
+                    ]
+                ),
+            )
+        else:
+            print_and_run(
+                " ".join(
+                    [
+                        "cp -r",
+                        str(ALL_MESHDATA_PATH_LOCAL / object_code),
+                        str(new_input_meshdata_path / object_code),
+                    ]
+                ),
+            )
+    print(f"Done copying meshdata")
 
     # Run
     print_and_run(
@@ -73,6 +86,7 @@ def main() -> None:
             [
                 "python scripts/generate_all_grasps.py",
                 f"--input_meshdata_path {new_input_meshdata_path}",
+                # f"--base_data_path {}",
                 f"--experiment_name {args.experiment_name}",
             ]
         ),

@@ -85,13 +85,14 @@ def main() -> None:
     # Run experiment on GCP
     for instance_name in args.gcp_instance_names:
         cd_command = f"cd {str(args.dexgraspnet_root_path_on_instance / 'grasp_generation')}"
+        source_command = "source ~/.bashrc"
         run_experiment_command = " ".join(
             [
                 "python scripts/run_gcp_experiment.py",
                 f"--experiment_name {args.experiment_name}",
             ]
         )
-        print_and_run(f"gcloud compute ssh {instance_name} --command='{cd_command} && {run_experiment_command}'")
+        print_and_run(f"gcloud compute ssh {instance_name} --command='{cd_command} && {source_command} && {run_experiment_command}'")
 
 
 if __name__ == "__main__":
