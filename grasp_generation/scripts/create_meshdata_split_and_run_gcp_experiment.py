@@ -18,6 +18,7 @@ class ArgParser(Tap):
     gcp_instance_names: List[str]
     input_meshdata_path: pathlib.Path = pathlib.Path("../data/meshdata")
     experiment_name: str = DATETIME_STR
+    dexgraspnet_root_path_on_instance: pathlib.Path = pathlib.Path("github_repos/dexgraspnet")
     seed: int = 42
 
 
@@ -83,7 +84,7 @@ def main() -> None:
 
     # Run experiment on GCP
     for instance_name in args.gcp_instance_names:
-        cd_command = "cd DexGraspNet/grasp_generation"
+        cd_command = f"cd {str(dexgraspnet_root_path_on_instance / 'grasp_generation')}"
         run_experiment_command = " ".join(
             [
                 "python scripts/run_gcp_experiment.py",
