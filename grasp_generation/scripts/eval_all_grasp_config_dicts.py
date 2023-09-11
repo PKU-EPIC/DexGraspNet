@@ -20,7 +20,7 @@ class EvalAllGraspConfigDictsArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
     gpu: int = 0
-    max_grasps_per_batch: int = 2500
+    max_grasps_per_batch: int = 5000
     debug_index: Optional[int] = None
     input_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/grasp_config_dicts"

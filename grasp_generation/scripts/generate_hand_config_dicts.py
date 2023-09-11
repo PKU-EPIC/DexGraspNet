@@ -57,11 +57,11 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     min_object_scale: float = 0.05
     max_object_scale: float = 0.125
     seed: Optional[int] = None
-    batch_size_each_object: int = 100
+    batch_size_each_object: int = 250
     n_objects_per_batch: int = (
         5  # Runs batch_size_each_object * n_objects_per_batch grasps per GPU
     )
-    n_iter: int = 3000
+    n_iter: int = 2500
     use_multiprocess: bool = False
 
     # Logging
@@ -79,10 +79,18 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     starting_temperature: float = 18
     annealing_period: int = 30
     temperature_decay: float = 0.95
-    n_contacts_per_finger: int = 1
-    w_fc: float = 1.0
-    w_dis: float = 200.0
-    w_pen: float = 800.0
+    # n_contacts_per_finger: int = 15
+    # w_fc: float = 0.75
+    # w_dis: float = 200.0
+    # w_pen: float = 1500.0
+    # w_spen: float = 100.0
+    # w_joints: float = 1.0
+    # w_ff: float = 3.0
+    # w_fp: float = 0.0
+    n_contacts_per_finger: int = 5
+    w_fc: float = 0.5
+    w_dis: float = 500.0
+    w_pen: float = 300.0
     w_spen: float = 100.0
     w_joints: float = 1.0
     w_ff: float = 3.0
@@ -103,13 +111,13 @@ class GenerateHandConfigDictsArgumentParser(Tap):
 
     # energy thresholds
     thres_fc: float = 0.3
-    thres_dis: float = 0.005
+    thres_dis: float = 0.001
     thres_pen: float = 0.001
 
     # verbose (grasps throughout)
     store_grasps_mid_optimization_freq: Optional[int] = None
     store_grasps_mid_optimization_iters: Optional[List[int]] = [25] + [
-        int(ff * 2000) for ff in [0.1, 0.5, 0.9]
+        int(ff * 2500) for ff in [0.2, 0.5, 0.95]
     ]
 
 
@@ -212,7 +220,6 @@ def save_hand_config_dicts(
     )
 
     for ii, object_code in enumerate(object_code_list):
-
         trans, rot, joint_angles = pose_to_hand_config(hand_pose=hand_pose[ii])
 
         trans_start, rot_start, joint_angles_start = pose_to_hand_config(
@@ -333,6 +340,7 @@ def generate(
         object_model,
         energy_name_to_weight_dict=energy_name_to_weight_dict,
         use_penetration_energy=args.use_penetration_energy,
+        thres_dis=args.thres_dis,
     )
 
     energy.sum().backward(retain_graph=True)

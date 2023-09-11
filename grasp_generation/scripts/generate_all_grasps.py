@@ -45,20 +45,40 @@ def process_data(args: ArgParser):
         f"python scripts/generate_grasp_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
         + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'hand_config_dicts'}"
         + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
-        + f" --mid_optimization_steps {' '.join([str(x) for x in mid_opt_steps])}"
     )
 
     print(f"Running: {grasp_gen_command}")
     os.system(grasp_gen_command)
 
+    # Eval final grasp configs.
+    eval_final_grasp_command = (
+        "python scripts/eval_all_grasp_config_dicts.py"
+        + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
+        + f" --output_evaled_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_evaled_grasp_config_dicts'}"
+        + f" --meshdata_root_path {args.input_meshdata_path}"
+    )
+
+    print(f"Running: {eval_final_grasp_command}")
+    os.system(eval_final_grasp_command)
+
     # Augment grasp configs.
     augment_grasp_command = (
         "python scripts/augment_grasp_config_dicts.py"
-        + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
+        + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_evaled_grasp_config_dicts'}"
+        + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
+        + f" --augment_only_successes"
     )
 
     print(f"Running: {augment_grasp_command}")
     os.system(augment_grasp_command)
+
+    # Generate grasps for "folded in" mid opt ones.
+    grasp_gen_command = (
+        f"python scripts/generate_grasp_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
+        + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'hand_config_dicts'}"
+        + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
+        + f" --mid_opt_steps {','.join([str(x) for x in mid_opt_steps])}"
+    )
 
     # Relabel open hand grasps.
     relabel_command = (

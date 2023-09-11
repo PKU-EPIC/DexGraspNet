@@ -962,7 +962,7 @@ class IsaacValidator:
         # Avoid segfault if run multiple times by destroying camera sensors
         self._destroy_cameras(self.envs[0])
 
-    def _setup_cameras(self, env, num_cameras=750, radius=0.3):
+    def _setup_cameras(self, env, num_cameras=250, radius=0.3):
         camera_props = gymapi.CameraProperties()
         camera_props.horizontal_fov = CAMERA_HORIZONTAL_FOV_DEG
         camera_props.width = CAMERA_IMG_WIDTH
