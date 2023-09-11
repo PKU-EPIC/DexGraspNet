@@ -5,7 +5,7 @@ from typing import List, Dict
 import math
 import random
 import pickle
-import datetime
+from datetime import datetime
 
 DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 EXPERIMENT_DIR_PATH_ON_BUCKET = "experiments"
@@ -19,6 +19,15 @@ class ArgParser(Tap):
     input_meshdata_path: pathlib.Path = pathlib.Path("../data/meshdata")
     experiment_name: str = DATETIME_STR
     seed: int = 42
+
+
+def print_and_run(command: str) -> None:
+    print(f"Running: {command}")
+    subprocess.run(
+        command,
+        shell=True,
+        check=True,
+    )
 
 
 def create_instance_name_to_object_codes_dict(
@@ -67,16 +76,8 @@ def main() -> None:
 
     # Upload meshdata and instance_name_to_object_codes_dict to GCP if needed (will do nothing if up to date)
     # Both source and destination paths must be directories
-    subprocess.run(
-        f"gsutil -m rsync -r {str(args.input_meshdata_path)} gs://learned-nerf-grasping/{ALL_MESHDATA_PATH_ON_BUCKET}",
-        shell=True,
-        check=True,
-    )
-    subprocess.run(
-        f"gsutil -m rsync -r {str(EXPERIMENT_DIR_PATH_LOCAL)} gs://learned-nerf-grasping/{EXPERIMENT_DIR_PATH_ON_BUCKET}",
-        shell=True,
-        check=True,
-    )
+    print_and_run(f"gsutil -m rsync -r {str(args.input_meshdata_path)} gs://learned-nerf-grasping/{ALL_MESHDATA_PATH_ON_BUCKET}")
+    print_and_run(f"gsutil -m rsync -r {str(EXPERIMENT_DIR_PATH_LOCAL)} gs://learned-nerf-grasping/{EXPERIMENT_DIR_PATH_ON_BUCKET}")
 
     # Run experiment on GCP
     for instance_name in args.gcp_instance_names:
@@ -87,11 +88,7 @@ def main() -> None:
                 f"--experiment_name {args.experiment_name}",
             ]
         )
-        subprocess.run(
-            f"gcloud compute ssh {instance_name} --command='{cd_command} && {run_experiment_command}'",
-            shell=True,
-            check=True,
-        )
+        print_and_run(f"gcloud compute ssh {instance_name} --command='{cd_command} && {run_experiment_command}'")
 
 
 if __name__ == "__main__":
