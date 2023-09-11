@@ -42,7 +42,7 @@ def main() -> None:
         if FASTER_DOWNLOAD_COMPRESSED:
             DEXGRASPNET_GIVEN_DATA_PATH_LOCAL.mkdir(parents=True, exist_ok=True)  # Must make dir before populating the dir with rsync
             print_and_run(
-                f"gsutil -m rsync -r gs://learned-nerf-grasping/{DEXGRASPNET_GIVEN_DATA_PATH_ON_BUCKET} str(DEXGRASPNET_GIVEN_DATA_PATH_LOCAL)}",
+                f"gsutil -m rsync -r gs://learned-nerf-grasping/{DEXGRASPNET_GIVEN_DATA_PATH_ON_BUCKET} {str(DEXGRASPNET_GIVEN_DATA_PATH_LOCAL)}",
             )
             meshdata_tar_gz_path = DEXGRASPNET_GIVEN_DATA_PATH_LOCAL / "meshdata.tar.gz"
             assert meshdata_tar_gz_path.exists(), f"Strange, {meshdata_tar_gz_path} missing"

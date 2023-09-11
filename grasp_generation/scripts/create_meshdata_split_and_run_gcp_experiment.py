@@ -89,6 +89,7 @@ def main() -> None:
         source_command = "source ~/.bashrc"
         run_experiment_command = " ".join(
             [
+                "CUDA_VISIBLE_DEVICES=0",
                 "python scripts/run_gcp_experiment.py",
                 f"--experiment_name {args.experiment_name}",
             ]
