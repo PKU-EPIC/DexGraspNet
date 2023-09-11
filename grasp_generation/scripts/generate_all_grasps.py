@@ -77,7 +77,7 @@ def process_data(args: ArgParser):
         f"python scripts/generate_grasp_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
         + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'hand_config_dicts'}"
         + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
-        # + f" --mid_opt_steps {','.join([str(x) for x in mid_opt_steps])}"
+        + f" --mid_opt_steps {','.join([str(x) for x in mid_opt_steps])}"
     )
 
     # Relabel open hand grasps.

@@ -115,9 +115,9 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     thres_pen: float = 0.001
 
     # verbose (grasps throughout)
-    store_grasps_mid_optimization_freq: Optional[int] = 250
+    store_grasps_mid_optimization_freq: Optional[int] = None
     store_grasps_mid_optimization_iters: Optional[List[int]] = [25] + [
-        int(ff * 2000) for ff in [0.1, 0.5, 0.9]
+        int(ff * 2500) for ff in [0.2, 0.5, 0.95]
     ]
 
 
