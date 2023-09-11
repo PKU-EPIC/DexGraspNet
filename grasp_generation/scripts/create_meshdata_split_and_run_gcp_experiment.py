@@ -11,7 +11,7 @@ DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 EXPERIMENT_DIR_PATH_ON_BUCKET = "experiments"
 EXPERIMENT_DIR_PATH_LOCAL = pathlib.Path("../data/experiments")
 
-ALL_MESHDATA_PATH_ON_BUCKET = "all_meshdata"
+ALL_MESHDATA_PATH_ON_BUCKET = "meshdata"
 
 
 class ArgParser(Tap):

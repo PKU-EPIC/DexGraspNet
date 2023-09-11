@@ -10,8 +10,8 @@ DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 EXPERIMENT_DIR_PATH_ON_BUCKET = "experiments"
 EXPERIMENT_DIR_PATH_LOCAL = pathlib.Path("../data/experiments")
 
-ALL_MESHDATA_PATH_ON_BUCKET = "all_meshdata"
-ALL_MESHDATA_PATH_LOCAL = pathlib.Path("../data/all_meshdata")
+ALL_MESHDATA_PATH_ON_BUCKET = "meshdata"
+ALL_MESHDATA_PATH_LOCAL = pathlib.Path("../data/meshdata")
 
 class ArgParser(Tap):
     experiment_name: str = DATETIME_STR
@@ -31,7 +31,7 @@ def main() -> None:
 
     instance_name = socket.gethostname()
 
-    # Download experiment files and all_meshdata if needed (will do nothing if up to date)
+    # Download experiment files and meshdata if needed (will do nothing if up to date)
     # Both source and destination paths must be directories
     print_and_run(
         f"gsutil -m rsync -r gs://learned-nerf-grasping/{EXPERIMENT_DIR_PATH_ON_BUCKET} {str(EXPERIMENT_DIR_PATH_LOCAL)}"
