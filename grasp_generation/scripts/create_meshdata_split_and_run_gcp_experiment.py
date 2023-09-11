@@ -84,6 +84,7 @@ def main() -> None:
 
     # Run experiment on GCP
     for instance_name in args.gcp_instance_names:
+        # TODO: This isn't working yet sadly :( can't find python or conda even after sourcing
         cd_command = f"cd {str(args.dexgraspnet_root_path_on_instance / 'grasp_generation')}"
         source_command = "source ~/.bashrc"
         run_experiment_command = " ".join(
