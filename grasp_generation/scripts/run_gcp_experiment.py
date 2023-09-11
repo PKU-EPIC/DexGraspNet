@@ -39,6 +39,7 @@ def main() -> None:
         print_and_run(
             f"gsutil -m rsync -r gs://learned-nerf-grasping/{ALL_MESHDATA_PATH_ON_BUCKET} {str(ALL_MESHDATA_PATH_LOCAL)}",
         )
+    EXPERIMENT_DIR_PATH_LOCAL.mkdir(parents=True, exist_ok=True)  # Must make dir before populating the dir with rsync
     print_and_run(
         f"gsutil -m rsync -r gs://learned-nerf-grasping/{EXPERIMENT_DIR_PATH_ON_BUCKET} {str(EXPERIMENT_DIR_PATH_LOCAL)}"
     )
