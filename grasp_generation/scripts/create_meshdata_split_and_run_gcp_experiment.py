@@ -84,7 +84,7 @@ def main() -> None:
 
     # Run experiment on GCP
     for instance_name in args.gcp_instance_names:
-        cd_command = f"cd {str(dexgraspnet_root_path_on_instance / 'grasp_generation')}"
+        cd_command = f"cd {str(args.dexgraspnet_root_path_on_instance / 'grasp_generation')}"
         run_experiment_command = " ".join(
             [
                 "python scripts/run_gcp_experiment.py",
