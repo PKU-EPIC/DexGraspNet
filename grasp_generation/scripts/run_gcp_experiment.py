@@ -16,6 +16,7 @@ ALL_MESHDATA_PATH_LOCAL = pathlib.Path("../data/meshdata")
 DEXGRASPNET_GIVEN_DATA_PATH_ON_BUCKET = "dexgraspnet_given_data"
 DEXGRASPNET_GIVEN_DATA_PATH_LOCAL = pathlib.Path("../data/dexgraspnet_given_data")
 
+
 class ArgParser(Tap):
     experiment_name: str = DATETIME_STR
 
@@ -37,25 +38,37 @@ def main() -> None:
     # Both source and destination paths must be directories
     # Don't run command to download meshdata unless needed, takes ~5min to check if synced
     if not ALL_MESHDATA_PATH_LOCAL.exists():
-        print(f"ALL_MESHDATA_PATH_LOCAL = {ALL_MESHDATA_PATH_LOCAL} does not exist, downloading...")
+        print(
+            f"ALL_MESHDATA_PATH_LOCAL = {ALL_MESHDATA_PATH_LOCAL} does not exist, downloading..."
+        )
         FASTER_DOWNLOAD_COMPRESSED = True
         if FASTER_DOWNLOAD_COMPRESSED:
-            DEXGRASPNET_GIVEN_DATA_PATH_LOCAL.mkdir(parents=True, exist_ok=True)  # Must make dir before populating the dir with rsync
+            DEXGRASPNET_GIVEN_DATA_PATH_LOCAL.mkdir(
+                parents=True, exist_ok=True
+            )  # Must make dir before populating the dir with rsync
             print_and_run(
                 f"gsutil -m rsync -r gs://learned-nerf-grasping/{DEXGRASPNET_GIVEN_DATA_PATH_ON_BUCKET} {str(DEXGRASPNET_GIVEN_DATA_PATH_LOCAL)}",
             )
             meshdata_tar_gz_path = DEXGRASPNET_GIVEN_DATA_PATH_LOCAL / "meshdata.tar.gz"
-            assert meshdata_tar_gz_path.exists(), f"Strange, {meshdata_tar_gz_path} missing"
+            assert (
+                meshdata_tar_gz_path.exists()
+            ), f"Strange, {meshdata_tar_gz_path} missing"
             print_and_run(
                 f"tar -xf str(meshdata_tar_gz_path) --directory {str(ALL_MESHDATA_PATH_LOCAL.parent)}",
             )
-            assert ALL_MESHDATA_PATH_LOCAL.exists(), f"Strange, failed to create {ALL_MESHDATA_PATH_LOCAL}"
+            assert (
+                ALL_MESHDATA_PATH_LOCAL.exists()
+            ), f"Strange, failed to create {ALL_MESHDATA_PATH_LOCAL}"
         else:
-            ALL_MESHDATA_PATH_LOCAL.mkdir(parents=True, exist_ok=True)  # Must make dir before populating the dir with rsync
+            ALL_MESHDATA_PATH_LOCAL.mkdir(
+                parents=True, exist_ok=True
+            )  # Must make dir before populating the dir with rsync
             print_and_run(
                 f"gsutil -m rsync -r gs://learned-nerf-grasping/{ALL_MESHDATA_PATH_ON_BUCKET} {str(ALL_MESHDATA_PATH_LOCAL)}",
             )
-    EXPERIMENT_DIR_PATH_LOCAL.mkdir(parents=True, exist_ok=True)  # Must make dir before populating the dir with rsync
+    EXPERIMENT_DIR_PATH_LOCAL.mkdir(
+        parents=True, exist_ok=True
+    )  # Must make dir before populating the dir with rsync
     print_and_run(
         f"gsutil -m rsync -r gs://learned-nerf-grasping/{EXPERIMENT_DIR_PATH_ON_BUCKET} {str(EXPERIMENT_DIR_PATH_LOCAL)}"
     )
@@ -107,6 +120,16 @@ def main() -> None:
             ]
         ),
     )
+    print(f"Done generating grasps.")
+
+    results_path = pathlib.Path("../data") / args.experiment_name
+
+    # Upload results back to bucket.
+    print_and_run(
+        f"gsutil -m rsync -r {results_path} gs://learned-nerf-grasping/{args.experiment_name}"
+    )
+
+    print("Done!")
 
 
 if __name__ == "__main__":
