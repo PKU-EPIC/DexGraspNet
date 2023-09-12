@@ -10,6 +10,9 @@ from utils.isaac_validator import ValidationType
 from utils.hand_model_type import HandModelType
 from utils.joint_angle_targets import OptimizationMethod
 from utils.parse_object_code_and_scale import parse_object_code_and_scale
+import multiprocessing
+
+from functools import partial
 
 from tap import Tap
 from typing import Optional, List
@@ -33,6 +36,8 @@ class EvalAllGraspConfigDictsArgumentParser(Tap):
     )
     randomize_order_seed: Optional[int] = None
     mid_optimization_steps: List[int] = []
+    use_multiprocess: bool = True
+    num_workers: int = 3
 
 
 def get_object_code_and_scale_strs_to_process(
@@ -76,6 +81,48 @@ def get_object_code_and_scale_strs_to_process(
     return list(only_in_input)
 
 
+def print_and_run_command_safe(
+    object_code_and_scale_str,
+    args=None,
+    script_to_run=None,
+    input_grasp_config_dicts_path=None,
+    output_evaled_grasp_config_dicts_path=None,
+):
+    command = (
+        " ".join(
+            [
+                f"CUDA_VISIBLE_DEVICES={args.gpu}",
+                f"python {script_to_run}",
+                f"--hand_model_type {args.hand_model_type.name}",
+                f"--validation_type {args.validation_type.name}",
+                f"--gpu {args.gpu}",
+                f"--meshdata_root_path {args.meshdata_root_path}",
+                f"--input_grasp_config_dicts_path {input_grasp_config_dicts_path}",
+                f"--output_evaled_grasp_config_dicts_path {output_evaled_grasp_config_dicts_path}",
+                f"--object_code_and_scale_str {object_code_and_scale_str}",
+                f"--max_grasps_per_batch {args.max_grasps_per_batch}",
+            ]
+        ),
+    )
+
+    if args.debug_index is not None:
+        command += f" --debug_index {args.debug_index}"
+
+    if args.use_gui:
+        command += " --use_gui"
+
+    if args.use_cpu:
+        command += " --use_cpu"
+
+    print(f"Running command: {command}")
+
+    try:
+        subprocess.run(command, shell=True, check=True)
+    except Exception as e:
+        print(f"Exception: {e}")
+        print(f"Skipping {object_code_and_scale_str} and continuing")
+
+
 def eval_all_grasp_config_dicts(
     args: EvalAllGraspConfigDictsArgumentParser,
     input_grasp_config_dicts_path: pathlib.Path,
@@ -97,42 +144,32 @@ def eval_all_grasp_config_dicts(
     print(f"Processing {len(input_object_code_and_scale_strs)} object codes")
     print(f"First 10 object codes: {input_object_code_and_scale_strs[:10]}")
 
-    pbar = tqdm(input_object_code_and_scale_strs, dynamic_ncols=True)
-    for object_code_and_scale_str in pbar:
-        pbar.set_description(f"Processing {object_code_and_scale_str}")
+    map_fn = partial(
+        print_and_run_command_safe,
+        args=args,
+        script_to_run=script_to_run,
+        input_grasp_config_dicts_path=input_grasp_config_dicts_path,
+        output_evaled_grasp_config_dicts_path=output_evaled_grasp_config_dicts_path,
+    )
 
-        command = " ".join(
-            [
-                f"CUDA_VISIBLE_DEVICES={args.gpu}",
-                f"python {script_to_run}",
-                f"--hand_model_type {args.hand_model_type.name}",
-                f"--validation_type {args.validation_type.name}",
-                f"--gpu {args.gpu}",
-                f"--meshdata_root_path {args.meshdata_root_path}",
-                f"--input_grasp_config_dicts_path {input_grasp_config_dicts_path}",
-                f"--output_evaled_grasp_config_dicts_path {output_evaled_grasp_config_dicts_path}",
-                f"--object_code_and_scale_str {object_code_and_scale_str}",
-                f"--max_grasps_per_batch {args.max_grasps_per_batch}",
-            ]
-        )
+    if args.use_multiprocess:
+        with multiprocessing.Pool(args.num_workers) as p:
+            p.map(
+                map_fn,
+                input_object_code_and_scale_strs,
+            )
+    else:
+        pbar = tqdm(input_object_code_and_scale_strs, dynamic_ncols=True)
+        for object_code_and_scale_str in pbar:
+            pbar.set_description(f"Processing {object_code_and_scale_str}")
 
-        if args.debug_index is not None:
-            command += f" --debug_index {args.debug_index}"
-
-        if args.use_gui:
-            command += " --use_gui"
-
-        if args.use_cpu:
-            command += " --use_cpu"
-
-        print(f"Running command: {command}")
-
-        try:
-            subprocess.run(command, shell=True, check=True)
-        except Exception as e:
-            print(f"Exception: {e}")
-            print(f"Skipping {object_code_and_scale_str} and continuing")
-            continue
+            print_and_run_command_safe(
+                object_code_and_scale_str=object_code_and_scale_str,
+                args=args,
+                script_to_run=script_to_run,
+                input_grasp_config_dicts_path=input_grasp_config_dicts_path,
+                output_evaled_grasp_config_dicts_path=output_evaled_grasp_config_dicts_path,
+            )
 
 
 def main(args: EvalAllGraspConfigDictsArgumentParser):
