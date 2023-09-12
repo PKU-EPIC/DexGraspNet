@@ -61,7 +61,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     n_objects_per_batch: int = (
         20  # Runs batch_size_each_object * n_objects_per_batch grasps per GPU
     )
-    n_iter: int = 2500
+    n_iter: int = 2000
     use_multiprocess: bool = False
 
     # Logging
