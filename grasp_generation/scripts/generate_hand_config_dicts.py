@@ -120,6 +120,9 @@ class GenerateHandConfigDictsArgumentParser(Tap):
         int(ff * 2500) for ff in [0.2, 0.5, 0.95]
     ]
 
+    # Continue from previous run
+    no_continue: bool = False
+
 
 def create_visualization_figure(
     hand_model: HandModel,
@@ -497,6 +500,36 @@ def main(args: GenerateHandConfigDictsArgumentParser) -> None:
     object_code_list = [path.name for path in args.meshdata_root_path.iterdir()]
     print(f"First 10 in object_code_list_all: {object_code_list[:10]}")
     print(f"len(object_code_list): {len(object_code_list)}")
+
+    existing_object_code_and_scale_strs = (
+        [path.stem for path in list(args.output_hand_config_dicts_path.glob("*.npy"))]
+        if args.output_hand_config_dicts_path.exists()
+        else []
+    )
+
+    if args.no_continue:
+        # Compare input and output directories
+        print(
+            f"Found {len(existing_object_code_and_scale_strs)} object codes in {args.output_hand_config_dicts_path}"
+        )
+        raise ValueError(
+            f"Output folder {args.output_hand_config_dicts_path} already exists. Please delete it or set --no_continue to False."
+        )
+    elif len(existing_object_code_and_scale_strs) > 0:
+        print(
+            f"Found {len(existing_object_code_and_scale_strs)} object codes in {args.output_hand_config_dicts_path}"
+        )
+        object_code_list = [
+            oo
+            for oo in object_code_list
+            if not any(
+                [oo in existing for existing in existing_object_code_and_scale_strs]
+            )
+        ]
+
+        print(
+            f"Generating remaining {len(object_code_list)} hand_config_dicts from previous run."
+        )
 
     # generate
     if args.seed is not None:
