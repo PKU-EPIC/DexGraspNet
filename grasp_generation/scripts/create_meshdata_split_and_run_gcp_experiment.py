@@ -125,7 +125,7 @@ def main() -> None:
 
     # Pull down successful experiment data from GCP.
     print_and_run(
-        f"gsutil -m rsync -r gs://learned-nerf-grasping/{args.experiment_name} {pathlib.Path('../data') / args.experiment_name}"
+        f"gsutil -m rsync -r gs://learned-nerf-grasping/{args.experiment_name}/ {pathlib.Path('../data') / args.experiment_name}"
     )
 
     print("Done!")

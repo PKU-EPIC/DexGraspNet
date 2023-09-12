@@ -123,6 +123,7 @@ def main() -> None:
     print(f"Done generating grasps.")
 
     results_path = pathlib.Path("../data") / args.experiment_name
+    results_path.mkdir(parents=True, exist_ok=True)
 
     # Upload results back to bucket.
     print_and_run(

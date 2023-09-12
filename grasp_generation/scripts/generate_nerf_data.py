@@ -15,6 +15,7 @@ import subprocess
 from typing import Optional, Tuple
 import pathlib
 from utils.parse_object_code_and_scale import parse_object_code_and_scale
+import multiprocessing
 
 
 class GenerateNerfDataArgumentParser(Tap):
@@ -23,6 +24,8 @@ class GenerateNerfDataArgumentParser(Tap):
     output_nerfdata_path: pathlib.Path = pathlib.Path("../data/nerfdata")
     randomize_order_seed: Optional[int] = None
     only_objects_in_this_path: Optional[pathlib.Path] = None
+    use_multiprocess: bool = True
+    num_workers: int = 4
 
 
 def get_object_codes_and_scales_to_process(
@@ -56,6 +59,26 @@ def get_object_codes_and_scales_to_process(
     return input_object_codes, input_object_scales
 
 
+def run_command(object_code, object_scale, args, script_to_run):
+    command = " ".join(
+        [
+            f"python {script_to_run}",
+            f"--gpu {args.gpu}",
+            f"--meshdata_root_path {args.meshdata_root_path}",
+            f"--output_nerfdata_path {args.output_nerfdata_path}",
+            f"--object_code {object_code}",
+            f"--object_scale {object_scale}",
+        ]
+    )
+    print(f"Running command: {command}")
+    try:
+        subprocess.run(command, shell=True, check=True)
+    except Exception as e:
+        print(f"Exception: {e}")
+        print(f"Skipping {object_code} and continuing")
+    print(f"Finished object {object_code}.")
+
+
 def main(args: GenerateNerfDataArgumentParser):
     # Check if script exists
     script_to_run = pathlib.Path("scripts/generate_nerf_data_one_object_one_scale.py")
@@ -72,30 +95,26 @@ def main(args: GenerateNerfDataArgumentParser):
         print(f"Randomizing order with seed {args.randomize_order_seed}")
         random.Random(args.randomize_order_seed).shuffle(input_object_codes)
 
-    for i, (object_code, object_scale) in tqdm(
-        enumerate(zip(input_object_codes, input_object_scales)),
-        desc="Generating NeRF data for all objects",
-        dynamic_ncols=True,
-        total=len(input_object_codes),
-    ):
-        command = " ".join(
-            [
-                f"python {script_to_run}",
-                f"--gpu {args.gpu}",
-                f"--meshdata_root_path {args.meshdata_root_path}",
-                f"--output_nerfdata_path {args.output_nerfdata_path}",
-                f"--object_code {object_code}",
-                f"--object_scale {object_scale}",
-            ]
-        )
-        print(f"Running command {i}: {command}")
-        try:
-            subprocess.run(command, shell=True, check=True)
-        except Exception as e:
-            print(f"Exception: {e}")
-            print(f"Skipping {object_code} and continuing")
-            continue
-        print(f"Finished command {i}")
+    if args.use_multiprocess:
+        print(f"Using multiprocessing with {args.num_workers} workers.")
+        with multiprocessing.Pool(args.num_workers) as p:
+            p.starmap(
+                run_command,
+                zip(
+                    input_object_codes,
+                    input_object_scales,
+                    [args] * len(input_object_codes),
+                    [script_to_run] * len(input_object_codes),
+                ),
+            )
+    else:
+        for i, (object_code, object_scale) in tqdm(
+            enumerate(zip(input_object_codes, input_object_scales)),
+            desc="Generating NeRF data for all objects",
+            dynamic_ncols=True,
+            total=len(input_object_codes),
+        ):
+            run_command(object_code, object_scale, args)
 
 
 if __name__ == "__main__":
