@@ -85,7 +85,7 @@ def process_data(args: ArgParser):
     relabel_command = (
         "python scripts/generate_grasp_config_dicts.py"
         + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts' / 'opened_hand'}"
-        + f" --output_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts' / 'opened_hand'}"
+        + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts' / 'opened_hand'}"
     )
 
     print(f"Running: {relabel_command}")
