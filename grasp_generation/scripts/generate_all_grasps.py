@@ -70,10 +70,6 @@ def process_data(args: ArgParser):
         + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
     )
 
-    print_and_run(grasp_gen_command)
-    if args.results_path is not None:
-        print_and_run(sync_command)
-
     # Eval final grasp configs.
     eval_final_grasp_command = (
         "python scripts/eval_all_grasp_config_dicts.py"

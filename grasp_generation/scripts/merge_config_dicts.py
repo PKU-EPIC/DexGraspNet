@@ -4,7 +4,6 @@ from tap import Tap
 from collections import defaultdict
 
 
-
 class MergeConfigDictsArgumentsParser(Tap):
     input_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/unmerged_config_dicts"
@@ -14,7 +13,7 @@ class MergeConfigDictsArgumentsParser(Tap):
 
 def main(args: MergeConfigDictsArgumentsParser) -> None:
     # Create dir
-    args.output_config_dicts_path.mkdir()
+    args.output_config_dicts_path.mkdir(parents=True, exist_ok=True)
 
     # Get list of all filenames
     config_dict_filepaths = [
