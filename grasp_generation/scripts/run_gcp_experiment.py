@@ -121,15 +121,16 @@ def main() -> None:
             for object_code in new_input_meshdata_path.iterdir()
             if object_code.is_dir()
         ]
+        if set(existing_object_codes) != set(object_codes):
+            print(
+                f"existing object codes not in current list: {set(existing_object_codes) - set(object_codes)}"
+            )
+            print(
+                f"object codes in list not currently existing: {set(object_codes)-set(existing_object_codes) }"
+            )
         assert set(existing_object_codes) == set(
             object_codes
         ), f"Strange, existing_object_codes != object_codes"
-        print(
-            f"existing object codes not in current list: {set(existing_object_codes) - set(object_codes)}"
-        )
-        print(
-            f"object codes in list not currently existing: {set(object_codes)-set(existing_object_codes) }"
-        )
 
     results_path = pathlib.Path("../data") / args.experiment_name
     results_path.mkdir(parents=True, exist_ok=True)
