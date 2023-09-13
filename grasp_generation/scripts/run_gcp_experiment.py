@@ -142,7 +142,7 @@ def main() -> None:
                 # f"--base_data_path {}",
                 f"--experiment_name {args.experiment_name}",
                 f"--results_path {results_path}",
-                f"--gcloud_results_path gs://learned-nerf-grasping/{args.experiment_name}",
+                f"--gcloud_results_path learned-nerf-grasping/{args.experiment_name}",
             ]
         ),
     )

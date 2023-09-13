@@ -35,7 +35,7 @@ def process_data(args: ArgParser):
 
         # Generate sync command.
         sync_command = (
-            f"gsutil -m rsync -r {args.results_path} {args.gcloud_results_path}"
+            f"gsutil -m rsync -r {args.results_path} gs:\/\/{args.gcloud_results_path}"
         )
 
     # Generate hand configs.
