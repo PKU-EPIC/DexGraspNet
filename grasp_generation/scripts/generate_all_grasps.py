@@ -95,20 +95,16 @@ def process_data(args: ArgParser):
     )
 
     print_and_run(augment_grasp_command)
-    if args.results_path is not None:
-        print_and_run(sync_command)
 
     # Generate grasps for "folded in" mid opt ones.
     grasp_gen_command = (
         f"python scripts/generate_grasp_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
         + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'hand_config_dicts'}"
         + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
-        + f" --mid_opt_steps {' '.join([str(x) for x in mid_opt_steps])}"
+        + f" --mid_optimization_steps {' '.join([str(x) for x in mid_opt_steps])}"
     )
 
     print_and_run(grasp_gen_command)
-    if args.results_path is not None:
-        print_and_run(sync_command)
 
     # Relabel open hand grasps.
     relabel_command = (
@@ -118,8 +114,6 @@ def process_data(args: ArgParser):
     )
 
     print_and_run(relabel_command)
-    if args.results_path is not None:
-        print_and_run(sync_command)
 
     # Merge grasp configs.
     merge_grasp_command = (
@@ -129,8 +123,6 @@ def process_data(args: ArgParser):
     )
 
     print_and_run(merge_grasp_command)
-    if args.results_path is not None:
-        print_and_run(sync_command)
 
     # Eval grasp configs.
     eval_grasp_command = (
