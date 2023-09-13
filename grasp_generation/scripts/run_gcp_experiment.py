@@ -123,7 +123,11 @@ def main() -> None:
         ]
         assert set(existing_object_codes) == set(
             object_codes
-        ), f"Strange, {existing_object_codes} != {object_codes}"
+        ), f"Strange, existing_object_codes != object_codes"
+        print({set(existing_object_codes) - set(object_codes)})
+
+    results_path = pathlib.Path("../data") / args.experiment_name
+    results_path.mkdir(parents=True, exist_ok=True)
 
     # Run
     print_and_run(
@@ -133,13 +137,12 @@ def main() -> None:
                 f"--input_meshdata_path {new_input_meshdata_path}",
                 # f"--base_data_path {}",
                 f"--experiment_name {args.experiment_name}",
+                f"--results_path {results_path}",
+                f"--gcloud_results_path gs://learned-nerf-grasping/{args.experiment_name}",
             ]
         ),
     )
     print(f"Done generating grasps.")
-
-    results_path = pathlib.Path("../data") / args.experiment_name
-    results_path.mkdir(parents=True, exist_ok=True)
 
     # Upload results back to bucket.
     print_and_run(
