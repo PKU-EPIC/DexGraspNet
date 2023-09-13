@@ -19,6 +19,7 @@ DEXGRASPNET_GIVEN_DATA_PATH_LOCAL = pathlib.Path("../data/dexgraspnet_given_data
 
 class ArgParser(Tap):
     experiment_name: str = DATETIME_STR
+    no_continue: bool = False
 
 
 def print_and_run(command: str) -> None:
@@ -84,30 +85,45 @@ def main() -> None:
     new_input_meshdata_path = (
         pathlib.Path("../data") / args.experiment_name / instance_name / "meshdata"
     )
-    new_input_meshdata_path.mkdir(parents=True, exist_ok=True)
-    CREATE_SYMLINKS = True
-    for object_code in object_codes:
-        if CREATE_SYMLINKS:
-            print_and_run(
-                " ".join(
-                    [
-                        "ln -s",
-                        str((ALL_MESHDATA_PATH_LOCAL / object_code).resolve()),
-                        str((new_input_meshdata_path / object_code).resolve()),
-                    ]
-                ),
-            )
-        else:
-            print_and_run(
-                " ".join(
-                    [
-                        "cp -r",
-                        str(ALL_MESHDATA_PATH_LOCAL / object_code),
-                        str(new_input_meshdata_path / object_code),
-                    ]
-                ),
-            )
-    print(f"Done copying meshdata")
+    if new_input_meshdata_path.exists() and args.no_continue:
+        raise ValueError(
+            f"Found {new_input_meshdata_path}. Either delete it or run without --no_continue"
+        )
+    elif not new_input_meshdata_path.exists():
+        new_input_meshdata_path.mkdir(parents=True, exist_ok=True)
+        CREATE_SYMLINKS = True
+        for object_code in object_codes:
+            if CREATE_SYMLINKS:
+                print_and_run(
+                    " ".join(
+                        [
+                            "ln -s",
+                            str((ALL_MESHDATA_PATH_LOCAL / object_code).resolve()),
+                            str((new_input_meshdata_path / object_code).resolve()),
+                        ]
+                    ),
+                )
+            else:
+                print_and_run(
+                    " ".join(
+                        [
+                            "cp -r",
+                            str(ALL_MESHDATA_PATH_LOCAL / object_code),
+                            str(new_input_meshdata_path / object_code),
+                        ]
+                    ),
+                )
+        print(f"Done copying meshdata")
+    else:  # Check all correct objects are in new_input_meshdata_path
+        print(f"Found {new_input_meshdata_path}. Continuing experiment.")
+        existing_object_codes = [
+            object_code.name
+            for object_code in new_input_meshdata_path.iterdir()
+            if object_code.is_dir()
+        ]
+        assert set(existing_object_codes) == set(
+            object_codes
+        ), f"Strange, {existing_object_codes} != {object_codes}"
 
     # Run
     print_and_run(

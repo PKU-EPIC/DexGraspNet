@@ -26,6 +26,7 @@ class GenerateNerfDataArgumentParser(Tap):
     only_objects_in_this_path: Optional[pathlib.Path] = None
     use_multiprocess: bool = True
     num_workers: int = 4
+    no_continue: bool = False
 
 
 def get_object_codes_and_scales_to_process(
@@ -45,6 +46,43 @@ def get_object_codes_and_scales_to_process(
         print(
             f"Found {len(input_object_codes)} object codes in args.only_objects_in_this_path ({args.only_objects_in_this_path})"
         )
+
+        existing_object_code_and_scale_strs = list(args.output_nerfdata_path.iterdir())
+        existing_object_codes = [
+            parse_object_code_and_scale(object_code_and_scale_str)[0]
+            for object_code_and_scale_str in existing_object_code_and_scale_strs
+        ]
+
+        existing_object_scales = [
+            parse_object_code_and_scale(object_code_and_scale_str)[1]
+            for object_code_and_scale_str in existing_object_code_and_scale_strs
+        ]
+
+        if args.no_continue and len(existing_object_codes) > 0:
+            print(
+                f"Found {len(existing_object_codes)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
+            )
+            print("Exiting because --no_continue was specified.")
+            exit()
+        elif len(existing_object_codes) > 0:
+            print(
+                f"Found {len(existing_object_codes)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
+            )
+            print("Continuing because --no_continue was not specified.")
+            input_object_codes = [
+                object_code
+                for object_code in input_object_codes
+                if object_code not in existing_object_codes
+            ]
+            input_object_scales = [
+                object_scale
+                for object_scale in input_object_scales
+                if object_scale not in existing_object_codes
+            ]
+            print(
+                f"Continuing with {len(input_object_codes)} object codes after filtering."
+            )
+
     else:
         input_object_codes = [
             object_code for object_code in os.listdir(args.meshdata_root_path)

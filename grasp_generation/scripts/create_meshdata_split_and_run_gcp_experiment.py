@@ -23,6 +23,7 @@ class ArgParser(Tap):
     dexgraspnet_root_path_on_instance: pathlib.Path = pathlib.Path("dexgraspnet")
     git_branch: str = "2023-09-07_TopLevelScriptAB_rebase"
     seed: int = 42
+    no_continue: bool = False
 
 
 def print_and_run(command: str) -> None:
@@ -84,28 +85,42 @@ def run_command(instance_name, args: ArgParser) -> None:
 
 def main() -> None:
     args = ArgParser().parse_args()
-
-    # Create instance_name_to_object_codes_dict for this experiment
-    instance_name_to_object_codes_dict = create_instance_name_to_object_codes_dict(
-        input_meshdata_path=args.input_meshdata_path,
-        gcp_instance_names=args.gcp_instance_names,
-        seed=args.seed,
-    )
     EXPERIMENT_DIR_PATH_LOCAL.mkdir(parents=True, exist_ok=True)
     experiment_file = EXPERIMENT_DIR_PATH_LOCAL / f"{args.experiment_name}.pkl"
-    with open(experiment_file, "wb") as handle:
-        pickle.dump(
-            instance_name_to_object_codes_dict, handle, protocol=pickle.HIGHEST_PROTOCOL
+
+    # Check if experiment already exists
+    if experiment_file.exists() and args.no_continue:
+        raise ValueError(
+            f"Found {experiment_file}. Either delete it or run without --no_continue"
+        )
+    elif experiment_file.exists():
+        print(f"Found {experiment_file}. Continuing experiment.")
+
+    else:
+        print(f"Creating {experiment_file}.")
+
+        # Create instance_name_to_object_codes_dict for this experiment
+        instance_name_to_object_codes_dict = create_instance_name_to_object_codes_dict(
+            input_meshdata_path=args.input_meshdata_path,
+            gcp_instance_names=args.gcp_instance_names,
+            seed=args.seed,
         )
 
-    # Upload experiment_dir (instance_name_to_object_codes_dicts) to GCP
-    # Both source and destination paths must be directories
-    # Don't upload meshdata, should already be there and takes ~5min to check if synced
-    # Also, don't sync with input_meshdata_path, this could be subset, ALL_MESHDATA_PATH_ON_BUCKET should have all meshes
-    # If need to upload, run "gsutil -m rsync -r ../data/meshdata gs://learned-nerf-grasping/meshdata"
-    print_and_run(
-        f"gsutil -m rsync -r {str(EXPERIMENT_DIR_PATH_LOCAL)} gs://learned-nerf-grasping/{EXPERIMENT_DIR_PATH_ON_BUCKET}"
-    )
+        with open(experiment_file, "wb") as handle:
+            pickle.dump(
+                instance_name_to_object_codes_dict,
+                handle,
+                protocol=pickle.HIGHEST_PROTOCOL,
+            )
+
+        # Upload experiment_dir (instance_name_to_object_codes_dicts) to GCP
+        # Both source and destination paths must be directories
+        # Don't upload meshdata, should already be there and takes ~5min to check if synced
+        # Also, don't sync with input_meshdata_path, this could be subset, ALL_MESHDATA_PATH_ON_BUCKET should have all meshes
+        # If need to upload, run "gsutil -m rsync -r ../data/meshdata gs://learned-nerf-grasping/meshdata"
+        print_and_run(
+            f"gsutil -m rsync -r {str(EXPERIMENT_DIR_PATH_LOCAL)} gs://learned-nerf-grasping/{EXPERIMENT_DIR_PATH_ON_BUCKET}"
+        )
 
     # Run experiment on GCP
     # for instance_name in args.gcp_instance_names:

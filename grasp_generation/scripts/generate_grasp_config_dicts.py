@@ -47,6 +47,7 @@ class GenerateGraspConfigDictsArgumentParser(Tap):
     )
     mid_optimization_steps: List[int] = []
     seed: int = 42
+    no_continue: bool = False
 
 
 def compute_grasp_orientations(
@@ -94,6 +95,28 @@ def generate_grasp_config_dicts(
     print(f"len(input_hand_config_dict_filepaths): {len(hand_config_dict_filepaths)}")
     print(f"First 10: {[path for path in hand_config_dict_filepaths[:10]]}")
     random.Random(args.seed).shuffle(hand_config_dict_filepaths)
+
+    existing_object_code_and_scale_strs = (
+        [pp.stem for pp in output_grasp_config_dicts_path.glob("*.npy")]
+        if output_grasp_config_dicts_path.exists()
+        else []
+    )
+
+    if len(existing_object_code_and_scale_strs) > 0 and args.no_continue:
+        raise ValueError(
+            f"Found {len(existing_object_code_and_scale_strs)} existing grasp config dicts in {output_grasp_config_dicts_path}."
+            + " Set no_continue to False to continue generating grasps for these objects, or change output path."
+        )
+    elif len(existing_object_code_and_scale_strs) > 0:
+        print(f"Found {len(existing_object_code_and_scale_strs)} existing objects.")
+        hand_config_dict_filepaths = [
+            pp
+            for pp in hand_config_dict_filepaths
+            if pp.stem not in existing_object_code_and_scale_strs
+        ]
+        print(
+            f"Continuing generating grasps on {len(hand_config_dict_filepaths)} objects."
+        )
 
     set_seed(42)  # Want this fixed so deterministic computation
     pbar = tqdm(
