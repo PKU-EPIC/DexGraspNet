@@ -948,6 +948,7 @@ class IsaacValidator:
 
         gym.step_graphics(self.sim)
         gym.render_all_camera_sensors(self.sim)
+        print("rendered!")
         path = self._setup_save_dir(folder, overwrite)
 
         for ii, camera_handle in enumerate(self.camera_handles):

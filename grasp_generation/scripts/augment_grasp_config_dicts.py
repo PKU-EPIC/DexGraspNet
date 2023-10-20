@@ -21,6 +21,7 @@ class ArgParser(Tap):
     open_grasp_var: float = 0.075
     closed_grasp_var: float = 0.05
     augment_only_successes: bool = False
+    no_continue: bool = False
 
 
 def generate_open_or_closed_grasps(
@@ -74,6 +75,47 @@ def main(args: ArgParser):
 
     # Load desired grasp config dict.
     grasp_config_dict_paths = list(args.input_grasp_config_dicts_path.glob("*.npy"))
+
+    open_output_path = args.output_grasp_config_dicts_path / "opened_hand"
+    closed_output_path = args.output_grasp_config_dicts_path / "closed_hand"
+
+    existing_open_grasp_config_dicts = (
+        list(open_output_path.glob("*.npy")) if open_output_path.exists() else []
+    )
+
+    existing_closed_grasp_config_dicts = (
+        list(closed_output_path.glob("*.npy")) if closed_output_path.exists() else []
+    )
+
+    existing_open_code_and_scale_strs = [
+        path.stem for path in existing_open_grasp_config_dicts
+    ]
+
+    existing_closed_code_and_scale_strs = [
+        path.stem for path in existing_closed_grasp_config_dicts
+    ]
+
+    existing_object_code_and_scale_strs = set(
+        existing_open_code_and_scale_strs
+    ).intersection(set(existing_closed_code_and_scale_strs))
+
+    if args.no_continue and len(existing_closed_code_and_scale_strs) > 0:
+        raise ValueError(
+            f"Found {len(existing_object_code_and_scale_strs)} existing grasp config dicts in {args.output_grasp_config_dicts_path}."
+            + " Set no_continue to False to continue training on these objects, or change output path."
+        )
+    elif len(existing_object_code_and_scale_strs) > 0:
+        print(
+            f"Found {len(existing_object_code_and_scale_strs)} existing grasp config dicts in {args.output_grasp_config_dicts_path}."
+            + " Continuing training on these objects."
+        )
+        grasp_config_dict_paths = [
+            pp
+            for pp in grasp_config_dict_paths
+            if pp.stem not in existing_object_code_and_scale_strs
+        ]
+
+        print(f"Found {len(grasp_config_dict_paths)} new grasp config dicts to add.")
 
     for grasp_config_dict_path in grasp_config_dict_paths:
         print(f"Loading grasp config dicts from: {grasp_config_dict_path}")

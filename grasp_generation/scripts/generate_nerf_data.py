@@ -15,6 +15,7 @@ import subprocess
 from typing import Optional, Tuple
 import pathlib
 from utils.parse_object_code_and_scale import parse_object_code_and_scale
+import multiprocessing
 
 
 class GenerateNerfDataArgumentParser(Tap):
@@ -23,6 +24,9 @@ class GenerateNerfDataArgumentParser(Tap):
     output_nerfdata_path: pathlib.Path = pathlib.Path("../data/nerfdata")
     randomize_order_seed: Optional[int] = None
     only_objects_in_this_path: Optional[pathlib.Path] = None
+    use_multiprocess: bool = True
+    num_workers: int = 4
+    no_continue: bool = False
 
 
 def get_object_codes_and_scales_to_process(
@@ -42,6 +46,43 @@ def get_object_codes_and_scales_to_process(
         print(
             f"Found {len(input_object_codes)} object codes in args.only_objects_in_this_path ({args.only_objects_in_this_path})"
         )
+
+        existing_object_code_and_scale_strs = list(args.output_nerfdata_path.iterdir())
+        existing_object_codes = [
+            parse_object_code_and_scale(object_code_and_scale_str)[0]
+            for object_code_and_scale_str in existing_object_code_and_scale_strs
+        ]
+
+        existing_object_scales = [
+            parse_object_code_and_scale(object_code_and_scale_str)[1]
+            for object_code_and_scale_str in existing_object_code_and_scale_strs
+        ]
+
+        if args.no_continue and len(existing_object_codes) > 0:
+            print(
+                f"Found {len(existing_object_codes)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
+            )
+            print("Exiting because --no_continue was specified.")
+            exit()
+        elif len(existing_object_codes) > 0:
+            print(
+                f"Found {len(existing_object_codes)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
+            )
+            print("Continuing because --no_continue was not specified.")
+            input_object_codes = [
+                object_code
+                for object_code in input_object_codes
+                if object_code not in existing_object_codes
+            ]
+            input_object_scales = [
+                object_scale
+                for object_scale in input_object_scales
+                if object_scale not in existing_object_codes
+            ]
+            print(
+                f"Continuing with {len(input_object_codes)} object codes after filtering."
+            )
+
     else:
         input_object_codes = [
             object_code for object_code in os.listdir(args.meshdata_root_path)
@@ -54,6 +95,26 @@ def get_object_codes_and_scales_to_process(
         print(f"Using hardcoded scale {HARDCODED_OBJECT_SCALE} for all objects")
 
     return input_object_codes, input_object_scales
+
+
+def run_command(object_code, object_scale, args, script_to_run):
+    command = " ".join(
+        [
+            f"python {script_to_run}",
+            f"--gpu {args.gpu}",
+            f"--meshdata_root_path {args.meshdata_root_path}",
+            f"--output_nerfdata_path {args.output_nerfdata_path}",
+            f"--object_code {object_code}",
+            f"--object_scale {object_scale}",
+        ]
+    )
+    print(f"Running command: {command}")
+    try:
+        subprocess.run(command, shell=True, check=True)
+    except Exception as e:
+        print(f"Exception: {e}")
+        print(f"Skipping {object_code} and continuing")
+    print(f"Finished object {object_code}.")
 
 
 def main(args: GenerateNerfDataArgumentParser):
@@ -72,30 +133,26 @@ def main(args: GenerateNerfDataArgumentParser):
         print(f"Randomizing order with seed {args.randomize_order_seed}")
         random.Random(args.randomize_order_seed).shuffle(input_object_codes)
 
-    for i, (object_code, object_scale) in tqdm(
-        enumerate(zip(input_object_codes, input_object_scales)),
-        desc="Generating NeRF data for all objects",
-        dynamic_ncols=True,
-        total=len(input_object_codes),
-    ):
-        command = " ".join(
-            [
-                f"python {script_to_run}",
-                f"--gpu {args.gpu}",
-                f"--meshdata_root_path {args.meshdata_root_path}",
-                f"--output_nerfdata_path {args.output_nerfdata_path}",
-                f"--object_code {object_code}",
-                f"--object_scale {object_scale}",
-            ]
-        )
-        print(f"Running command {i}: {command}")
-        try:
-            subprocess.run(command, shell=True, check=True)
-        except Exception as e:
-            print(f"Exception: {e}")
-            print(f"Skipping {object_code} and continuing")
-            continue
-        print(f"Finished command {i}")
+    if args.use_multiprocess:
+        print(f"Using multiprocessing with {args.num_workers} workers.")
+        with multiprocessing.Pool(args.num_workers) as p:
+            p.starmap(
+                run_command,
+                zip(
+                    input_object_codes,
+                    input_object_scales,
+                    [args] * len(input_object_codes),
+                    [script_to_run] * len(input_object_codes),
+                ),
+            )
+    else:
+        for i, (object_code, object_scale) in tqdm(
+            enumerate(zip(input_object_codes, input_object_scales)),
+            desc="Generating NeRF data for all objects",
+            dynamic_ncols=True,
+            total=len(input_object_codes),
+        ):
+            run_command(object_code, object_scale, args)
 
 
 if __name__ == "__main__":
