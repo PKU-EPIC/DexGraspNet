@@ -12,7 +12,7 @@ sys.path.append(os.path.realpath("."))
 from tap import Tap
 from tqdm import tqdm
 import subprocess
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 import pathlib
 from utils.parse_object_code_and_scale import parse_object_code_and_scale
 import multiprocessing
@@ -29,34 +29,37 @@ class GenerateNerfDataArgumentParser(Tap):
     no_continue: bool = False
 
 
+def get_object_codes_and_scales_from_folder(
+    folder_path: pathlib.Path,
+) -> Tuple[List[str], List[float]]:
+    object_codes, object_scales = [], []
+    for file_path in folder_path.iterdir():
+        object_code_and_scale_str = file_path.stem
+        object_code, object_scale = parse_object_code_and_scale(
+            object_code_and_scale_str
+        )
+        object_codes.append(object_code)
+        object_scales.append(object_scale)
+    return object_codes, object_scales
+
+
 def get_object_codes_and_scales_to_process(
     args: GenerateNerfDataArgumentParser,
-) -> Tuple[list, list]:
+) -> Tuple[List[str], List[float]]:
     # Get input object codes
     if args.only_objects_in_this_path is not None:
-        input_object_codes, input_object_scales = [], []
-        for path in args.only_objects_in_this_path.iterdir():
-            object_code_and_scale_str = path.stem
-            object_code, object_scale = parse_object_code_and_scale(
-                object_code_and_scale_str
-            )
-            input_object_codes.append(object_code)
-            input_object_scales.append(object_scale)
-
+        (
+            input_object_codes,
+            input_object_scales,
+        ) = get_object_codes_and_scales_from_folder(args.only_objects_in_this_path)
         print(
             f"Found {len(input_object_codes)} object codes in args.only_objects_in_this_path ({args.only_objects_in_this_path})"
         )
 
-        existing_object_code_and_scale_strs = list(args.output_nerfdata_path.iterdir())
-        existing_object_codes = [
-            parse_object_code_and_scale(object_code_and_scale_str)[0]
-            for object_code_and_scale_str in existing_object_code_and_scale_strs
-        ]
-
-        existing_object_scales = [
-            parse_object_code_and_scale(object_code_and_scale_str)[1]
-            for object_code_and_scale_str in existing_object_code_and_scale_strs
-        ]
+        (
+            existing_object_codes,
+            existing_object_scales,
+        ) = get_object_codes_and_scales_from_folder(args.output_nerfdata_path)
 
         if args.no_continue and len(existing_object_codes) > 0:
             print(
@@ -69,15 +72,18 @@ def get_object_codes_and_scales_to_process(
                 f"Found {len(existing_object_codes)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
             )
             print("Continuing because --no_continue was not specified.")
-            input_object_codes = [
-                object_code
-                for object_code in input_object_codes
+
+            existing_object_codes = set(existing_object_codes)
+            non_existing_idxs = [
+                i
+                for i, object_code in enumerate(input_object_codes)
                 if object_code not in existing_object_codes
             ]
+            input_object_codes = [
+                input_object_codes[i] for i in non_existing_idxs
+            ]
             input_object_scales = [
-                object_scale
-                for object_scale in input_object_scales
-                if object_scale not in existing_object_codes
+                input_object_scales[i] for i in non_existing_idxs
             ]
             print(
                 f"Continuing with {len(input_object_codes)} object codes after filtering."
