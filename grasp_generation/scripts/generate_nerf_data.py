@@ -46,51 +46,62 @@ def get_object_codes_and_scales_from_folder(
     return object_codes, object_scales
 
 
+def get_object_code_and_scale_strs_from_folder(
+    folder_path: pathlib.Path,
+) -> List[str]:
+    if not folder_path.exists():
+        return []
+
+    object_code_and_scale_strs = []
+    for file_path in folder_path.iterdir():
+        object_code_and_scale_str = file_path.stem
+        object_code_and_scale_strs.append(object_code_and_scale_str)
+    return object_code_and_scale_strs
+
+
 def get_object_codes_and_scales_to_process(
     args: GenerateNerfDataArgumentParser,
 ) -> Tuple[List[str], List[float]]:
     # Get input object codes
     if args.only_objects_in_this_path is not None:
-        (
-            input_object_codes,
-            input_object_scales,
-        ) = get_object_codes_and_scales_from_folder(args.only_objects_in_this_path)
+        input_object_code_and_scale_strs = get_object_code_and_scale_strs_from_folder(
+            args.only_objects_in_this_path
+        )
         print(
-            f"Found {len(input_object_codes)} object codes in args.only_objects_in_this_path ({args.only_objects_in_this_path})"
+            f"Found {len(input_object_code_and_scale_strs)} object codes in args.only_objects_in_this_path ({args.only_objects_in_this_path})"
         )
 
-        (
-            existing_object_codes,
-            existing_object_scales,
-        ) = get_object_codes_and_scales_from_folder(args.output_nerfdata_path)
+        existing_object_code_and_scale_strs = (
+            get_object_code_and_scale_strs_from_folder(args.output_nerfdata_path)
+        )
 
-        if args.no_continue and len(existing_object_codes) > 0:
+        if args.no_continue and len(existing_object_code_and_scale_strs) > 0:
             print(
-                f"Found {len(existing_object_codes)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
+                f"Found {len(existing_object_code_and_scale_strs)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
             )
             print("Exiting because --no_continue was specified.")
             exit()
-        elif len(existing_object_codes) > 0:
+        elif len(existing_object_code_and_scale_strs) > 0:
             print(
-                f"Found {len(existing_object_codes)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
+                f"Found {len(existing_object_code_and_scale_strs)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
             )
             print("Continuing because --no_continue was not specified.")
 
-            existing_object_codes = set(existing_object_codes)
-            existing_object_scales = set(existing_object_scales)
-            non_existing_idxs = [
-                i
-                for i, (object_code, object_scale) in enumerate(
-                    zip(input_object_codes, input_object_scales)
-                )
-                if object_code not in existing_object_codes
-                and object_scale not in existing_object_scales
-            ]
-            input_object_codes = [input_object_codes[i] for i in non_existing_idxs]
-            input_object_scales = [input_object_scales[i] for i in non_existing_idxs]
-            print(
-                f"Continuing with {len(input_object_codes)} object codes after filtering."
+            input_object_code_and_scale_strs = list(
+                set(input_object_code_and_scale_strs)
+                - set(existing_object_code_and_scale_strs)
             )
+            print(
+                f"Continuing with {len(input_object_code_and_scale_strs)} object codes after filtering."
+            )
+
+        input_object_codes, input_object_scales = [], []
+        for object_code_and_scale_str in input_object_code_and_scale_strs:
+            object_code, object_scale = parse_object_code_and_scale(
+                object_code_and_scale_str
+            )
+            input_object_codes.append(object_code)
+            input_object_scales.append(object_scale)
 
     else:
         input_object_codes = [
