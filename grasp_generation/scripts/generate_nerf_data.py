@@ -32,6 +32,9 @@ class GenerateNerfDataArgumentParser(Tap):
 def get_object_codes_and_scales_from_folder(
     folder_path: pathlib.Path,
 ) -> Tuple[List[str], List[float]]:
+    if not folder_path.exists():
+        return [], []
+
     object_codes, object_scales = [], []
     for file_path in folder_path.iterdir():
         object_code_and_scale_str = file_path.stem
@@ -74,17 +77,17 @@ def get_object_codes_and_scales_to_process(
             print("Continuing because --no_continue was not specified.")
 
             existing_object_codes = set(existing_object_codes)
+            existing_object_scales = set(existing_object_scales)
             non_existing_idxs = [
                 i
-                for i, object_code in enumerate(input_object_codes)
+                for i, (object_code, object_scale) in enumerate(
+                    zip(input_object_codes, input_object_scales)
+                )
                 if object_code not in existing_object_codes
+                and object_scale not in existing_object_scales
             ]
-            input_object_codes = [
-                input_object_codes[i] for i in non_existing_idxs
-            ]
-            input_object_scales = [
-                input_object_scales[i] for i in non_existing_idxs
-            ]
+            input_object_codes = [input_object_codes[i] for i in non_existing_idxs]
+            input_object_scales = [input_object_scales[i] for i in non_existing_idxs]
             print(
                 f"Continuing with {len(input_object_codes)} object codes after filtering."
             )
@@ -103,10 +106,15 @@ def get_object_codes_and_scales_to_process(
     return input_object_codes, input_object_scales
 
 
-def run_command(object_code, object_scale, args, script_to_run):
+def run_command(
+    object_code: str,
+    object_scale: float,
+    args: GenerateNerfDataArgumentParser,
+    script_to_run: pathlib.Path,
+):
     command = " ".join(
         [
-            f"python {script_to_run}",
+            f"python {str(script_to_run)}",
             f"--gpu {args.gpu}",
             f"--meshdata_root_path {args.meshdata_root_path}",
             f"--output_nerfdata_path {args.output_nerfdata_path}",
@@ -158,7 +166,12 @@ def main(args: GenerateNerfDataArgumentParser):
             dynamic_ncols=True,
             total=len(input_object_codes),
         ):
-            run_command(object_code, object_scale, args)
+            run_command(
+                object_code=object_code,
+                object_scale=object_scale,
+                args=args,
+                script_to_run=script_to_run,
+            )
 
 
 if __name__ == "__main__":
