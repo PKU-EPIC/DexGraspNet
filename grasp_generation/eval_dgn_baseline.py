@@ -9,6 +9,7 @@ class ArgumentParser(Tap):
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     nerf_meshdata_root_path: pathlib.Path = pathlib.Path("../data/nerf_meshdata")
     plan_using_nerf: bool = False
+    eval_using_nerf: bool = False
 
 
 def print_and_run(command: str) -> None:
@@ -36,12 +37,17 @@ def main() -> None:
     ) / datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     output_eval_results_path.mkdir(parents=True, exist_ok=True)
 
+    # NOTE: Expects the scale of the nerf_meshdata to be the same as the scale of the meshdata.
     planning_meshdata_root_path = (
         args.nerf_meshdata_root_path
         if args.plan_using_nerf
         else args.meshdata_root_path
     )
-    eval_meshdata_root_path = args.meshdata_root_path
+    eval_meshdata_root_path = (
+        args.nerf_meshdata_root_path
+        if args.eval_using_nerf
+        else args.meshdata_root_path
+    )
 
     # Gen hand configs
     hand_gen_command = (
