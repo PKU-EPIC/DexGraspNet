@@ -12,7 +12,7 @@ sys.path.append(os.path.realpath("."))
 from tap import Tap
 from tqdm import tqdm
 import subprocess
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 import pathlib
 from utils.parse_object_code_and_scale import parse_object_code_and_scale
 import multiprocessing
@@ -29,61 +29,24 @@ class GenerateNerfDataArgumentParser(Tap):
     no_continue: bool = False
 
 
+def get_object_code_and_scale_strs_from_folder(
+    folder_path: pathlib.Path,
+) -> List[str]:
+    if not folder_path.exists():
+        return []
+
+    object_code_and_scale_strs = []
+    for file_path in folder_path.iterdir():
+        object_code_and_scale_str = file_path.stem
+        object_code_and_scale_strs.append(object_code_and_scale_str)
+    return object_code_and_scale_strs
+
+
 def get_object_codes_and_scales_to_process(
     args: GenerateNerfDataArgumentParser,
-) -> Tuple[list, list]:
+) -> Tuple[List[str], List[float]]:
     # Get input object codes
-    if args.only_objects_in_this_path is not None:
-        input_object_codes, input_object_scales = [], []
-        for path in args.only_objects_in_this_path.iterdir():
-            object_code_and_scale_str = path.stem
-            object_code, object_scale = parse_object_code_and_scale(
-                object_code_and_scale_str
-            )
-            input_object_codes.append(object_code)
-            input_object_scales.append(object_scale)
-
-        print(
-            f"Found {len(input_object_codes)} object codes in args.only_objects_in_this_path ({args.only_objects_in_this_path})"
-        )
-
-        existing_object_code_and_scale_strs = list(args.output_nerfdata_path.iterdir())
-        existing_object_codes = [
-            parse_object_code_and_scale(object_code_and_scale_str)[0]
-            for object_code_and_scale_str in existing_object_code_and_scale_strs
-        ]
-
-        existing_object_scales = [
-            parse_object_code_and_scale(object_code_and_scale_str)[1]
-            for object_code_and_scale_str in existing_object_code_and_scale_strs
-        ]
-
-        if args.no_continue and len(existing_object_codes) > 0:
-            print(
-                f"Found {len(existing_object_codes)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
-            )
-            print("Exiting because --no_continue was specified.")
-            exit()
-        elif len(existing_object_codes) > 0:
-            print(
-                f"Found {len(existing_object_codes)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
-            )
-            print("Continuing because --no_continue was not specified.")
-            input_object_codes = [
-                object_code
-                for object_code in input_object_codes
-                if object_code not in existing_object_codes
-            ]
-            input_object_scales = [
-                object_scale
-                for object_scale in input_object_scales
-                if object_scale not in existing_object_codes
-            ]
-            print(
-                f"Continuing with {len(input_object_codes)} object codes after filtering."
-            )
-
-    else:
+    if args.only_objects_in_this_path is None:
         input_object_codes = [
             object_code for object_code in os.listdir(args.meshdata_root_path)
         ]
@@ -93,14 +56,59 @@ def get_object_codes_and_scales_to_process(
             f"Found {len(input_object_codes)} object codes in args.mesh_path ({args.meshdata_root_path})"
         )
         print(f"Using hardcoded scale {HARDCODED_OBJECT_SCALE} for all objects")
+        return input_object_codes, input_object_scales
+
+    input_object_code_and_scale_strs = get_object_code_and_scale_strs_from_folder(
+        args.only_objects_in_this_path
+    )
+    print(
+        f"Found {len(input_object_code_and_scale_strs)} object codes in args.only_objects_in_this_path ({args.only_objects_in_this_path})"
+    )
+
+    existing_object_code_and_scale_strs = get_object_code_and_scale_strs_from_folder(
+        args.output_nerfdata_path
+    )
+
+    if args.no_continue and len(existing_object_code_and_scale_strs) > 0:
+        print(
+            f"Found {len(existing_object_code_and_scale_strs)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
+        )
+        print("Exiting because --no_continue was specified.")
+        exit()
+    elif len(existing_object_code_and_scale_strs) > 0:
+        print(
+            f"Found {len(existing_object_code_and_scale_strs)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
+        )
+        print("Continuing because --no_continue was not specified.")
+
+        input_object_code_and_scale_strs = list(
+            set(input_object_code_and_scale_strs)
+            - set(existing_object_code_and_scale_strs)
+        )
+        print(
+            f"Continuing with {len(input_object_code_and_scale_strs)} object codes after filtering."
+        )
+
+    input_object_codes, input_object_scales = [], []
+    for object_code_and_scale_str in input_object_code_and_scale_strs:
+        object_code, object_scale = parse_object_code_and_scale(
+            object_code_and_scale_str
+        )
+        input_object_codes.append(object_code)
+        input_object_scales.append(object_scale)
 
     return input_object_codes, input_object_scales
 
 
-def run_command(object_code, object_scale, args, script_to_run):
+def run_command(
+    object_code: str,
+    object_scale: float,
+    args: GenerateNerfDataArgumentParser,
+    script_to_run: pathlib.Path,
+):
     command = " ".join(
         [
-            f"python {script_to_run}",
+            f"python {str(script_to_run)}",
             f"--gpu {args.gpu}",
             f"--meshdata_root_path {args.meshdata_root_path}",
             f"--output_nerfdata_path {args.output_nerfdata_path}",
@@ -132,6 +140,7 @@ def main(args: GenerateNerfDataArgumentParser):
 
         print(f"Randomizing order with seed {args.randomize_order_seed}")
         random.Random(args.randomize_order_seed).shuffle(input_object_codes)
+        random.Random(args.randomize_order_seed).shuffle(input_object_scales)
 
     if args.use_multiprocess:
         print(f"Using multiprocessing with {args.num_workers} workers.")
@@ -152,7 +161,12 @@ def main(args: GenerateNerfDataArgumentParser):
             dynamic_ncols=True,
             total=len(input_object_codes),
         ):
-            run_command(object_code, object_scale, args)
+            run_command(
+                object_code=object_code,
+                object_scale=object_scale,
+                args=args,
+                script_to_run=script_to_run,
+            )
 
 
 if __name__ == "__main__":
