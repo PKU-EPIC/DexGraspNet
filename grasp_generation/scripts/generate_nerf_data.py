@@ -29,23 +29,6 @@ class GenerateNerfDataArgumentParser(Tap):
     no_continue: bool = False
 
 
-def get_object_codes_and_scales_from_folder(
-    folder_path: pathlib.Path,
-) -> Tuple[List[str], List[float]]:
-    if not folder_path.exists():
-        return [], []
-
-    object_codes, object_scales = [], []
-    for file_path in folder_path.iterdir():
-        object_code_and_scale_str = file_path.stem
-        object_code, object_scale = parse_object_code_and_scale(
-            object_code_and_scale_str
-        )
-        object_codes.append(object_code)
-        object_scales.append(object_scale)
-    return object_codes, object_scales
-
-
 def get_object_code_and_scale_strs_from_folder(
     folder_path: pathlib.Path,
 ) -> List[str]:
@@ -63,47 +46,7 @@ def get_object_codes_and_scales_to_process(
     args: GenerateNerfDataArgumentParser,
 ) -> Tuple[List[str], List[float]]:
     # Get input object codes
-    if args.only_objects_in_this_path is not None:
-        input_object_code_and_scale_strs = get_object_code_and_scale_strs_from_folder(
-            args.only_objects_in_this_path
-        )
-        print(
-            f"Found {len(input_object_code_and_scale_strs)} object codes in args.only_objects_in_this_path ({args.only_objects_in_this_path})"
-        )
-
-        existing_object_code_and_scale_strs = (
-            get_object_code_and_scale_strs_from_folder(args.output_nerfdata_path)
-        )
-
-        if args.no_continue and len(existing_object_code_and_scale_strs) > 0:
-            print(
-                f"Found {len(existing_object_code_and_scale_strs)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
-            )
-            print("Exiting because --no_continue was specified.")
-            exit()
-        elif len(existing_object_code_and_scale_strs) > 0:
-            print(
-                f"Found {len(existing_object_code_and_scale_strs)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
-            )
-            print("Continuing because --no_continue was not specified.")
-
-            input_object_code_and_scale_strs = list(
-                set(input_object_code_and_scale_strs)
-                - set(existing_object_code_and_scale_strs)
-            )
-            print(
-                f"Continuing with {len(input_object_code_and_scale_strs)} object codes after filtering."
-            )
-
-        input_object_codes, input_object_scales = [], []
-        for object_code_and_scale_str in input_object_code_and_scale_strs:
-            object_code, object_scale = parse_object_code_and_scale(
-                object_code_and_scale_str
-            )
-            input_object_codes.append(object_code)
-            input_object_scales.append(object_scale)
-
-    else:
+    if args.only_objects_in_this_path is None:
         input_object_codes = [
             object_code for object_code in os.listdir(args.meshdata_root_path)
         ]
@@ -113,6 +56,46 @@ def get_object_codes_and_scales_to_process(
             f"Found {len(input_object_codes)} object codes in args.mesh_path ({args.meshdata_root_path})"
         )
         print(f"Using hardcoded scale {HARDCODED_OBJECT_SCALE} for all objects")
+        return input_object_codes, input_object_scales
+
+    input_object_code_and_scale_strs = get_object_code_and_scale_strs_from_folder(
+        args.only_objects_in_this_path
+    )
+    print(
+        f"Found {len(input_object_code_and_scale_strs)} object codes in args.only_objects_in_this_path ({args.only_objects_in_this_path})"
+    )
+
+    existing_object_code_and_scale_strs = get_object_code_and_scale_strs_from_folder(
+        args.output_nerfdata_path
+    )
+
+    if args.no_continue and len(existing_object_code_and_scale_strs) > 0:
+        print(
+            f"Found {len(existing_object_code_and_scale_strs)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
+        )
+        print("Exiting because --no_continue was specified.")
+        exit()
+    elif len(existing_object_code_and_scale_strs) > 0:
+        print(
+            f"Found {len(existing_object_code_and_scale_strs)} existing object codes in args.output_nerfdata_path ({args.output_nerfdata_path})."
+        )
+        print("Continuing because --no_continue was not specified.")
+
+        input_object_code_and_scale_strs = list(
+            set(input_object_code_and_scale_strs)
+            - set(existing_object_code_and_scale_strs)
+        )
+        print(
+            f"Continuing with {len(input_object_code_and_scale_strs)} object codes after filtering."
+        )
+
+    input_object_codes, input_object_scales = [], []
+    for object_code_and_scale_str in input_object_code_and_scale_strs:
+        object_code, object_scale = parse_object_code_and_scale(
+            object_code_and_scale_str
+        )
+        input_object_codes.append(object_code)
+        input_object_scales.append(object_scale)
 
     return input_object_codes, input_object_scales
 
@@ -157,6 +140,7 @@ def main(args: GenerateNerfDataArgumentParser):
 
         print(f"Randomizing order with seed {args.randomize_order_seed}")
         random.Random(args.randomize_order_seed).shuffle(input_object_codes)
+        random.Random(args.randomize_order_seed).shuffle(input_object_scales)
 
     if args.use_multiprocess:
         print(f"Using multiprocessing with {args.num_workers} workers.")
