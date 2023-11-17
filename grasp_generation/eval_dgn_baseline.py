@@ -2,6 +2,7 @@ from tap import Tap
 import pathlib
 import subprocess
 import datetime
+import numpy as np
 
 
 class ArgumentParser(Tap):
@@ -66,6 +67,37 @@ def main() -> None:
         + f" --meshdata_root_path {eval_meshdata_root_path}"
     )
     print_and_run(eval_final_grasp_command)
+
+    # Look at success rate.
+    num_successes, num_total = 0, 0
+    for filepath in (output_eval_results_path / "evaled_grasp_config_dicts").iterdir():
+        print(f"Loading grasp config dicts from: {filepath}")
+        evaled_grasp_config_dict = np.load(filepath, allow_pickle=True).item()
+        passed_eval = evaled_grasp_config_dict["passed_eval"]
+        assert len(passed_eval.shape) == 1
+
+        num_total += passed_eval.shape[0]
+        num_successes += passed_eval.sum()
+    print(f"Total success rate: {num_successes / num_total}")
+
+    BEST_K = 10
+    num_successes_best_k, num_total_best_k = 0, 0
+    for filepath in (output_eval_results_path / "evaled_grasp_config_dicts").iterdir():
+        print(f"Loading grasp config dicts from: {filepath}")
+        evaled_grasp_config_dict = np.load(filepath, allow_pickle=True).item()
+        passed_eval = evaled_grasp_config_dict["passed_eval"]
+        assert len(passed_eval.shape) == 1
+
+        total_energy = evaled_grasp_config_dict["Total Energy"]
+        assert total_energy.shape == passed_eval.shape
+
+        best_k_indices = np.argsort(total_energy)[:BEST_K]
+        best_energy = total_energy[best_k_indices]
+        assert np.all(best_energy < total_energy[np.argsort(total_energy)[-BEST_K:]])
+
+        num_total_best_k += passed_eval[best_k_indices].shape[0]
+        num_successes_best_k += passed_eval[best_k_indices].sum()
+    print(f"Total success rate of top {BEST_K} energy: {num_successes_best_k / num_total_best_k}")
 
 
 if __name__ == "__main__":
