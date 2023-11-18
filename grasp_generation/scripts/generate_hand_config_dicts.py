@@ -221,6 +221,7 @@ def save_hand_config_dicts(
     unweighted_energy_matrix = unweighted_energy_matrix.reshape(
         num_objects, num_grasps_per_object, -1
     )
+    energy = energy.reshape(num_objects, num_grasps_per_object)
 
     for ii, object_code in enumerate(object_code_list):
         trans, rot, joint_angles = pose_to_hand_config(hand_pose=hand_pose[ii])
@@ -234,6 +235,7 @@ def save_hand_config_dicts(
             energy_dict[energy_name] = (
                 unweighted_energy_matrix[ii, :, k].detach().cpu().numpy()
             )
+        energy_dict["Total Energy"] = energy[ii].detach().cpu().numpy()
 
         object_code_and_scale_str = object_code_and_scale_to_str(
             object_code, object_scales[ii]

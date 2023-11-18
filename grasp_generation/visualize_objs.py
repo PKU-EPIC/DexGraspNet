@@ -45,9 +45,9 @@ def main() -> None:
         args.meshdata_root_path.exists()
     ), f"args.meshdata_root_path {args.meshdata_root_path} does not exist"
 
-    obj_files = [
+    obj_files = sorted([
         path / "coacd" / "decomposed.obj" for path in args.meshdata_root_path.iterdir()
-    ]
+    ])
     obj_files = obj_files[: args.max_num_objects_to_visualize]
 
     # Create subplots
