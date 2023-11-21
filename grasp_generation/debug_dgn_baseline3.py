@@ -7,7 +7,7 @@ from plotly.subplots import make_subplots
 # %%
 batch_size = 1
 meshdata_root_path = pathlib.Path("../data/meshdata")
-nerf_meshdata_root_path = pathlib.Path("../../nerf_grasping/data/2023-11-17_01-27-23/nerf_meshdata_mugs_v8/")
+nerf_meshdata_root_path = pathlib.Path("../../nerf_grasping/data/2023-11-17_01-27-23/nerf_meshdata_mugs_v9/")
 
 object_code = "core-mug-1038e4eac0e18dcce02ae6d2a21d494a"
 object_scale = 0.1
@@ -144,11 +144,11 @@ nerf_object_random_dists_interior_positive, nerf_object_random_normals, _ = nerf
 object_random_dists_interior_positive.shape, object_random_normals.shape
 
 # %%
-nerf_object_dists_interior_positive.shape, nerf_object_normals.shape
+nerf_object_random_dists_interior_positive.shape, nerf_object_random_normals.shape
 
 # %%
-object_scaled_random_normals = object_random_normals * object_random_dists_interior_positive.unsqueeze(-1)
-nerf_object_scaled_random_normals = nerf_object_random_normals * nerf_object_random_dists_interior_positive.unsqueeze(-1)
+object_scaled_random_normals = object_random_normals * object_random_dists_interior_positive.unsqueeze(-1).abs()
+nerf_object_scaled_random_normals = nerf_object_random_normals * nerf_object_random_dists_interior_positive.unsqueeze(-1).abs()
 object_scaled_random_normals.shape, nerf_object_scaled_random_normals.shape
 
 # %%
@@ -189,4 +189,6 @@ for i in range(N_RANDOM_POINTS):
         col=2,
     )
 fig.show()
+# %%
+object_dists_interior_positive, nerf_object_dists_interior_positive
 # %%
