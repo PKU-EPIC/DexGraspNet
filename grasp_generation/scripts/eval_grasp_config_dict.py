@@ -244,8 +244,10 @@ def main(args: EvalGraspConfigDictArgumentParser):
         passed_simulation_with_noise = passed_simulation_array[
             :, 1:
         ]
+        # Use mean of all noise samples
         mean_passed_simulation_with_noise = passed_simulation_with_noise.mean(axis=1)
         passed_simulation_array = mean_passed_simulation_with_noise
+
     assert E_pen_array.shape == (batch_size,)
 
     if args.penetration_threshold is None:
