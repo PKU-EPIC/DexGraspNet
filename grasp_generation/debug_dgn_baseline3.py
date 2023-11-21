@@ -7,7 +7,7 @@ from plotly.subplots import make_subplots
 # %%
 batch_size = 1
 meshdata_root_path = pathlib.Path("../data/meshdata")
-nerf_meshdata_root_path = pathlib.Path("../../nerf_grasping/data/2023-11-17_01-27-23/nerf_meshdata_mugs_v9/")
+nerf_meshdata_root_path = pathlib.Path("../../nerf_grasping/data/2023-11-17_01-27-23/nerf_meshdata_mugs_v10/")
 
 object_code = "core-mug-1038e4eac0e18dcce02ae6d2a21d494a"
 object_scale = 0.1
