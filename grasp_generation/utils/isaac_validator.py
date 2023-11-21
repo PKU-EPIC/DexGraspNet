@@ -19,6 +19,7 @@ from collections import defaultdict
 import torch
 from enum import Enum, auto
 from typing import List, Optional, Tuple
+import transforms3d
 
 ## NERF GRASPING START ##
 
@@ -273,6 +274,7 @@ class IsaacValidator:
         hand_qpos: np.ndarray,
         obj_scale: float,
         target_qpos: np.ndarray,
+        add_random_pose_noise: bool = False,
     ) -> None:
         for test_rotation_idx in range(len(self.test_rotations)):
             self.add_env_single_test_rotation(
@@ -281,6 +283,7 @@ class IsaacValidator:
                 hand_qpos=hand_qpos,
                 obj_scale=obj_scale,
                 target_qpos=target_qpos,
+                add_random_pose_noise=add_random_pose_noise,
                 test_rotation_index=test_rotation_idx,
             )
 
@@ -291,6 +294,7 @@ class IsaacValidator:
         hand_qpos: np.ndarray,
         obj_scale: float,
         target_qpos: np.ndarray,
+        add_random_pose_noise: bool = False,
         test_rotation_index: int = 0,
         record: bool = False,
     ) -> None:
@@ -316,7 +320,13 @@ class IsaacValidator:
             collision_idx=test_rotation_index,  # BRITTLE: ASSUMES ONLY ONE OBJECT AT A TIME.
         )
 
-        self._setup_obj(env, obj_scale, test_rot, collision_idx=test_rotation_index)
+        self._setup_obj(
+            env,
+            obj_scale,
+            test_rot,
+            collision_idx=test_rotation_index,
+            add_random_pose_noise=add_random_pose_noise,
+        )
 
         self.init_rel_obj_poses.append(
             self.init_hand_poses[-1].inverse() * self.init_obj_poses[-1]
@@ -451,10 +461,25 @@ class IsaacValidator:
         obj_scale: float,
         transformation: gymapi.Transform,
         collision_idx: int,
+        add_random_pose_noise: bool = False,
     ) -> None:
         obj_pose = gymapi.Transform()
         obj_pose.p = gymapi.Vec3(0, 0, 0)
         obj_pose.r = gymapi.Quat(0, 0, 0, 1)
+
+        if add_random_pose_noise:
+            TRANSLATION_NOISE = 0.1
+            ROTATION_NOISE_DEG = 10
+            xyz_noise = np.random.uniform(-TRANSLATION_NOISE, TRANSLATION_NOISE, 3)
+            rpy_noise = np.random.uniform(-ROTATION_NOISE_DEG, ROTATION_NOISE_DEG, 3)
+            quat_wxyz = transforms3d.euler.euler2quat(*rpy_noise)
+            assert xyz_noise.shape == (3,)
+            assert rpy_noise.shape == (3,)
+            assert quat_wxyz.shape == (4,)
+
+            obj_pose.p = gymapi.Vec3(*xyz_noise)
+            obj_pose.r = gymapi.Quat(*quat_wxyz[1:], quat_wxyz[0])
+
         obj_pose = transformation * obj_pose
         self.init_obj_poses.append(obj_pose)
         self.collision_idx = collision_idx
