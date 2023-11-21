@@ -50,6 +50,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     output_evaled_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/evaled_grasp_config_dicts"
     )
+    add_random_pose_noise: bool = False
     # if debug_index is received, then the debug mode is on
     debug_index: Optional[int] = None
     start_with_step_mode: bool = False  # with use_gui, starts sim paused in step mode, press S to step 1 sim step, press space to toggle pause
@@ -146,6 +147,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             hand_qpos=joint_angles[index],
             obj_scale=object_scale,
             target_qpos=joint_angle_targets_array[index],
+            add_random_pose_noise=args.add_random_pose_noise,
             record=index in args.record_indices,
         )
         successes = sim.run_sim()
@@ -190,6 +192,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
                 hand_qpos=joint_angles[index],
                 obj_scale=object_scale,
                 target_qpos=joint_angle_targets_array[index],
+                add_random_pose_noise=args.add_random_pose_noise,
                 record=index in args.record_indices,
             )
         batch_successes = sim.run_sim()

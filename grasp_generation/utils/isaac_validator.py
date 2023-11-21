@@ -468,10 +468,12 @@ class IsaacValidator:
         obj_pose.r = gymapi.Quat(0, 0, 0, 1)
 
         if add_random_pose_noise:
-            TRANSLATION_NOISE = 0.1
-            ROTATION_NOISE_DEG = 10
-            xyz_noise = np.random.uniform(-TRANSLATION_NOISE, TRANSLATION_NOISE, 3)
-            rpy_noise = np.random.uniform(-ROTATION_NOISE_DEG, ROTATION_NOISE_DEG, 3)
+            seed = None
+            TRANSLATION_NOISE_CM = 0.1
+            TRANSLATION_NOISE_M = TRANSLATION_NOISE_CM / 100
+            ROTATION_NOISE_DEG = 1
+            xyz_noise = np.random.RandomState(seed=seed).uniform(-TRANSLATION_NOISE_M, TRANSLATION_NOISE_M, 3)
+            rpy_noise = np.random.RandomState(seed=seed).uniform(-ROTATION_NOISE_DEG, ROTATION_NOISE_DEG, 3)
             quat_wxyz = transforms3d.euler.euler2quat(*rpy_noise)
             assert xyz_noise.shape == (3,)
             assert rpy_noise.shape == (3,)
