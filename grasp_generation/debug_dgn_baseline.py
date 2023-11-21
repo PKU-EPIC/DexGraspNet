@@ -1,5 +1,6 @@
 # %%
 import pathlib
+
 input_hand_config_dicts_path = pathlib.Path(
     "../data/eval_results/2023-11-17_21-39-17/hand_config_dicts/"
 )
@@ -22,10 +23,9 @@ from utils.pose_conversion import (
 )
 from typing import Dict
 import numpy as np
+
 object_code_and_scale_str = hand_config_dict_filepath.stem
-object_code, object_scale = parse_object_code_and_scale(
-    object_code_and_scale_str
-)
+object_code, object_scale = parse_object_code_and_scale(object_code_and_scale_str)
 
 # Read in data
 hand_config_dict: Dict[str, np.ndarray] = np.load(
@@ -50,6 +50,7 @@ from utils.object_model import ObjectModel
 from utils.hand_model_type import HandModelType
 from dataclasses import dataclass
 
+
 @dataclass
 class Args:
     gpu: int = 0
@@ -65,9 +66,7 @@ device = torch.device(f"cuda:{args.gpu}") if torch.cuda.is_available() else "cpu
 hand_pose = hand_pose.to(device)
 
 # hand model
-hand_model = HandModel(
-    hand_model_type=args.hand_model_type, device=hand_pose.device
-)
+hand_model = HandModel(hand_model_type=args.hand_model_type, device=hand_pose.device)
 hand_model.set_parameters(hand_pose)
 
 # object model
@@ -82,12 +81,13 @@ object_model.initialize(object_code, object_scale)
 # %%
 GRASP_IDX = 0
 import plotly.graph_objects as go
+
 hand_plotly = hand_model.get_plotly_data(
     i=GRASP_IDX,
     opacity=1,
     color="lightblue",
     with_contact_points=False,
-    with_contact_candidates=True,
+    with_contact_candidates=False,
     with_surface_points=True,
     with_penetration_keypoints=False,
 )
@@ -102,11 +102,16 @@ fig = go.Figure(
 fig.show()
 
 # %%
-grasp_orientations, hand_contact_nearest_points, nearest_object_to_hand_directions, nearest_distances = compute_grasp_orientations_external(
+(
+    grasp_orientations,
+    hand_contact_nearest_points,
+    nearest_object_to_hand_directions,
+    nearest_distances,
+) = compute_grasp_orientations_external(
     joint_angles_start=hand_model.hand_pose[:, 9:],
     hand_model=hand_model,
     object_model=object_model,
-    debug=True
+    debug=True,
 )
 
 # %%
@@ -125,7 +130,10 @@ nearest_distances[GRASP_IDX].shape
 nearest_distances[GRASP_IDX]
 
 # %%
-object_nearest_points = hand_contact_nearest_points + nearest_object_to_hand_directions * nearest_distances.unsqueeze(-1)
+object_nearest_points = (
+    hand_contact_nearest_points
+    - nearest_object_to_hand_directions * nearest_distances.unsqueeze(-1)
+)
 
 # %%
 object_nearest_points[GRASP_IDX].shape
@@ -154,4 +162,69 @@ fig.add_trace(
 )
 fig.show()
 
+# %%
+from utils.joint_angle_targets import (
+    compute_optimized_joint_angle_targets_given_grasp_orientations,
+    compute_fingertip_targets,
+    compute_optimized_joint_angle_targets_given_fingertip_targets,
+)
+
+fingertip_targets = compute_fingertip_targets(
+    joint_angles_start=hand_model.hand_pose[:, 9:],
+    hand_model=hand_model,
+    grasp_orientations=grasp_orientations,
+)
+
+(
+    optimized_joint_angle_targets,
+    _,
+) = compute_optimized_joint_angle_targets_given_fingertip_targets(
+    joint_angles_start=hand_model.hand_pose[:, 9:],
+    hand_model=hand_model,
+    fingertip_targets=fingertip_targets,
+)
+
+(
+    optimized_joint_angle_targets2,
+    _,
+) = compute_optimized_joint_angle_targets_given_grasp_orientations(
+    joint_angles_start=hand_model.hand_pose[:, 9:],
+    hand_model=hand_model,
+    grasp_orientations=grasp_orientations,
+)
+
+# %%
+hand_model.set_parameters(
+    torch.cat(
+        [
+            hand_model.hand_pose[:, :9],
+            optimized_joint_angle_targets,
+        ],
+        dim=-1,
+    )
+)
+hand_target_plotly = hand_model.get_plotly_data(
+    i=GRASP_IDX,
+    opacity=0.5,
+    color="red",
+    with_contact_points=False,
+    with_contact_candidates=False,
+    with_surface_points=True,
+    with_penetration_keypoints=False,
+)
+for data in hand_target_plotly:
+    fig.add_trace(data)
+
+fig.add_trace(
+    go.Scatter3d(
+        x=fingertip_targets.cpu().numpy()[GRASP_IDX][:, 0],
+        y=fingertip_targets.cpu().numpy()[GRASP_IDX][:, 1],
+        z=fingertip_targets.cpu().numpy()[GRASP_IDX][:, 2],
+        mode="markers",
+        marker=dict(size=10, color="green"),
+        name="fingertip_targets",
+    )
+)
+
+fig.show()
 # %%
