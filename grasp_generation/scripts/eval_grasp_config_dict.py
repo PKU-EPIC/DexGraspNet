@@ -50,7 +50,8 @@ class EvalGraspConfigDictArgumentParser(Tap):
     output_evaled_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/evaled_grasp_config_dicts"
     )
-    add_random_pose_noise: bool = False
+    num_random_pose_noise_samples_per_grasp: Optional[int] = None
+
     # if debug_index is received, then the debug mode is on
     debug_index: Optional[int] = None
     start_with_step_mode: bool = False  # with use_gui, starts sim paused in step mode, press S to step 1 sim step, press space to toggle pause
@@ -96,6 +97,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
     os.environ.pop("CUDA_VISIBLE_DEVICES")
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+    add_random_pose_noise = args.num_random_pose_noise_samples_per_grasp is not None
 
     object_code, object_scale = parse_object_code_and_scale(
         args.object_code_and_scale_str
@@ -147,12 +149,12 @@ def main(args: EvalGraspConfigDictArgumentParser):
             hand_qpos=joint_angles[index],
             obj_scale=object_scale,
             target_qpos=joint_angle_targets_array[index],
-            add_random_pose_noise=args.add_random_pose_noise,
+            add_random_pose_noise=add_random_pose_noise,
             record=index in args.record_indices,
         )
-        successes = sim.run_sim()
+        passed_simulation = sim.run_sim()
         sim.reset_simulator()
-        print(f"successes = {successes}")
+        print(f"passed_simulation = {passed_simulation}")
         print("Ending...")
         return
 
@@ -175,7 +177,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
     assert grasp_orientations.shape == (batch_size, hand_model.num_fingers, 3, 3)
 
     # Run for loop over minibatches of grasps.
-    successes = []
+    passed_simulation_array = []
     E_pen_array = []
     pbar = tqdm(range(math.ceil(batch_size / args.max_grasps_per_batch)))
     for i in pbar:
@@ -192,13 +194,26 @@ def main(args: EvalGraspConfigDictArgumentParser):
                 hand_qpos=joint_angles[index],
                 obj_scale=object_scale,
                 target_qpos=joint_angle_targets_array[index],
-                add_random_pose_noise=args.add_random_pose_noise,
+                add_random_pose_noise=add_random_pose_noise,
                 record=index in args.record_indices,
             )
-        batch_successes = sim.run_sim()
-        successes.extend(batch_successes)
+
+            if args.num_random_pose_noise_samples_per_grasp is not None:
+                for _ in range(args.num_random_pose_noise_samples_per_grasp):
+                    sim.add_env_single_test_rotation(
+                        hand_quaternion_wxyz=quat_wxyz[index],
+                        hand_translation=trans[index],
+                        hand_qpos=joint_angles[index],
+                        obj_scale=object_scale,
+                        target_qpos=joint_angle_targets_array[index],
+                        add_random_pose_noise=add_random_pose_noise,
+                        record=index in args.record_indices,
+                    )
+
+        passed_simulation = sim.run_sim()
+        passed_simulation_array.extend(passed_simulation)
         sim.reset_simulator()
-        pbar.set_description(f"mean_success = {np.mean(successes)}")
+        pbar.set_description(f"mean_success = {np.mean(passed_simulation_array)}")
 
         hand_model.set_parameters(hand_pose[start_index:end_index])
 
@@ -216,11 +231,22 @@ def main(args: EvalGraspConfigDictArgumentParser):
         E_pen_array.extend(batch_E_pen_array.flatten().tolist())
 
     # Aggregate results
-    successes = np.array(successes)
-    assert len(successes) == batch_size
-    passed_simulation = np.array(successes)
+    passed_simulation_array = np.array(passed_simulation_array)
     E_pen_array = np.array(E_pen_array)
-    assert len(E_pen_array) == batch_size
+
+    if args.num_random_pose_noise_samples_per_grasp is None:
+        assert passed_simulation_array.shape == (batch_size,)
+    else:
+        passed_simulation_array = passed_simulation_array.reshape(
+            batch_size, args.num_random_pose_noise_samples_per_grasp + 1
+        )
+        passed_simulation_without_noise = passed_simulation_array[:, 0]
+        passed_simulation_with_noise = passed_simulation_array[
+            :, 1:
+        ]
+        mean_passed_simulation_with_noise = passed_simulation_with_noise.mean(axis=1)
+        passed_simulation_array = mean_passed_simulation_with_noise
+    assert E_pen_array.shape == (batch_size,)
 
     if args.penetration_threshold is None:
         print("WARNING: penetration check skipped")
@@ -228,21 +254,21 @@ def main(args: EvalGraspConfigDictArgumentParser):
     else:
         passed_penetration_threshold = E_pen_array < args.penetration_threshold
 
-    passed_eval = passed_simulation * passed_penetration_threshold
+    passed_eval = passed_simulation_array * passed_penetration_threshold
     pen_frac = np.mean(passed_penetration_threshold)
-    sim_frac = np.mean(passed_simulation)
+    sim_frac = np.mean(passed_simulation_array)
     eval_frac = np.mean(passed_eval)
     print("=" * 80)
     print(
         f"passed_penetration_threshold: {passed_penetration_threshold.sum().item()}/{batch_size} ({100*pen_frac:.2f}%),"
-        f"passed_simulation: {passed_simulation.sum().item()}/{batch_size} ({100 * sim_frac:.2f}%),"
+        f"passed_simulation: {passed_simulation_array.sum().item()}/{batch_size} ({100 * sim_frac:.2f}%),"
         f"passed_eval = passed_simulation * passed_penetration_threshold: {passed_eval.sum().item()}/{batch_size} ({100 * eval_frac:.2f}%)"
     )
     print("=" * 80)
     evaled_grasp_config_dict = {
         **grasp_config_dict,
         "passed_penetration_threshold": passed_penetration_threshold,
-        "passed_simulation": passed_simulation,
+        "passed_simulation": passed_simulation_array,
         "passed_eval": passed_eval,
         "penetration": E_pen_array,
     }
