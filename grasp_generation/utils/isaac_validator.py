@@ -268,7 +268,7 @@ class IsaacValidator:
 
     def add_env_all_test_rotations(
         self,
-        hand_quaternion: np.ndarray,
+        hand_quaternion_wxyz: np.ndarray,
         hand_translation: np.ndarray,
         hand_qpos: np.ndarray,
         obj_scale: float,
@@ -276,7 +276,7 @@ class IsaacValidator:
     ) -> None:
         for test_rotation_idx in range(len(self.test_rotations)):
             self.add_env_single_test_rotation(
-                hand_quaternion=hand_quaternion,
+                hand_quaternion_wxyz=hand_quaternion_wxyz,
                 hand_translation=hand_translation,
                 hand_qpos=hand_qpos,
                 obj_scale=obj_scale,
@@ -286,7 +286,7 @@ class IsaacValidator:
 
     def add_env_single_test_rotation(
         self,
-        hand_quaternion: np.ndarray,
+        hand_quaternion_wxyz: np.ndarray,
         hand_translation: np.ndarray,
         hand_qpos: np.ndarray,
         obj_scale: float,
@@ -308,7 +308,7 @@ class IsaacValidator:
 
         self._setup_hand(
             env=env,
-            hand_quaternion=hand_quaternion,
+            hand_quaternion_wxyz=hand_quaternion_wxyz,
             hand_translation=hand_translation,
             hand_qpos=hand_qpos,
             transformation=test_rot,
@@ -354,7 +354,7 @@ class IsaacValidator:
     def _setup_hand(
         self,
         env,
-        hand_quaternion: np.ndarray,
+        hand_quaternion_wxyz: np.ndarray,
         hand_translation: np.ndarray,
         hand_qpos: np.ndarray,
         transformation: gymapi.Transform,
@@ -363,7 +363,7 @@ class IsaacValidator:
     ) -> None:
         # Set hand pose
         hand_pose = gymapi.Transform()
-        hand_pose.r = gymapi.Quat(*hand_quaternion[1:], hand_quaternion[0])
+        hand_pose.r = gymapi.Quat(*hand_quaternion_wxyz[1:], hand_quaternion_wxyz[0])
         hand_pose.p = gymapi.Vec3(*hand_translation)
         hand_pose = transformation * hand_pose
         self.init_hand_poses.append(hand_pose)

@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Tuple
 
 def pose_to_hand_config(
     hand_pose: torch.Tensor,
-) -> Dict[str, Any]:
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if len(hand_pose.shape) == 0:
         hand_pose = hand_pose.unsqueeze(0)  # Make sure hand pose at least 2d.
 
@@ -32,9 +32,6 @@ def hand_config_to_pose(
 ) -> torch.Tensor:
     # Unsqueeze if no batch dim.
 
-    # TODO(pculbert): Handle case when trans/rot/joint_angles are already tensors
-    # to suppress torch warning.
-
     if len(trans.shape) == 1:
         assert rot.shape == (3, 3)
         assert joint_angles.shape == (16,)
@@ -49,14 +46,14 @@ def hand_config_to_pose(
     assert joint_angles.shape == (batch_size, 16)
 
     # Convert rotation matrix batch to rot6d tensors.
-    rot6d = torch.tensor(rot[:, :, :2]).transpose(2, 1).reshape(batch_size, -1)
-    assert rot6d.shape == (batch_size, 6)
+    rot6d_torch = torch.from_numpy(rot[:, :, :2]).transpose(2, 1).reshape(batch_size, -1)
+    assert rot6d_torch.shape == (batch_size, 6)
 
     # Convert trans and joint angles to tensors.
-    trans = torch.tensor(trans)
-    joint_angles = torch.tensor(joint_angles)
+    trans_torch = torch.from_numpy(trans)
+    joint_angles_torch = torch.from_numpy(joint_angles)
 
-    hand_pose = torch.cat([trans, rot6d, joint_angles], dim=1).float()
+    hand_pose = torch.cat([trans_torch, rot6d_torch, joint_angles_torch], dim=1).float()
 
     assert hand_pose.shape == (batch_size, 25)
 
