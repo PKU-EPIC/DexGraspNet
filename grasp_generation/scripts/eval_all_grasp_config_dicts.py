@@ -8,8 +8,6 @@ import sys
 sys.path.append(os.path.realpath("."))
 from utils.isaac_validator import ValidationType
 from utils.hand_model_type import HandModelType
-from utils.joint_angle_targets import OptimizationMethod
-from utils.parse_object_code_and_scale import parse_object_code_and_scale
 import multiprocessing
 
 from functools import partial
@@ -43,7 +41,7 @@ class EvalAllGraspConfigDictsArgumentParser(Tap):
 def get_object_code_and_scale_strs_to_process(
     input_grasp_config_dicts_path: pathlib.Path,
     output_evaled_grasp_config_dicts_path: pathlib.Path,
-) -> list:
+) -> List[str]:
     input_object_code_and_scale_strs = [
         path.stem for path in list(input_grasp_config_dicts_path.glob("*.npy"))
     ]
@@ -82,27 +80,25 @@ def get_object_code_and_scale_strs_to_process(
 
 
 def print_and_run_command_safe(
-    object_code_and_scale_str,
-    args=None,
-    script_to_run=None,
-    input_grasp_config_dicts_path=None,
-    output_evaled_grasp_config_dicts_path=None,
+    object_code_and_scale_str: str,
+    args: EvalAllGraspConfigDictsArgumentParser,
+    script_to_run: pathlib.Path,
+    input_grasp_config_dicts_path: pathlib.Path,
+    output_evaled_grasp_config_dicts_path: pathlib.Path,
 ):
-    command = (
-        " ".join(
-            [
-                f"CUDA_VISIBLE_DEVICES={args.gpu}",
-                f"python {script_to_run}",
-                f"--hand_model_type {args.hand_model_type.name}",
-                f"--validation_type {args.validation_type.name}",
-                f"--gpu {args.gpu}",
-                f"--meshdata_root_path {args.meshdata_root_path}",
-                f"--input_grasp_config_dicts_path {input_grasp_config_dicts_path}",
-                f"--output_evaled_grasp_config_dicts_path {output_evaled_grasp_config_dicts_path}",
-                f"--object_code_and_scale_str {object_code_and_scale_str}",
-                f"--max_grasps_per_batch {args.max_grasps_per_batch}",
-            ]
-        ),
+    command = " ".join(
+        [
+            f"CUDA_VISIBLE_DEVICES={args.gpu}",
+            f"python {script_to_run}",
+            f"--hand_model_type {args.hand_model_type.name}",
+            f"--validation_type {args.validation_type.name}",
+            f"--gpu {args.gpu}",
+            f"--meshdata_root_path {args.meshdata_root_path}",
+            f"--input_grasp_config_dicts_path {input_grasp_config_dicts_path}",
+            f"--output_evaled_grasp_config_dicts_path {output_evaled_grasp_config_dicts_path}",
+            f"--object_code_and_scale_str {object_code_and_scale_str}",
+            f"--max_grasps_per_batch {args.max_grasps_per_batch}",
+        ]
     )
 
     if args.debug_index is not None:

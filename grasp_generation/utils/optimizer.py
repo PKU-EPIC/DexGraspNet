@@ -9,17 +9,28 @@ from utils.hand_model import HandModel
 
 
 class Annealing:
-    def __init__(self, hand_model: HandModel, switch_possibility=0.5, starting_temperature=18, temperature_decay=0.95, n_contacts_per_finger=1, annealing_period=30,
-                 step_size=0.005, stepsize_period=50, mu=0.98, device='cpu'):
+    def __init__(
+        self,
+        hand_model: HandModel,
+        switch_possibility=0.5,
+        starting_temperature=18,
+        temperature_decay=0.95,
+        n_contacts_per_finger=1,
+        annealing_period=30,
+        step_size=0.005,
+        stepsize_period=50,
+        mu=0.98,
+        device="cpu",
+    ):
         """
         Create a optimizer
-        
+
         Use random resampling to update contact point indices
-        
+
         Use RMSProp to update translation, rotation, and joint angles, use step size decay
-        
+
         Use Annealing to accept / reject parameter updates
-        
+
         Parameters
         ----------
         hand_model: hand_model.HandModel
@@ -38,11 +49,19 @@ class Annealing:
         self.hand_model = hand_model
         self.device = device
         self.switch_possibility = switch_possibility
-        self.starting_temperature = torch.tensor(starting_temperature, dtype=torch.float, device=device)
-        self.temperature_decay = torch.tensor(temperature_decay, dtype=torch.float, device=device)
-        self.annealing_period = torch.tensor(annealing_period, dtype=torch.long, device=device)
+        self.starting_temperature = torch.tensor(
+            starting_temperature, dtype=torch.float, device=device
+        )
+        self.temperature_decay = torch.tensor(
+            temperature_decay, dtype=torch.float, device=device
+        )
+        self.annealing_period = torch.tensor(
+            annealing_period, dtype=torch.long, device=device
+        )
         self.step_size = torch.tensor(step_size, dtype=torch.float, device=device)
-        self.step_size_period = torch.tensor(stepsize_period, dtype=torch.long, device=device)
+        self.step_size_period = torch.tensor(
+            stepsize_period, dtype=torch.long, device=device
+        )
         self.mu = torch.tensor(mu, dtype=torch.float, device=device)
         self.n_contacts_per_finger = n_contacts_per_finger
         self.step = 0
@@ -54,31 +73,54 @@ class Annealing:
         self.old_current_status = None
         self.old_contact_points = None
         self.old_grad_hand_pose = None
-        self.ema_grad_hand_pose = torch.zeros(self.hand_model.n_dofs + 9, dtype=torch.float, device=device)
+        self.ema_grad_hand_pose = torch.zeros(
+            self.hand_model.n_dofs + 9, dtype=torch.float, device=device
+        )
 
     def try_step(self):
         """
         Try to update translation, rotation, joint angles, and contact point indices
-        
+
         Returns
         -------
         s: torch.Tensor
             current step size
         """
 
-        s = self.step_size * self.temperature_decay ** torch.div(self.step, self.step_size_period, rounding_mode='floor')
-        step_size = torch.zeros(*self.hand_model.hand_pose.shape, dtype=torch.float, device=self.device) + s
+        s = self.step_size * self.temperature_decay ** torch.div(
+            self.step, self.step_size_period, rounding_mode="floor"
+        )
+        step_size = (
+            torch.zeros(
+                *self.hand_model.hand_pose.shape, dtype=torch.float, device=self.device
+            )
+            + s
+        )
 
-        self.ema_grad_hand_pose = self.mu * (self.hand_model.hand_pose.grad ** 2).mean(0) + \
-            (1 - self.mu) * self.ema_grad_hand_pose
+        self.ema_grad_hand_pose = (
+            self.mu * (self.hand_model.hand_pose.grad**2).mean(0)
+            + (1 - self.mu) * self.ema_grad_hand_pose
+        )
 
-        hand_pose = self.hand_model.hand_pose - \
-            step_size * self.hand_model.hand_pose.grad / (torch.sqrt(self.ema_grad_hand_pose) + 1e-6)
+        hand_pose = (
+            self.hand_model.hand_pose
+            - step_size
+            * self.hand_model.hand_pose.grad
+            / (torch.sqrt(self.ema_grad_hand_pose) + 1e-6)
+        )
         batch_size, n_contact = self.hand_model.contact_point_indices.shape
-        switch_mask = torch.rand(batch_size, dtype=torch.float, device=self.device) < self.switch_possibility
+        switch_mask = (
+            torch.rand(batch_size, dtype=torch.float, device=self.device)
+            < self.switch_possibility
+        )
         contact_point_indices = self.hand_model.contact_point_indices.clone()
-        new_contact_point_indices = self.hand_model.sample_contact_points(total_batch_size=batch_size, n_contacts_per_finger=self.n_contacts_per_finger)
-        contact_point_indices = torch.where(switch_mask[..., None], new_contact_point_indices, contact_point_indices)
+        new_contact_point_indices = self.hand_model.sample_contact_points(
+            total_batch_size=batch_size,
+            n_contacts_per_finger=self.n_contacts_per_finger,
+        )
+        contact_point_indices = torch.where(
+            switch_mask[..., None], new_contact_point_indices, contact_point_indices
+        )
 
         self.old_hand_pose = self.hand_model.hand_pose
         self.old_contact_point_indices = self.hand_model.contact_point_indices
@@ -96,7 +138,7 @@ class Annealing:
     def accept_step(self, energy, new_energy):
         """
         Accept / reject updates using annealing
-        
+
         Returns
         -------
         accept: (N,) torch.BoolTensor
@@ -105,7 +147,9 @@ class Annealing:
         """
 
         batch_size = energy.shape[0]
-        temperature = self.starting_temperature * self.temperature_decay ** torch.div(self.step, self.annealing_period, rounding_mode='floor')
+        temperature = self.starting_temperature * self.temperature_decay ** torch.div(
+            self.step, self.annealing_period, rounding_mode="floor"
+        )
 
         alpha = torch.rand(batch_size, dtype=torch.float, device=self.device)
         accept = alpha < torch.exp((energy - new_energy) / temperature)
@@ -113,10 +157,16 @@ class Annealing:
         with torch.no_grad():
             reject = ~accept
             self.hand_model.hand_pose[reject] = self.old_hand_pose[reject]
-            self.hand_model.contact_point_indices[reject] = self.old_contact_point_indices[reject]
-            self.hand_model.global_translation[reject] = self.old_global_transformation[reject]
+            self.hand_model.contact_point_indices[
+                reject
+            ] = self.old_contact_point_indices[reject]
+            self.hand_model.global_translation[reject] = self.old_global_transformation[
+                reject
+            ]
             self.hand_model.global_rotation[reject] = self.old_global_rotation[reject]
-            self.hand_model.current_status = self.hand_model.chain.forward_kinematics(self.hand_model.hand_pose[:, 9:])
+            self.hand_model.current_status = self.hand_model.chain.forward_kinematics(
+                self.hand_model.hand_pose[:, 9:]
+            )
             self.hand_model.contact_points[reject] = self.old_contact_points[reject]
             self.hand_model.hand_pose.grad[reject] = self.old_grad_hand_pose[reject]
 

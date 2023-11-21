@@ -113,7 +113,7 @@ def main() -> None:
                         ]
                     ),
                 )
-        print(f"Done copying meshdata")
+        print("Done copying meshdata")
     else:  # Check all correct objects are in new_input_meshdata_path
         print(f"Found {new_input_meshdata_path}. Continuing experiment.")
         existing_object_codes = [
@@ -146,7 +146,7 @@ def main() -> None:
             ]
         ),
     )
-    print(f"Done generating grasps.")
+    print("Done generating grasps.")
 
     # Upload results back to bucket.
     print_and_run(

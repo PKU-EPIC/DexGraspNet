@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import os
 
+
 def set_seed(seed, torch_deterministic=False, rank=0):
     """set seed across modules"""
     if seed == -1 and torch_deterministic:
@@ -32,4 +33,3 @@ def set_seed(seed, torch_deterministic=False, rank=0):
         torch.backends.cudnn.deterministic = False
 
     return seed
-

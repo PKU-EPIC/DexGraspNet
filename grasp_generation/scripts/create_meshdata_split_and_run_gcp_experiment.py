@@ -6,7 +6,6 @@ import math
 import random
 import pickle
 from datetime import datetime
-import subprocess
 import multiprocessing
 
 DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

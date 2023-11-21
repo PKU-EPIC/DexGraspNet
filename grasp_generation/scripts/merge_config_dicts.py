@@ -1,7 +1,6 @@
 import numpy as np
 import pathlib
 from tap import Tap
-from collections import defaultdict
 
 
 class MergeConfigDictsArgumentsParser(Tap):
@@ -47,6 +46,7 @@ def main(args: MergeConfigDictsArgumentsParser) -> None:
                     )
 
         # Shape checks.
+        assert combined_grasp_config_dict is not None
         for key in combined_grasp_config_dict.keys():
             assert combined_grasp_config_dict[key].shape[0] == num_grasps
 

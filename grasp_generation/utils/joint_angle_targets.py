@@ -1,25 +1,12 @@
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 import torch
-from typing import Union, Dict, Any, Tuple, Optional, List
-import numpy as np
+from typing import Dict, Tuple
 from collections import defaultdict
 
-from enum import Enum, auto
-
-
-class AutoName(Enum):
-    # https://docs.python.org/3.9/library/enum.html#using-automatic-values
-    def _generate_next_value_(name, start, count, last_values):
-        return name
-
-
-class OptimizationMethod(AutoName):
-    DESIRED_PENETRATION_DEPTH = auto()
-    DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS = auto()
-    DESIRED_DIST_TOWARDS_FINGERS_CENTER_MULTIPLE_STEP = auto()
 
 FINGERTIP_KEYWORDS = ["link_3.0", "link_7.0", "link_11.0", "link_15.0"]
+
 
 ### HELPERS START ###
 def _compute_link_name_to_contact_candidates(
@@ -80,19 +67,6 @@ def _compute_fingertip_name_to_contact_candidates(
 
 
 ### HELPERS END ###
-
-
-def computer_point_between_all_fingers(
-    hand_model: HandModel,
-) -> torch.Tensor:
-    # (batch_size, num_fingers, 3)
-    fingertip_positions = compute_fingertip_mean_contact_positions(
-        joint_angles=hand_model.hand_pose[:, 9:], hand_model=hand_model
-    )
-
-    # (batch_size, 3)
-    point_between_all_fingers = fingertip_positions.mean(dim=1)
-    return point_between_all_fingers
 
 
 def compute_fingertip_mean_contact_positions(
@@ -186,7 +160,7 @@ def compute_closest_contact_point_info(
         )  # Large positive distance => far away
         nearest_point_index = distances_interior_negative.argmin(dim=1)
         nearest_distances = torch.gather(
-            input=distances_interior_positive,
+            input=distances_interior_negative,
             dim=1,
             index=nearest_point_index.unsqueeze(1),
         )
@@ -220,45 +194,6 @@ def compute_closest_contact_point_info(
         all_nearest_distances,
         all_hand_contact_nearest_point_indices,
     )
-
-
-def compute_fingertip_targets_and_hand_contact_nearest_point_indices(
-    joint_angles_start: torch.Tensor,
-    hand_model: HandModel,
-    object_model: ObjectModel,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    # Define both the fingertip targets and the indices of the contact points on the hand that should move towards those targets
-
-    (
-        hand_contact_nearest_points,
-        nearest_object_to_hand_directions,
-        nearest_distances,
-        hand_contact_nearest_point_indices,
-    ) = compute_closest_contact_point_info(
-        joint_angles=joint_angles_start,
-        hand_model=hand_model,
-        object_model=object_model,
-    )
-
-    optimization_method = (
-        OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
-    )
-    if (
-        optimization_method
-        == OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
-    ):
-        fingertip_targets = (
-            hand_contact_nearest_points - nearest_object_to_hand_directions * 0.01
-        )
-    elif optimization_method == OptimizationMethod.DESIRED_PENETRATION_DEPTH:
-        fingertip_targets = (
-            hand_contact_nearest_points
-            - nearest_object_to_hand_directions * (nearest_distances[..., None] + 0.05)
-        )
-    else:
-        raise NotImplementedError
-
-    return fingertip_targets, hand_contact_nearest_point_indices
 
 
 def compute_fingertip_dirs(
@@ -396,25 +331,29 @@ def compute_grasp_orientations(
     return grasp_orientations
 
 
-def computer_fingertip_targets(
+def compute_fingertip_targets(
     joint_angles_start: torch.Tensor,
     hand_model: HandModel,
     grasp_orientations: torch.Tensor,
 ) -> torch.Tensor:
+    # Sanity check
     batch_size = joint_angles_start.shape[0]
     num_fingers = hand_model.num_fingers
     assert grasp_orientations.shape == (batch_size, num_fingers, 3, 3)
 
+    # Get grasp directions
     grasp_directions = grasp_orientations[:, :, :, 2]
     assert grasp_directions.shape == (batch_size, num_fingers, 3)
 
+    # Get current positions
     fingertip_mean_positions = compute_fingertip_mean_contact_positions(
         joint_angles=joint_angles_start,
         hand_model=hand_model,
     )
     assert fingertip_mean_positions.shape == (batch_size, num_fingers, 3)
 
-    fingertip_targets = fingertip_mean_positions + grasp_directions * 0.01
+    DIST_MOVE_FINGER = 0.01
+    fingertip_targets = fingertip_mean_positions + grasp_directions * DIST_MOVE_FINGER
     return fingertip_targets
 
 
@@ -475,25 +414,12 @@ def compute_optimized_joint_angle_targets_given_grasp_orientations(
     hand_model: HandModel,
     grasp_orientations: torch.Tensor,
 ) -> Tuple[torch.Tensor, defaultdict]:
-    # Sanity check
-    batch_size = joint_angles_start.shape[0]
-    num_fingers = hand_model.num_fingers
-    assert grasp_orientations.shape == (batch_size, num_fingers, 3, 3)
-
-    # Get current positions
-    fingertip_mean_positions = compute_fingertip_mean_contact_positions(
-        joint_angles=joint_angles_start,
-        hand_model=hand_model,
-    )
-    assert fingertip_mean_positions.shape == (batch_size, num_fingers, 3)
-
-    # Get grasp directions
-    grasp_directions = grasp_orientations[:, :, :, 2]
-    assert grasp_directions.shape == (batch_size, num_fingers, 3)
-
     # Get fingertip targets
-    DIST_MOVE_FINGER = 0.01
-    fingertip_targets = fingertip_mean_positions + grasp_directions * DIST_MOVE_FINGER
+    fingertip_targets = compute_fingertip_targets(
+        joint_angles_start=joint_angles_start,
+        hand_model=hand_model,
+        grasp_orientations=grasp_orientations,
+    )
 
     (
         joint_angle_targets,

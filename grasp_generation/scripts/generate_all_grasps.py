@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 import pathlib
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime
 
 sys.path.append(os.path.realpath("."))

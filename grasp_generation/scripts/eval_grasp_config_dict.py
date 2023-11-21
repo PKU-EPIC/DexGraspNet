@@ -9,7 +9,6 @@ import sys
 
 sys.path.append(os.path.realpath("."))
 
-import random
 from utils.isaac_validator import IsaacValidator, ValidationType
 from tap import Tap
 import torch
@@ -24,7 +23,7 @@ from utils.pose_conversion import (
     hand_config_to_pose,
 )
 from pytorch3d.transforms import matrix_to_quaternion
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Dict, Any
 import math
 from utils.seed import set_seed
 from utils.joint_angle_targets import (
@@ -89,37 +88,13 @@ def compute_joint_angle_targets(
     return optimized_joint_angle_targets.detach().cpu().numpy()
 
 
-def get_data(
-    args: EvalGraspConfigDictArgumentParser, grasp_config_dict: Dict[str, np.ndarray]
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,]:
-    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
-    trans = torch.tensor(grasp_config_dict["trans"], device=device, dtype=torch.float)
-    rot = torch.tensor(grasp_config_dict["rot"], device=device, dtype=torch.float)
-    quat_wxyz = matrix_to_quaternion(rot)  #
-    joint_angles = torch.tensor(
-        grasp_config_dict["joint_angles"], device=device, dtype=torch.float
-    )
-    hand_pose = hand_config_to_pose(trans, rot, joint_angles)
-    grasp_orientations = torch.tensor(
-        grasp_config_dict["grasp_orientations"],
-        dtype=torch.float,
-        device=device,
-    )
-    return (
-        trans,
-        quat_wxyz,
-        joint_angles,
-        hand_pose,
-        grasp_orientations,
-    )
-
-
 def main(args: EvalGraspConfigDictArgumentParser):
     print("=" * 80)
     print(f"args = {args}")
     print("=" * 80 + "\n")
 
     os.environ.pop("CUDA_VISIBLE_DEVICES")
+    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
 
     object_code, object_scale = parse_object_code_and_scale(
         args.object_code_and_scale_str
@@ -130,28 +105,24 @@ def main(args: EvalGraspConfigDictArgumentParser):
     grasp_config_dict_path = (
         args.input_grasp_config_dicts_path / f"{args.object_code_and_scale_str}.npy"
     )
-
     print(f"Loading grasp config dicts from: {grasp_config_dict_path}")
-
     grasp_config_dict: Dict[str, Any] = np.load(
         grasp_config_dict_path, allow_pickle=True
     ).item()
-    (
-        trans,
-        quat_wxyz,
-        joint_angles,
-        hand_pose,
-        grasp_orientations,
-    ) = get_data(
-        args=args,
-        grasp_config_dict=grasp_config_dict,
-    )
+    trans: np.ndarray = grasp_config_dict["trans"]
+    rot: np.ndarray = grasp_config_dict["rot"]
+    joint_angles: np.ndarray = grasp_config_dict["joint_angles"]
+    grasp_orientations: np.ndarray = grasp_config_dict["grasp_orientations"]
+
+    # Compute hand pose
+    quat_wxyz = matrix_to_quaternion(torch.from_numpy(rot)).numpy()
+    hand_pose = hand_config_to_pose(trans, rot, joint_angles).to(device)
 
     # Compute joint angle targets
     joint_angle_targets_array = compute_joint_angle_targets(
         args=args,
         hand_pose=hand_pose,
-        grasp_orientations=grasp_orientations,
+        grasp_orientations=torch.from_numpy(grasp_orientations).float().to(device),
     )
 
     # Debug with single grasp
@@ -170,7 +141,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         )
         index = args.debug_index
         sim.add_env_single_test_rotation(
-            hand_quaternion=quat_wxyz[index],
+            hand_quaternion_wxyz=quat_wxyz[index],
             hand_translation=trans[index],
             hand_qpos=joint_angles[index],
             obj_scale=object_scale,
@@ -193,7 +164,6 @@ def main(args: EvalGraspConfigDictArgumentParser):
     # Run validation on all grasps
     batch_size = trans.shape[0]
 
-    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
     hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
 
     # Some final shape checking.
@@ -215,7 +185,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         )
         for index in range(start_index, end_index):
             sim.add_env_single_test_rotation(
-                hand_quaternion=quat_wxyz[index],
+                hand_quaternion_wxyz=quat_wxyz[index],
                 hand_translation=trans[index],
                 hand_qpos=joint_angles[index],
                 obj_scale=object_scale,

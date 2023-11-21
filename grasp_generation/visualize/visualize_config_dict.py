@@ -11,10 +11,9 @@ import sys
 sys.path.append(os.path.realpath("."))
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-import torch
 from tap import Tap
 import numpy as np
-from typing import Dict, Any, List
+from typing import Dict
 
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel

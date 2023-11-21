@@ -14,7 +14,7 @@ from utils.object_model import ObjectModel
 from utils.hand_model_type import handmodeltype_to_joint_names
 from utils.pose_conversion import hand_config_to_pose
 from utils.joint_angle_targets import (
-    computer_fingertip_targets,
+    compute_fingertip_targets,
     compute_fingertip_mean_contact_positions,
     compute_optimized_joint_angle_targets_given_fingertip_targets,
 )
@@ -91,7 +91,7 @@ def get_grasp_config_dict_plotly_data_list(
         config_dict["grasp_orientations"], dtype=torch.float, device=device
     )[idx_to_visualize]
     assert grasp_orientations.shape == (hand_model.num_fingers, 3, 3)
-    fingertip_targets = computer_fingertip_targets(
+    fingertip_targets = compute_fingertip_targets(
         joint_angles_start=joint_angles,
         hand_model=hand_model,
         grasp_orientations=grasp_orientations.unsqueeze(dim=0),

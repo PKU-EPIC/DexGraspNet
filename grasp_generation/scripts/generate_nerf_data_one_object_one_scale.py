@@ -10,11 +10,9 @@ import sys
 sys.path.append(os.path.realpath("."))
 
 from utils.isaac_validator import IsaacValidator
-from utils.object_model import ObjectModel
 from utils.seed import set_seed
 from utils.parse_object_code_and_scale import object_code_and_scale_to_str
 from tap import Tap
-from tqdm import tqdm
 import pathlib
 
 

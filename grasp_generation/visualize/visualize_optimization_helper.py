@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 import wandb
 from tqdm import tqdm
 from datetime import datetime
-from typing import List, Tuple, Dict, Any
+from typing import List
 
 
 path_to_this_file = os.path.dirname(os.path.realpath(__file__))
@@ -84,7 +84,7 @@ def download_plotly_files_from_wandb(run_path: str):
 def get_visualization_freq_from_wandb(run_path: str):
     api = wandb.Api()
     run = api.run(run_path)
-    if not "visualization_freq" in run.config:
+    if "visualization_freq" not in run.config:
         default_freq = 1
         print(
             f"WARNING: visualization_freq not in run config, defaulting to {default_freq}"

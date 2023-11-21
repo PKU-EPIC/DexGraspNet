@@ -19,17 +19,15 @@ from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 from utils.hand_model_type import (
     HandModelType,
-    handmodeltype_to_joint_names,
 )
 from utils.pose_conversion import (
     hand_config_to_pose,
 )
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict
 from utils.seed import set_seed
 from utils.joint_angle_targets import (
     compute_grasp_orientations as compute_grasp_orientations_external,
 )
-from utils.energy import _cal_hand_object_penetration
 from utils.parse_object_code_and_scale import (
     parse_object_code_and_scale,
 )
@@ -52,19 +50,21 @@ class GenerateGraspConfigDictsArgumentParser(Tap):
 
 def compute_grasp_orientations(
     args: GenerateGraspConfigDictsArgumentParser,
-    hand_pose: torch.Tensor,
+    hand_config_dict: Dict[str, np.ndarray],
     object_code: str,
     object_scale: float,
 ) -> torch.Tensor:
+    device = torch.device(f"cuda:{args.gpu}") if torch.cuda.is_available() else "cpu"
+
+    hand_pose = hand_config_to_pose(
+        hand_config_dict["trans"],
+        hand_config_dict["rot"],
+        hand_config_dict["joint_angles"],
+    ).to(device)
     batch_size = hand_pose.shape[0]
 
-    device = torch.device(f"cuda:{args.gpu}") if torch.cuda.is_available() else "cpu"
-    hand_pose = hand_pose.to(device)
-
     # hand model
-    hand_model = HandModel(
-        hand_model_type=args.hand_model_type, device=hand_pose.device
-    )
+    hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
     hand_model.set_parameters(hand_pose)
 
     # object model
@@ -72,7 +72,7 @@ def compute_grasp_orientations(
         meshdata_root_path=str(args.meshdata_root_path),
         batch_size_each=batch_size,
         num_samples=0,
-        device=hand_pose.device,
+        device=device,
     )
     object_model.initialize(object_code, object_scale)
     grasp_orientations = compute_grasp_orientations_external(
@@ -135,16 +135,10 @@ def generate_grasp_config_dicts(
             hand_config_dict_filepath, allow_pickle=True
         ).item()
 
-        hand_pose = hand_config_to_pose(
-            hand_config_dict["trans"],
-            hand_config_dict["rot"],
-            hand_config_dict["joint_angles"],
-        )
-
         # Compute grasp_orientations
         grasp_orientations = compute_grasp_orientations(
             args=args,
-            hand_pose=hand_pose,
+            hand_config_dict=hand_config_dict,
             object_code=object_code,
             object_scale=object_scale,
         )  # shape = (batch_size, num_fingers, 3, 3)
