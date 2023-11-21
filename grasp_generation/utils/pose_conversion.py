@@ -1,9 +1,7 @@
-from utils.hand_model_type import translation_names, rot_names
 from utils.rot6d import robust_compute_rotation_matrix_from_ortho6d
-import transforms3d
 import torch
 import numpy as np
-from typing import List, Dict, Any, Tuple
+from typing import Tuple
 
 
 def pose_to_hand_config(

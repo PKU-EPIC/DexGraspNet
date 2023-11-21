@@ -19,17 +19,15 @@ from utils.hand_model import HandModel
 from utils.object_model import ObjectModel
 from utils.hand_model_type import (
     HandModelType,
-    handmodeltype_to_joint_names,
 )
 from utils.pose_conversion import (
     hand_config_to_pose,
 )
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict
 from utils.seed import set_seed
 from utils.joint_angle_targets import (
     compute_grasp_orientations as compute_grasp_orientations_external,
 )
-from utils.energy import _cal_hand_object_penetration
 from utils.parse_object_code_and_scale import (
     parse_object_code_and_scale,
 )

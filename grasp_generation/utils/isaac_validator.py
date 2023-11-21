@@ -1311,7 +1311,7 @@ class IsaacValidator:
                         }
                     )
 
-        with open(os.path.join(folder, f"transforms.json"), "w") as outfile:
+        with open(os.path.join(folder, "transforms.json"), "w") as outfile:
             outfile.write(json.dumps(json_dict))
 
     ## NERF DATA COLLECTION END ##

@@ -21,12 +21,10 @@ from visualize_config_dict_helper import create_config_dict_fig
 
 import pathlib
 
-import torch
 import numpy as np
 from utils.pose_conversion import hand_config_to_pose
 from utils.hand_model_type import (
     HandModelType,
-    handmodeltype_to_joint_names,
 )
 from utils.hand_model import HandModel
 from utils.object_model import ObjectModel

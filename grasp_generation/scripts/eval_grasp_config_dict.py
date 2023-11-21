@@ -9,7 +9,6 @@ import sys
 
 sys.path.append(os.path.realpath("."))
 
-import random
 from utils.isaac_validator import IsaacValidator, ValidationType
 from tap import Tap
 import torch
@@ -24,7 +23,7 @@ from utils.pose_conversion import (
     hand_config_to_pose,
 )
 from pytorch3d.transforms import matrix_to_quaternion
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Dict, Any
 import math
 from utils.seed import set_seed
 from utils.joint_angle_targets import (

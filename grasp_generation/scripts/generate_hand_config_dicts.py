@@ -21,14 +21,13 @@ from utils.object_model import ObjectModel
 from utils.initializations import initialize_convex_hull
 from utils.energy import cal_energy, ENERGY_NAMES, ENERGY_NAME_TO_SHORTHAND_DICT
 from utils.optimizer import Annealing
-from utils.hand_model_type import handmodeltype_to_joint_names, HandModelType
+from utils.hand_model_type import HandModelType
 from utils.pose_conversion import pose_to_hand_config
 from utils.seed import set_seed
 from utils.parse_object_code_and_scale import object_code_and_scale_to_str
 
 from torch.multiprocessing import set_start_method
-from typing import Tuple, List, Optional, Dict, Any, Union
-import trimesh
+from typing import Tuple, List, Optional, Dict, Any
 import plotly.graph_objects as go
 import wandb
 from datetime import datetime
@@ -386,7 +385,7 @@ def generate(
                 unweighted_energy_matrix[:] = updated_unweighted_energy_matrix
                 weighted_energy_matrix[:] = updated_weighted_energy_matrix
 
-            s = optimizer.try_step()
+            _ = optimizer.try_step()
 
             optimizer.zero_grad()
 
