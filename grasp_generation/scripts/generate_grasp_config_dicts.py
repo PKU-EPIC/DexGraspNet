@@ -66,9 +66,7 @@ def compute_grasp_orientations(
     batch_size = hand_pose.shape[0]
 
     # hand model
-    hand_model = HandModel(
-        hand_model_type=args.hand_model_type, device=device
-    )
+    hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
     hand_model.set_parameters(hand_pose)
 
     # object model

@@ -82,7 +82,11 @@ print(f"Randomly sampled object_code = {object_code}")
 
 random_grasp_index = random.randint(0, len(grasp_data_list) - 1)
 qpos = grasp_data_list[random_grasp_index]["qpos"]
-grasp_orientations = torch.tensor(grasp_data_list[random_grasp_index]["grasp_orientations"], device=device, dtype=torch.float)
+grasp_orientations = torch.tensor(
+    grasp_data_list[random_grasp_index]["grasp_orientations"],
+    device=device,
+    dtype=torch.float,
+)
 print(f"Randomly sampled random_grasp_index = {random_grasp_index}")
 print(f"object_scale = {object_scale}")
 

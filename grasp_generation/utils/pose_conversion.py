@@ -46,7 +46,9 @@ def hand_config_to_pose(
     assert joint_angles.shape == (batch_size, 16)
 
     # Convert rotation matrix batch to rot6d tensors.
-    rot6d_torch = torch.from_numpy(rot[:, :, :2]).transpose(2, 1).reshape(batch_size, -1)
+    rot6d_torch = (
+        torch.from_numpy(rot[:, :, :2]).transpose(2, 1).reshape(batch_size, -1)
+    )
     assert rot6d_torch.shape == (batch_size, 6)
 
     # Convert trans and joint angles to tensors.

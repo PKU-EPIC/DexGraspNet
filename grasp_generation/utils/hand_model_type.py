@@ -161,13 +161,9 @@ _shadow_hand_allowed_contact_link_names = [
     "robot0:thdistal_child",
 ]
 
-_allegro_hand_finger_keywords = [
-    "3.0", "7.0", "11.0", "15.0"
-]
+_allegro_hand_finger_keywords = ["3.0", "7.0", "11.0", "15.0"]
 
-_shadow_hand_finger_keywords = [
-    "ff", "mf", "rf", "lf", "th"
-]
+_shadow_hand_finger_keywords = ["ff", "mf", "rf", "lf", "th"]
 
 handmodeltype_to_joint_names = {
     HandModelType.ALLEGRO_HAND: _allegro_joint_names,
