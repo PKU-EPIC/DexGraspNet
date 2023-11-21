@@ -186,10 +186,18 @@ def compute_closest_contact_point_info(
         )  # Large positive distance => far away
         nearest_point_index = distances_interior_negative.argmin(dim=1)
         nearest_distances = torch.gather(
-            input=distances_interior_positive,
+            input=distances_interior_negative,
             dim=1,
             index=nearest_point_index.unsqueeze(1),
         )
+        print(f"{i} / {num_fingers} / {fingertip_name}")
+        print(f"distances_interior_positive = {distances_interior_positive}")
+        print(f"distances_interior_negative = {distances_interior_negative}")
+        print(f"nearest_distances = {nearest_distances}")
+        print(f"(distances_interior_positive < 0).sum() = {(distances_interior_positive < 0).sum()}")
+        print(f"(distances_interior_negative < 0).sum() = {(distances_interior_negative < 0).sum()}")
+        print(f"(nearest_distances < 0).sum() = {(nearest_distances < 0).sum()}")
+        print()
         hand_contact_nearest_points = torch.gather(
             input=contact_candidates,
             dim=1,
@@ -226,6 +234,7 @@ def compute_fingertip_targets_and_hand_contact_nearest_point_indices(
     joint_angles_start: torch.Tensor,
     hand_model: HandModel,
     object_model: ObjectModel,
+    optimization_method: OptimizationMethod = OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     # Define both the fingertip targets and the indices of the contact points on the hand that should move towards those targets
 
@@ -240,6 +249,8 @@ def compute_fingertip_targets_and_hand_contact_nearest_point_indices(
         object_model=object_model,
     )
 
+    hand_to_object_directions = -nearest_object_to_hand_directions
+
     optimization_method = (
         OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
     )
@@ -247,13 +258,15 @@ def compute_fingertip_targets_and_hand_contact_nearest_point_indices(
         optimization_method
         == OptimizationMethod.DESIRED_DIST_TOWARDS_OBJECT_SURFACE_MULTIPLE_STEPS
     ):
+        DIST_TOWARDS_OBJECT_SURFACE = 0.01
         fingertip_targets = (
-            hand_contact_nearest_points - nearest_object_to_hand_directions * 0.01
+            hand_contact_nearest_points + hand_to_object_directions * DIST_TOWARDS_OBJECT_SURFACE
         )
     elif optimization_method == OptimizationMethod.DESIRED_PENETRATION_DEPTH:
+        DESIRED_PENETRATION_DEPTH = 0.005
         fingertip_targets = (
             hand_contact_nearest_points
-            - nearest_object_to_hand_directions * (nearest_distances[..., None] + 0.05)
+            + hand_to_object_directions * (nearest_distances[..., None] + DESIRED_PENETRATION_DEPTH)
         )
     else:
         raise NotImplementedError
@@ -338,6 +351,7 @@ def compute_grasp_orientations(
     joint_angles_start: torch.Tensor,
     hand_model: HandModel,
     object_model: ObjectModel,
+    debug: bool = False,
 ) -> torch.Tensor:
     # Can't just compute_grasp_dirs because we need to know the orientation of the fingers
     # Each finger has a rotation matrix [x, y, z] where x y z are column vectors
@@ -350,8 +364,8 @@ def compute_grasp_orientations(
     (
         hand_contact_nearest_points,
         nearest_object_to_hand_directions,
-        _,
-        _,
+        nearest_distances,
+        hand_contact_nearest_point_indices,
     ) = compute_closest_contact_point_info(
         joint_angles=joint_angles_start,
         hand_model=hand_model,
@@ -393,6 +407,8 @@ def compute_grasp_orientations(
     grasp_orientations = torch.stack([x_dirs, y_dirs, z_dirs], dim=-1)
 
     assert grasp_orientations.shape == (batch_size, hand_model.num_fingers, 3, 3)
+    if debug:
+        return grasp_orientations, hand_contact_nearest_points, nearest_object_to_hand_directions, nearest_distances
     return grasp_orientations
 
 
