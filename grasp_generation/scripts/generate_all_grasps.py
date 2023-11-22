@@ -49,7 +49,8 @@ def process_data(args: ArgParser):
     if args.use_multiprocess:
         hand_gen_command += " --use_multiprocess"
 
-    print_and_run(hand_gen_command)
+    for _ in range(2):
+        print_and_run(hand_gen_command)
 
     if args.results_path is not None:
         print_and_run(sync_command)
