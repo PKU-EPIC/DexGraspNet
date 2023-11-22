@@ -56,7 +56,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     min_object_scale: float = 0.099
     max_object_scale: float = 0.101
     seed: Optional[int] = None
-    batch_size_each_object: int = 1000
+    batch_size_each_object: int = 250
     n_objects_per_batch: int = (
         20  # Runs batch_size_each_object * n_objects_per_batch grasps per GPU
     )
