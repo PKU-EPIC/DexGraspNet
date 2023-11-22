@@ -33,6 +33,7 @@ class EvalAllGraspConfigDictsArgumentParser(Tap):
         "../data/evaled_grasp_config_dicts"
     )
     num_random_pose_noise_samples_per_grasp: Optional[int] = None
+    move_fingers_back_at_init: bool = False
     randomize_order_seed: Optional[int] = None
     mid_optimization_steps: List[int] = []
     use_multiprocess: bool = True
@@ -100,6 +101,7 @@ def print_and_run_command_safe(
             f"--object_code_and_scale_str {object_code_and_scale_str}",
             f"--max_grasps_per_batch {args.max_grasps_per_batch}",
             f"--num_random_pose_noise_samples_per_grasp {args.num_random_pose_noise_samples_per_grasp}" if args.num_random_pose_noise_samples_per_grasp is not None else "",
+            "--move_fingers_back_at_init" if args.move_fingers_back_at_init else "",
         ]
     )
 

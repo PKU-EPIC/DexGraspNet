@@ -331,6 +331,34 @@ def compute_grasp_orientations(
     return grasp_orientations
 
 
+def compute_fingertip_init_targets(
+    joint_angles_start: torch.Tensor,
+    hand_model: HandModel,
+    grasp_orientations: torch.Tensor,
+) -> torch.Tensor:
+    # Sanity check
+    batch_size = joint_angles_start.shape[0]
+    num_fingers = hand_model.num_fingers
+    assert grasp_orientations.shape == (batch_size, num_fingers, 3, 3)
+
+    # Get grasp directions
+    grasp_directions = grasp_orientations[:, :, :, 2]
+    assert grasp_directions.shape == (batch_size, num_fingers, 3)
+
+    # Get current positions
+    fingertip_mean_positions = compute_fingertip_mean_contact_positions(
+        joint_angles=joint_angles_start,
+        hand_model=hand_model,
+    )
+    assert fingertip_mean_positions.shape == (batch_size, num_fingers, 3)
+
+    DIST_MOVE_FINGER_BACKWARDS = -0.01
+    fingertip_targets = (
+        fingertip_mean_positions + grasp_directions * DIST_MOVE_FINGER_BACKWARDS
+    )
+    return fingertip_targets
+
+
 def compute_fingertip_targets(
     joint_angles_start: torch.Tensor,
     hand_model: HandModel,
@@ -430,3 +458,26 @@ def compute_optimized_joint_angle_targets_given_grasp_orientations(
         fingertip_targets=fingertip_targets,
     )
     return joint_angle_targets, debug_info
+
+
+def compute_init_joint_angles_given_grasp_orientations(
+    joint_angles_start: torch.Tensor,
+    hand_model: HandModel,
+    grasp_orientations: torch.Tensor,
+) -> Tuple[torch.Tensor, defaultdict]:
+    # Get fingertip targets
+    init_fingertip_targets = compute_fingertip_init_targets(
+        joint_angles_start=joint_angles_start,
+        hand_model=hand_model,
+        grasp_orientations=grasp_orientations,
+    )
+
+    (
+        init_joint_angles,
+        debug_info,
+    ) = compute_optimized_joint_angle_targets_given_fingertip_targets(
+        joint_angles_start=joint_angles_start,
+        hand_model=hand_model,
+        fingertip_targets=init_fingertip_targets,
+    )
+    return init_joint_angles, debug_info
