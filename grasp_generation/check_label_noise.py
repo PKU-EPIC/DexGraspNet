@@ -14,13 +14,13 @@ cpu_10_grasps_path = pathlib.Path(
     "../data/2023-11-21_rubikscube_one_object/evaled_grasp_config_dicts_rerun_multinoise_4_cpu"
 )
 gpu_10_grasps_path = pathlib.Path(
-    "../data/2023-11-21_rubikscube_one_object/evaled_grasp_config_dicts_rerun_multinoise_4"
+    "../data/2023-11-21_rubikscube_one_object/evaled_grasp_config_dicts_WAIT_FIRST_multinoise_10grasps_gpu"
 )
 gpu_4_grasps_path = pathlib.Path(
     "../data/2023-11-21_rubikscube_one_object/evaled_grasp_config_dicts_rerun_multinoise_4grasps_gpu"
 )
 gpu_10_grasps_v2_path = pathlib.Path(
-    "../data/2023-11-21_rubikscube_one_object/evaled_grasp_config_dicts_rerun_multinoise_10grasps_gpu_2"
+    "../data/2023-11-21_rubikscube_one_object/evaled_grasp_config_dicts_WAIT_FIRST_multinoise_10grasps_gpu_2"
 )
 
 assert cpu_1_grasp_path.exists()
@@ -205,6 +205,20 @@ gpu_10_grasps_v2_passed_sims[:10]
 
 # %%
 gpu_10_grasps_passed_sims[:10]
+
+# %%
+gpu_10_grasps_passed_sims[~is_close]
+
+# %%
+gpu_10_grasps_v2_passed_sims[~is_close]
+
+# %%
+BEST_K = 10
+np.argsort(gpu_10_grasps_v2_passed_sims)[-BEST_K:]
+
+# %%
+
+gpu_10_grasps_v2_passed_sims[np.argsort(gpu_10_grasps_v2_passed_sims)[-100]]
 
 # %%
 THRESHOLD = 0.5
