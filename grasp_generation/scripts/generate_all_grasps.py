@@ -18,6 +18,7 @@ class ArgParser(Tap):
     generate_nerf_data: bool = False
     results_path: Optional[pathlib.Path] = None
     gcloud_results_path: Optional[pathlib.Path] = None
+    num_random_pose_noise_samples_per_grasp: Optional[int] = None
 
 
 def print_and_run(command: str) -> None:
@@ -77,6 +78,9 @@ def process_data(args: ArgParser):
         + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
         + f" --output_evaled_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_evaled_grasp_config_dicts'}"
         + f" --meshdata_root_path {args.input_meshdata_path}"
+        + (f" --num_random_pose_noise_samples_per_grasp {args.num_random_pose_noise_samples_per_grasp}"
+           if args.num_random_pose_noise_samples_per_grasp is not None
+           else "")
     )
 
     print_and_run(eval_final_grasp_command)
@@ -127,6 +131,9 @@ def process_data(args: ArgParser):
         + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'grasp_config_dicts'}"
         + f" --output_evaled_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'evaled_grasp_config_dicts'}"
         + f" --meshdata_root_path {args.input_meshdata_path}"
+        + (f" --num_random_pose_noise_samples_per_grasp {args.num_random_pose_noise_samples_per_grasp}"
+           if args.num_random_pose_noise_samples_per_grasp is not None
+           else "")
     )
 
     print_and_run(eval_grasp_command)
