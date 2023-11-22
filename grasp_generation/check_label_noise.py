@@ -72,13 +72,13 @@ from plotly.subplots import make_subplots
 fig = make_subplots(rows=2, cols=1)
 
 # Add CPU histogram
-fig.add_trace(go.Histogram(x=cpu_10_grasps_passed_sims, name='CPU'), row=1, col=1)
+fig.add_trace(go.Histogram(x=gpu_4_grasps_passed_sims, name='GPU 4'), row=1, col=1)
 
 # Add GPU histogram
 fig.add_trace(go.Histogram(x=gpu_10_grasps_passed_sims, name='GPU'), row=2, col=1)
 
 # Update layout, if needed
-fig.update_layout(height=600, width=600, title_text="CPU vs GPU Grasps Histograms")
+fig.update_layout(height=600, width=600, title_text="GPU 4 vs GPU Grasps Histograms")
 fig.update_xaxes(title_text="Values", row=2, col=1)
 fig.update_yaxes(title_text="Count", row=1, col=1)
 fig.update_yaxes(title_text="Count", row=2, col=1)
@@ -89,16 +89,16 @@ fig.show()
 # %%
 N_PTS = 20
 # X-axis indices
-indices = np.arange(len(cpu_10_grasps_passed_sims[:N_PTS]))
+indices = np.arange(len(gpu_4_grasps_passed_sims[:N_PTS]))
 
 # Create the figure
 fig = go.Figure()
 
-# Add CPU bars
+# Add GPU 4 bars
 fig.add_trace(go.Bar(
     x=indices - 0.15,  # Slight offset to the left
-    y=cpu_10_grasps_passed_sims,
-    name='CPU',
+    y=gpu_4_grasps_passed_sims,
+    name='GPU 4',
     marker_color='blue',
     width=0.3  # Width of the bars
 ))
@@ -114,7 +114,7 @@ fig.add_trace(go.Bar(
 
 # Update layout
 fig.update_layout(
-    title="Comparison of CPU and GPU Values",
+    title="Comparison of GPU 4 and GPU Values",
     xaxis_title="Index",
     yaxis_title="Value",
     barmode='group',  # Group bars
@@ -128,22 +128,22 @@ fig.show()
 # %%
 # Adding a small amount of random noise (jitter)
 noise_strength = 0.01  # Adjust this value as needed
-cpu_jitter = cpu_10_grasps_passed_sims + np.random.normal(0, noise_strength, cpu_10_grasps_passed_sims.shape)
+gpu_4_jitter = gpu_4_grasps_passed_sims + np.random.normal(0, noise_strength, gpu_4_grasps_passed_sims.shape)
 gpu_jitter = gpu_10_grasps_passed_sims + np.random.normal(0, noise_strength, gpu_10_grasps_passed_sims.shape)
 
 # Create the scatter plot with jitter
 fig = go.Figure(data=go.Scatter(
     x=gpu_jitter,
-    y=cpu_jitter,
+    y=gpu_4_jitter,
     mode='markers',
     marker=dict(size=5)  # Smaller marker size
 ))
 
 # Update layout
 fig.update_layout(
-    title="CPU vs GPU Values Scatter Plot with Jitter",
+    title="GPU 4 vs GPU Values Scatter Plot with Jitter",
     xaxis_title="GPU Values (with Jitter)",
-    yaxis_title="CPU Values (with Jitter)",
+    yaxis_title="GPU 4 Values (with Jitter)",
     width=800,
     height=600
 )
@@ -154,10 +154,10 @@ fig.show()
 # %%
 from scipy import stats
 
-cpu_data = cpu_10_grasps_passed_sims 
+gpu_4_data = gpu_4_grasps_passed_sims 
 gpu_data = gpu_10_grasps_passed_sims
 # Calculate linear regression
-slope, intercept, r_value, p_value, std_err = stats.linregress(gpu_data, cpu_data)
+slope, intercept, r_value, p_value, std_err = stats.linregress(gpu_data, gpu_4_data)
 
 # Calculate R^2 value
 r_squared = r_value**2
@@ -166,7 +166,7 @@ r_squared = r_value**2
 fig = go.Figure()
 
 # Add scatter trace for data points
-fig.add_trace(go.Scatter(x=gpu_data, y=cpu_data, mode='markers', name='Data'))
+fig.add_trace(go.Scatter(x=gpu_data, y=gpu_4_data, mode='markers', name='Data'))
 
 # Add line trace for linear regression line
 fig.add_trace(go.Scatter(x=gpu_data, y=intercept + slope * gpu_data, mode='lines', name='Fit'))
@@ -176,9 +176,9 @@ fig.add_annotation(x=0.5, y=0.5, xref="paper", yref="paper",
                    text=f"R^2 = {r_squared:.2f}", showarrow=False)
 
 # Update layout
-fig.update_layout(title="CPU vs GPU Correlation with Linear Fit",
+fig.update_layout(title="GPU 4 vs GPU Correlation with Linear Fit",
                   xaxis_title="GPU",
-                  yaxis_title="CPU",
+                  yaxis_title="GPU 4",
                   width=800,
                   height=600)
 
