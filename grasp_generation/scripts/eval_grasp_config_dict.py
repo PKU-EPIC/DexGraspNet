@@ -52,6 +52,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
         "../data/evaled_grasp_config_dicts"
     )
     num_random_pose_noise_samples_per_grasp: Optional[int] = None
+    move_fingers_back_at_init: bool = False
 
     # if debug_index is received, then the debug mode is on
     debug_index: Optional[int] = None
@@ -161,7 +162,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         args=args,
         hand_pose=hand_pose,
         grasp_orientations=torch.from_numpy(grasp_orientations).float().to(device),
-    )
+    ) if args.move_fingers_back_at_init else joint_angles
 
     # Debug with single grasp
     if args.debug_index is not None:
@@ -202,7 +203,6 @@ def main(args: EvalGraspConfigDictArgumentParser):
     )
     # Run validation on all grasps
     batch_size = trans.shape[0]
-
     hand_model = HandModel(hand_model_type=args.hand_model_type, device=device)
 
     # Some final shape checking.
