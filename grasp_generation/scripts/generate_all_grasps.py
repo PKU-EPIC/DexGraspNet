@@ -43,15 +43,14 @@ def process_data(args: ArgParser):
     hand_gen_command = (
         f"python scripts/generate_hand_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
         + f" --output_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'hand_config_dicts'}"
-        + " --rand_object_scale" # Turning off so we don't have to regen nerfs every time.
+        # + " --rand_object_scale" # Turning off so we don't have to regen nerfs every time.
         + " --use_penetration_energy"
     )
 
     if args.use_multiprocess:
         hand_gen_command += " --use_multiprocess"
 
-    for _ in range(2):
-        print_and_run(hand_gen_command)
+    print_and_run(hand_gen_command)
 
     if args.results_path is not None:
         print_and_run(sync_command)

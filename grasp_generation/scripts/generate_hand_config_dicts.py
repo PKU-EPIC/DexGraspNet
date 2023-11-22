@@ -53,8 +53,8 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     )
     rand_object_scale: bool = False
     object_scale: Optional[float] = 0.1
-    min_object_scale: float = 0.099
-    max_object_scale: float = 0.101
+    min_object_scale: float = 0.05
+    max_object_scale: float = 0.125
     seed: Optional[int] = None
     batch_size_each_object: int = 250
     n_objects_per_batch: int = (
