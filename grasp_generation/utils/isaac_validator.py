@@ -19,6 +19,7 @@ from collections import defaultdict
 import torch
 from enum import Enum, auto
 from typing import List, Optional, Tuple
+import transforms3d
 
 ## NERF GRASPING START ##
 
@@ -112,7 +113,7 @@ class IsaacValidator:
         mode: str = "direct",
         hand_friction: float = 3.0,
         obj_friction: float = 3.0,
-        num_sim_steps: int = 100,
+        num_sim_steps: int = 120,
         gpu: int = 0,
         debug_interval: float = 0.05,
         start_with_step_mode: bool = False,
@@ -134,6 +135,8 @@ class IsaacValidator:
         self.init_hand_poses = []
         self.init_obj_poses = []
         self.init_rel_obj_poses = []
+        self.target_qpos_list = []
+
         self.camera_handles = []
         self.camera_envs = []
         self.camera_properties_list = []
@@ -273,6 +276,7 @@ class IsaacValidator:
         hand_qpos: np.ndarray,
         obj_scale: float,
         target_qpos: np.ndarray,
+        add_random_pose_noise: bool = False,
     ) -> None:
         for test_rotation_idx in range(len(self.test_rotations)):
             self.add_env_single_test_rotation(
@@ -281,6 +285,7 @@ class IsaacValidator:
                 hand_qpos=hand_qpos,
                 obj_scale=obj_scale,
                 target_qpos=target_qpos,
+                add_random_pose_noise=add_random_pose_noise,
                 test_rotation_index=test_rotation_idx,
             )
 
@@ -291,6 +296,7 @@ class IsaacValidator:
         hand_qpos: np.ndarray,
         obj_scale: float,
         target_qpos: np.ndarray,
+        add_random_pose_noise: bool = False,
         test_rotation_index: int = 0,
         record: bool = False,
     ) -> None:
@@ -316,7 +322,13 @@ class IsaacValidator:
             collision_idx=test_rotation_index,  # BRITTLE: ASSUMES ONLY ONE OBJECT AT A TIME.
         )
 
-        self._setup_obj(env, obj_scale, test_rot, collision_idx=test_rotation_index)
+        self._setup_obj(
+            env,
+            obj_scale,
+            test_rot,
+            collision_idx=test_rotation_index,
+            add_random_pose_noise=add_random_pose_noise,
+        )
 
         self.init_rel_obj_poses.append(
             self.init_hand_poses[-1].inverse() * self.init_obj_poses[-1]
@@ -391,6 +403,9 @@ class IsaacValidator:
         )
         self.hand_handles.append(hand_actor_handle)
 
+        # Store target hand qpos for later
+        self.target_qpos_list.append(target_qpos)
+
         # Set hand dof props
         hand_props = gym.get_actor_dof_properties(env, hand_actor_handle)
 
@@ -424,14 +439,12 @@ class IsaacValidator:
             dof_states["pos"][joint_idx] = hand_qpos[i]
         gym.set_actor_dof_states(env, hand_actor_handle, dof_states, gymapi.STATE_ALL)
 
-        # Set hand dof targets
-        dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_actor_handle)
-        for i, joint in enumerate(self.joint_names):
-            joint_idx = gym.find_actor_dof_index(
-                env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
-            )
-            dof_pos_targets[joint_idx] = target_qpos[i]
-        gym.set_actor_dof_position_targets(env, hand_actor_handle, dof_pos_targets)
+        # Set hand dof targets to current pos
+        self._set_dof_pos_targets(
+            env=env,
+            hand_actor_handle=hand_actor_handle,
+            target_qpos=hand_qpos,
+        )
 
         # Store hand link_idx_to_name_dict
         self.hand_link_idx_to_name_dicts.append(
@@ -445,16 +458,47 @@ class IsaacValidator:
         gym.set_actor_rigid_shape_properties(env, hand_actor_handle, hand_shape_props)
         return
 
+    def _set_dof_pos_targets(
+        self,
+        env,
+        hand_actor_handle,
+        target_qpos: np.ndarray,
+    ) -> None:
+        dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_actor_handle)
+        for i, joint in enumerate(self.joint_names):
+            joint_idx = gym.find_actor_dof_index(
+                env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
+            )
+            dof_pos_targets[joint_idx] = target_qpos[i]
+        gym.set_actor_dof_position_targets(env, hand_actor_handle, dof_pos_targets)
+
     def _setup_obj(
         self,
         env,
         obj_scale: float,
         transformation: gymapi.Transform,
         collision_idx: int,
+        add_random_pose_noise: bool = False,
     ) -> None:
         obj_pose = gymapi.Transform()
         obj_pose.p = gymapi.Vec3(0, 0, 0)
         obj_pose.r = gymapi.Quat(0, 0, 0, 1)
+
+        if add_random_pose_noise:
+            seed = None
+            TRANSLATION_NOISE_CM = 0.1
+            TRANSLATION_NOISE_M = TRANSLATION_NOISE_CM / 100
+            ROTATION_NOISE_DEG = 1
+            xyz_noise = np.random.RandomState(seed=seed).uniform(-TRANSLATION_NOISE_M, TRANSLATION_NOISE_M, 3)
+            rpy_noise = np.random.RandomState(seed=seed).uniform(-ROTATION_NOISE_DEG, ROTATION_NOISE_DEG, 3)
+            quat_wxyz = transforms3d.euler.euler2quat(*rpy_noise)
+            assert xyz_noise.shape == (3,)
+            assert rpy_noise.shape == (3,)
+            assert quat_wxyz.shape == (4,)
+
+            obj_pose.p = gymapi.Vec3(*xyz_noise)
+            obj_pose.r = gymapi.Quat(*quat_wxyz[1:], quat_wxyz[0])
+
         obj_pose = transformation * obj_pose
         self.init_obj_poses.append(obj_pose)
         self.collision_idx = collision_idx
@@ -491,6 +535,21 @@ class IsaacValidator:
         default_desc = "Simulating"
         pbar = tqdm(total=self.num_sim_steps, desc=default_desc, dynamic_ncols=True)
         while sim_step_idx < self.num_sim_steps:
+            # Set hand joint targets
+            # Heard that first few steps may be less deterministic because of isaacgym state
+            # Eg. contact buffers, so not moving for the first few steps may resolve this by clearing buffers
+            fraction_not_move_hand_joints = 0.1
+            total_steps_not_move_hand_joints = int(self.num_sim_steps * fraction_not_move_hand_joints)
+            if sim_step_idx == total_steps_not_move_hand_joints:
+                for env, hand_actor_handle, target_qpos in zip(
+                    self.envs, self.hand_handles, self.target_qpos_list,
+                ):
+                    self._set_dof_pos_targets(
+                        env=env,
+                        hand_actor_handle=hand_actor_handle,
+                        target_qpos=target_qpos,
+                    )
+
             # Set virtual joint targets
             virtual_joint_dof_pos_targets = self._compute_virtual_joint_dof_pos_targets(
                 sim_step_idx
@@ -719,9 +778,9 @@ class IsaacValidator:
 
         assert len(self.virtual_joint_names) == 6
 
-        # First do nothing
-        fraction_do_nothing = 0.1
-        total_steps_not_moving = int(self.num_sim_steps * fraction_do_nothing)
+        # First not move
+        fraction_not_moving = 0.2
+        total_steps_not_moving = int(self.num_sim_steps * fraction_not_moving)
         if sim_step_idx < total_steps_not_moving:
             return None
 
@@ -856,6 +915,7 @@ class IsaacValidator:
         self.init_obj_poses = []
         self.init_hand_poses = []
         self.init_rel_obj_poses = []
+        self.target_qpos_list = []
 
         # Recreate hand asset in new sim.
         self.hand_asset = gym.load_asset(
