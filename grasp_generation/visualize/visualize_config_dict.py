@@ -70,18 +70,24 @@ def main(args: VisualizeConfigDictArgumentParser):
     object_model.initialize(object_code, object_scale)
 
     if args.visualize_all:
-        MAX_TO_VISUALIZE = 12
-        figs = [
+        MAX_TO_VISUALIZE = 9
+        OFFSET = 0
+        individual_figs = [
             create_config_dict_fig(
                 config_dict=config_dict,
                 hand_model=hand_model,
                 object_model=object_model,
                 skip_visualize_qpos_start=args.skip_visualize_qpos_start,
                 skip_visualize_grasp_config_dict=args.skip_visualize_grasp_config_dict,
-                idx_to_visualize=i,
+                idx_to_visualize=i + OFFSET,
                 title=f"{args.object_code_and_scale_str} {args.idx_to_visualize}",
             )
             for i in range(MAX_TO_VISUALIZE)
+        ]
+        # Get titles
+        titles = [
+            individual_fig.layout.title.text.replace(args.object_code_and_scale_str, "")
+            for individual_fig in individual_figs
         ]
 
         nrows = math.ceil(math.sqrt(MAX_TO_VISUALIZE))
@@ -89,14 +95,15 @@ def main(args: VisualizeConfigDictArgumentParser):
         fig = make_subplots(
             rows=nrows,
             cols=ncols,
-            subplot_titles=[
-                f"{args.object_code_and_scale_str} {i}" for i in range(MAX_TO_VISUALIZE)
-            ],
+            subplot_titles=titles,
             specs=[[{"type": "mesh3d"} for _ in range(ncols)] for _ in range(nrows)],
+        )
+        fig.update_layout(
+            title=f"{args.object_code_and_scale_str} (all)",
         )
 
         # Adding each element to the main figure
-        for i, individual_fig in enumerate(figs):
+        for i, individual_fig in enumerate(individual_figs):
             for trace in individual_fig.data:
                 row = (i // ncols) + 1
                 col = (i % ncols) + 1
