@@ -28,6 +28,7 @@ import math
 from utils.seed import set_seed
 from utils.joint_angle_targets import (
     compute_optimized_joint_angle_targets_given_grasp_orientations,
+    compute_init_joint_angles_given_grasp_orientations,
 )
 from utils.parse_object_code_and_scale import (
     parse_object_code_and_scale,
@@ -90,6 +91,35 @@ def compute_joint_angle_targets(
     return optimized_joint_angle_targets.detach().cpu().numpy()
 
 
+def compute_init_joint_angles(
+    args: EvalGraspConfigDictArgumentParser,
+    hand_pose: torch.Tensor,
+    grasp_orientations: torch.Tensor,
+) -> np.ndarray:
+    grasp_orientations = grasp_orientations.to(hand_pose.device)
+
+    # hand model
+    hand_model = HandModel(
+        hand_model_type=args.hand_model_type, device=hand_pose.device
+    )
+    hand_model.set_parameters(hand_pose)
+
+    # Optimization
+    (
+        init_joint_angles,
+        _,
+    ) = compute_init_joint_angles_given_grasp_orientations(
+        joint_angles_start=hand_model.hand_pose[:, 9:],
+        hand_model=hand_model,
+        grasp_orientations=grasp_orientations,
+    )
+
+    num_joints = len(handmodeltype_to_joint_names[hand_model.hand_model_type])
+    assert init_joint_angles.shape == (hand_model.batch_size, num_joints)
+
+    return init_joint_angles.detach().cpu().numpy()
+
+
 def main(args: EvalGraspConfigDictArgumentParser):
     print("=" * 80)
     print(f"args = {args}")
@@ -127,6 +157,11 @@ def main(args: EvalGraspConfigDictArgumentParser):
         hand_pose=hand_pose,
         grasp_orientations=torch.from_numpy(grasp_orientations).float().to(device),
     )
+    init_joint_angles = compute_init_joint_angles(
+        args=args,
+        hand_pose=hand_pose,
+        grasp_orientations=torch.from_numpy(grasp_orientations).float().to(device),
+    )
 
     # Debug with single grasp
     if args.debug_index is not None:
@@ -146,7 +181,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         sim.add_env_single_test_rotation(
             hand_quaternion_wxyz=quat_wxyz[index],
             hand_translation=trans[index],
-            hand_qpos=joint_angles[index],
+            hand_qpos=init_joint_angles[index],
             obj_scale=object_scale,
             target_qpos=joint_angle_targets_array[index],
             add_random_pose_noise=add_random_pose_noise,
@@ -175,6 +210,8 @@ def main(args: EvalGraspConfigDictArgumentParser):
     assert joint_angles.shape == (batch_size, 16)
     assert hand_pose.shape == (batch_size, 3 + 6 + 16)
     assert grasp_orientations.shape == (batch_size, hand_model.num_fingers, 3, 3)
+    assert joint_angle_targets_array.shape == (batch_size, 16)
+    assert init_joint_angles.shape == (batch_size, 16)
 
     # Run for loop over minibatches of grasps.
     passed_simulation_array = []
@@ -191,7 +228,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             sim.add_env_single_test_rotation(
                 hand_quaternion_wxyz=quat_wxyz[index],
                 hand_translation=trans[index],
-                hand_qpos=joint_angles[index],
+                hand_qpos=init_joint_angles[index],
                 obj_scale=object_scale,
                 target_qpos=joint_angle_targets_array[index],
                 add_random_pose_noise=add_random_pose_noise,
@@ -203,7 +240,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
                     sim.add_env_single_test_rotation(
                         hand_quaternion_wxyz=quat_wxyz[index],
                         hand_translation=trans[index],
-                        hand_qpos=joint_angles[index],
+                        hand_qpos=init_joint_angles[index],
                         obj_scale=object_scale,
                         target_qpos=joint_angle_targets_array[index],
                         add_random_pose_noise=add_random_pose_noise,
