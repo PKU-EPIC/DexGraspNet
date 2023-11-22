@@ -352,7 +352,7 @@ def compute_fingertip_init_targets(
     )
     assert fingertip_mean_positions.shape == (batch_size, num_fingers, 3)
 
-    DIST_MOVE_FINGER_BACKWARDS = -0.02
+    DIST_MOVE_FINGER_BACKWARDS = -0.01
     fingertip_targets = (
         fingertip_mean_positions + grasp_directions * DIST_MOVE_FINGER_BACKWARDS
     )
