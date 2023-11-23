@@ -45,8 +45,8 @@ def process_data(args: ArgParser):
         + f" --output_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'hand_config_dicts'}"
         # + " --rand_object_scale" # Turning off so we don't have to regen nerfs every time.
         + " --use_penetration_energy"
-        + " --batch_size_each_object 1000"
-        + " --n_objects_per_batch 5"
+        + " --batch_size_each_object 5000"
+        + " --n_objects_per_batch 1"
     )
 
     if args.use_multiprocess:
