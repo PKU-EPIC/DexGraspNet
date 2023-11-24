@@ -37,7 +37,7 @@ class EvalAllGraspConfigDictsArgumentParser(Tap):
     randomize_order_seed: Optional[int] = None
     mid_optimization_steps: List[int] = []
     use_multiprocess: bool = True
-    num_workers: int = 2
+    num_workers: int = 3
 
 
 def get_object_code_and_scale_strs_to_process(
