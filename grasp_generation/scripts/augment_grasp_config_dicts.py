@@ -2,6 +2,7 @@ import pathlib
 from tap import Tap
 import numpy as np
 from typing import Optional, Dict, List
+from utils.seed import set_seed
 
 
 class ArgParser(Tap):
@@ -15,10 +16,9 @@ class ArgParser(Tap):
     output_grasp_config_dicts_path: Optional[pathlib.Path] = None
     mid_optimization_steps: List[int] = []
     add_open_grasps: bool = True
-    frac_open_grasps: float = 5.0
-    """Relative fraction of grasps to add data for - e.g., frac_open_grasps=0.5 means add data for 50% of grasps."""
+    num_open_augmentations_per_grasp: int = 10
     add_closed_grasps: bool = True
-    frac_closed_grasps: float = 1.0
+    num_closed_augmentations_per_grasp: int = 10
     open_grasp_var: float = 0.075
     closed_grasp_var: float = 0.05
     augment_only_successes: bool = False
@@ -27,33 +27,34 @@ class ArgParser(Tap):
 
 def generate_open_or_closed_grasps(
     grasp_config_dict: Dict[str, np.ndarray],
-    frac_grasps: float,
+    num_augmentations_per_grasp: int,
     grasp_var: float,
     open_grasp: bool,
     augment_only_successes: bool,
 ) -> Dict[str, np.ndarray]:
-    # Compute how many times we need to copy the dataset to get the desired fraction of open grasps.
     orig_batch_size = grasp_config_dict["grasp_orientations"].shape[0]
-    num_grasps_needed = (1 + int(frac_grasps)) * orig_batch_size
     if augment_only_successes:
         assert "passed_simulation" in grasp_config_dict.keys()
-        success_inds = np.argwhere(grasp_config_dict["passed_simulation"])
+        inds = np.argwhere(grasp_config_dict["passed_simulation"])
     else:
-        success_inds = np.arange(orig_batch_size)
+        inds = np.arange(orig_batch_size).reshape(-1, 1)
+    assert inds.shape == (inds.size, 1)
 
-    sample_inds = np.random.choice(
-        success_inds.flatten(), size=num_grasps_needed, replace=True
-    )
+    # Repeat inds to get desired number of augmentations per grasp.
+    repeated_inds = np.repeat(
+        inds, repeats=num_augmentations_per_grasp, axis=-1
+    ).flatten()
+    assert repeated_inds.shape == (inds.size * num_augmentations_per_grasp,)
 
     # Build new grasp config dict.
     aug_grasp_config_dict = {}
     for key, val in grasp_config_dict.items():
-        aug_grasp_config_dict[key] = val[sample_inds]
+        aug_grasp_config_dict[key] = val[repeated_inds]
 
     dir_str = "open" if open_grasp else "closed"
 
     # Now sample joint angle perturbations to open hand.
-    print(f"Adding {len(sample_inds)} {dir_str} grasps with variance {grasp_var}")
+    print(f"Adding {len(repeated_inds)} {dir_str} grasps with variance {grasp_var}")
     orig_joint_angles = aug_grasp_config_dict["joint_angles"]
     deltas = grasp_var * (np.random.rand(*orig_joint_angles.shape))
 
@@ -126,7 +127,7 @@ def augment_grasp_config_dicts(
         if args.add_open_grasps:
             open_grasp_config_dict = generate_open_or_closed_grasps(
                 grasp_config_dict=grasp_config_dict,
-                frac_grasps=args.frac_open_grasps,
+                num_augmentations_per_grasp=args.num_open_augmentations_per_grasp,
                 grasp_var=args.open_grasp_var,
                 open_grasp=True,
                 augment_only_successes=args.augment_only_successes,
@@ -145,7 +146,7 @@ def augment_grasp_config_dicts(
         if args.add_closed_grasps:
             closed_grasp_config_dict = generate_open_or_closed_grasps(
                 grasp_config_dict=grasp_config_dict,
-                frac_grasps=args.frac_closed_grasps,
+                num_augmentations_per_grasp=args.num_closed_augmentations_per_grasp,
                 grasp_var=args.closed_grasp_var,
                 open_grasp=False,
                 augment_only_successes=args.augment_only_successes,
@@ -169,6 +170,8 @@ def main(args: ArgParser) -> None:
     print("=" * 80)
     print(f"args = {args}")
     print("=" * 80 + "\n")
+
+    set_seed(None)
 
     # Create output path.
     if args.output_grasp_config_dicts_path is None:

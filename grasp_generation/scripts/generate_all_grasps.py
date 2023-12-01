@@ -134,7 +134,6 @@ def process_data(args: ArgParser):
         + f" --input_config_dicts_paths {args.base_data_path / args.experiment_name / 'raw_evaled_grasp_config_dicts'} {args.base_data_path / args.experiment_name / 'augmented_raw_evaled_grasp_config_dicts_opened_hand'}"
         + f" --output_config_dicts_path {args.base_data_path / args.experiment_name / 'evaled_grasp_config_dicts'}"
     )
-
     print_and_run(merge_grasp_command)
 
     if args.results_path is not None:
