@@ -522,7 +522,7 @@ class IsaacValidator:
     def run_sim(self) -> List[bool]:
         gym.prepare_sim(self.sim)  # TODO: Check if this is needed?
 
-        objs_moved_before_hand_joint_closed = self._run_sim_steps()
+        objs_stationary_before_hand_joint_closed = self._run_sim_steps()
 
         # Render out all videos.
         if self.camera_handles:
@@ -541,12 +541,12 @@ class IsaacValidator:
         successes = self._check_successes()
         print(f"successes = {successes}")
         print(
-            f"objs_moved_before_hand_joint_closed = {objs_moved_before_hand_joint_closed}"
+            f"objs_stationary_before_hand_joint_closed = {objs_stationary_before_hand_joint_closed}"
         )
         successes = [
             success and obj_moved_before_hand_joint_closed
             for success, obj_moved_before_hand_joint_closed in zip(
-                successes, objs_moved_before_hand_joint_closed
+                successes, objs_stationary_before_hand_joint_closed
             )
         ]
 
@@ -690,7 +690,7 @@ class IsaacValidator:
         default_desc = "Simulating"
         pbar = tqdm(total=self.num_sim_steps, desc=default_desc, dynamic_ncols=True)
 
-        objs_moved_before_hand_joint_closed = [False for _ in range(len(self.envs))]
+        objs_stationary_before_hand_joint_closed = [True for _ in range(len(self.envs))]
 
         while sim_step_idx < self.num_sim_steps:
             # Set hand joint targets only after first few steps
@@ -712,7 +712,7 @@ class IsaacValidator:
                 # Check if object has velocity before hand joints start moving
                 OBJ_BASE_LINK_IDX = 0
                 for i, (env, obj_handle) in enumerate(zip(self.envs, self.obj_handles)):
-                    if objs_moved_before_hand_joint_closed[i]:
+                    if not objs_stationary_before_hand_joint_closed[i]:
                         continue
 
                     obj_vel, _ = gym.get_actor_rigid_body_states(
@@ -722,7 +722,7 @@ class IsaacValidator:
                         [obj_vel["x"], obj_vel["y"], obj_vel["z"]]
                     )
                     if obj_speed > 0.01:
-                        objs_moved_before_hand_joint_closed[i] = True
+                        objs_stationary_before_hand_joint_closed[i] = False
 
             # Set virtual joint targets (wrist pose) only after a few steps
             #   Let hand close and object settle before moving wrist
@@ -809,7 +809,7 @@ class IsaacValidator:
                     desc += ". Step mode on"
                 pbar.set_description(desc)
 
-        return objs_moved_before_hand_joint_closed
+        return objs_stationary_before_hand_joint_closed
 
     def _render_video(
         self, video_frames: List[torch.Tensor], video_path: pathlib.Path, fps: int
