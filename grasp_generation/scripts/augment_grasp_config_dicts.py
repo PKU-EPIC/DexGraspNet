@@ -1,3 +1,8 @@
+import os
+import sys
+
+sys.path.append(os.path.realpath("."))
+
 import pathlib
 from tap import Tap
 import numpy as np
@@ -171,7 +176,7 @@ def main(args: ArgParser) -> None:
     print(f"args = {args}")
     print("=" * 80 + "\n")
 
-    set_seed(None)
+    set_seed(-1)
 
     # Create output path.
     if args.output_grasp_config_dicts_path is None:
