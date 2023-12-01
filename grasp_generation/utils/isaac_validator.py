@@ -742,6 +742,8 @@ class IsaacValidator:
                     )
                 )
                 self._set_virtual_joint_dof_pos_targets(virtual_joint_dof_pos_targets)
+            else:
+                virtual_joint_dof_pos_targets = None
 
             # Step physics if not paused
             if not self.is_paused:
