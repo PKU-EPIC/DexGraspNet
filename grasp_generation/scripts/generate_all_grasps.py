@@ -107,8 +107,8 @@ def process_data(args: ArgParser):
     # Relabel open hand grasps.
     update_augmented_grasp_command = (
         "python scripts/generate_grasp_config_dicts.py"
-        + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_hand_config_dicts' / 'opened_hand'}"
-        + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_grasp_config_dicts' / 'opened_hand'}"
+        + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_hand_config_dicts_opened_hand'}"
+        + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_grasp_config_dicts_opened_hand'}"
         + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
     )
     print_and_run(update_augmented_grasp_command)
@@ -116,21 +116,22 @@ def process_data(args: ArgParser):
     # Eval grasp configs.
     eval_grasp_command = (
         "python scripts/eval_all_grasp_config_dicts.py"
-        + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_grasp_config_dicts' / 'opened_hand'}"
-        + f" --output_evaled_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_evaled_grasp_config_dicts' / 'opened_hand'}"
+        + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_grasp_config_dicts_opened_hand'}"
+        + f" --output_evaled_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_evaled_grasp_config_dicts_opened_hand'}"
         + f" --meshdata_root_path {args.input_meshdata_path}"
         + (
             f" --num_random_pose_noise_samples_per_grasp {args.num_random_pose_noise_samples_per_grasp}"
             if args.num_random_pose_noise_samples_per_grasp is not None
             else ""
         )
+        + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
     )
     print_and_run(eval_grasp_command)
 
     # Merge grasp configs.
     merge_grasp_command = (
         "python scripts/merge_config_dicts.py"
-        + f" --input_config_dicts_paths {args.base_data_path / args.experiment_name / 'raw_evaled_grasp_config_dicts'} {args.base_data_path / args.experiment_name / 'augmented_raw_evaled_grasp_config_dicts'}"
+        + f" --input_config_dicts_paths {args.base_data_path / args.experiment_name / 'raw_evaled_grasp_config_dicts'} {args.base_data_path / args.experiment_name / 'augmented_raw_evaled_grasp_config_dicts_opened_hand'}"
         + f" --output_config_dicts_path {args.base_data_path / args.experiment_name / 'evaled_grasp_config_dicts'}"
     )
 

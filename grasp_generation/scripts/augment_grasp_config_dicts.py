@@ -68,13 +68,11 @@ def generate_open_or_closed_grasps(
 def augment_grasp_config_dicts(
     args: ArgParser,
     input_grasp_config_dicts_path: pathlib.Path,
-    output_grasp_config_dicts_path: pathlib.Path,
+    open_output_path: pathlib.Path,
+    closed_output_path: pathlib.Path,
 ) -> None:
     # Load desired grasp config dict.
     grasp_config_dict_paths = list(input_grasp_config_dicts_path.glob("*.npy"))
-
-    open_output_path = output_grasp_config_dicts_path / "opened_hand"
-    closed_output_path = output_grasp_config_dicts_path / "closed_hand"
 
     existing_open_grasp_config_dicts = (
         list(open_output_path.glob("*.npy")) if open_output_path.exists() else []
@@ -98,12 +96,12 @@ def augment_grasp_config_dicts(
 
     if args.no_continue and len(existing_closed_code_and_scale_strs) > 0:
         raise ValueError(
-            f"Found {len(existing_object_code_and_scale_strs)} existing grasp config dicts in {output_grasp_config_dicts_path}."
+            f"Found {len(existing_object_code_and_scale_strs)} existing grasp config dicts in {open_output_path} and {closed_output_path}."
             + " Set no_continue to False to continue training on these objects, or change output path."
         )
     elif len(existing_object_code_and_scale_strs) > 0:
         print(
-            f"Found {len(existing_object_code_and_scale_strs)} existing grasp config dicts in {output_grasp_config_dicts_path}."
+            f"Found {len(existing_object_code_and_scale_strs)} existing grasp config dicts in {open_output_path} and {closed_output_path}."
             + " Continuing training on these objects."
         )
         grasp_config_dict_paths = [
@@ -134,11 +132,7 @@ def augment_grasp_config_dicts(
                 augment_only_successes=args.augment_only_successes,
             )
 
-            open_grasp_config_dict_path = (
-                output_grasp_config_dicts_path
-                / "opened_hand"
-                / grasp_config_dict_path.name
-            )
+            open_grasp_config_dict_path = open_output_path / grasp_config_dict_path.name
 
             open_grasp_config_dict_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -158,9 +152,7 @@ def augment_grasp_config_dicts(
             )
 
             closed_grasp_config_dict_path = (
-                output_grasp_config_dicts_path
-                / "closed_hand"
-                / grasp_config_dict_path.name
+                closed_output_path / grasp_config_dict_path.name
             )
 
             closed_grasp_config_dict_path.parent.mkdir(parents=True, exist_ok=True)
@@ -184,10 +176,20 @@ def main(args: ArgParser) -> None:
     else:
         output_grasp_config_dicts_path = args.output_grasp_config_dicts_path
 
+    open_output_path = (
+        output_grasp_config_dicts_path.parent
+        / f"{output_grasp_config_dicts_path.name}_opened_hand"
+    )
+    closed_output_path = (
+        output_grasp_config_dicts_path.parent
+        / f"{output_grasp_config_dicts_path.name}_closed_hand"
+    )
+
     augment_grasp_config_dicts(
         args=args,
         input_grasp_config_dicts_path=args.input_grasp_config_dicts_path,
-        output_grasp_config_dicts_path=output_grasp_config_dicts_path,
+        open_output_path=open_output_path,
+        closed_output_path=closed_output_path,
     )
 
     for mid_optimization_step in args.mid_optimization_steps:
@@ -199,15 +201,17 @@ def main(args: ArgParser) -> None:
             / "mid_optimization"
             / f"{mid_optimization_step}"
         )
-        mid_optimization_output_grasp_config_dicts_path = (
-            output_grasp_config_dicts_path
-            / "mid_optimization"
-            / f"{mid_optimization_step}"
+        mid_optimization_open_output_path = (
+            open_output_path / "mid_optimization" / f"{mid_optimization_step}"
+        )
+        mid_optimization_closed_output_path = (
+            closed_output_path / "mid_optimization" / f"{mid_optimization_step}"
         )
         augment_grasp_config_dicts(
             args=args,
             input_grasp_config_dicts_path=mid_optimization_input_grasp_config_dicts_path,
-            output_grasp_config_dicts_path=mid_optimization_output_grasp_config_dicts_path,
+            open_output_path=mid_optimization_open_output_path,
+            closed_output_path=mid_optimization_closed_output_path,
         )
 
 
