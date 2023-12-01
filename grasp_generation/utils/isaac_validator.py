@@ -45,7 +45,9 @@ RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE = 1
 ISAAC_DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 
-def get_fixed_camera_transform(gym, sim, env, camera) -> Tuple[torch.Tensor, Quaternion]:
+def get_fixed_camera_transform(
+    gym, sim, env, camera
+) -> Tuple[torch.Tensor, Quaternion]:
     # OLD: currently x+ is pointing down camera view axis - other degree of freedom is messed up
     # NEW: currently z- is pointing down camera view axis - other degree of freedom is messed up
     # output will have x+ be optical axis, y+ pointing left (looking down camera) and z+ pointing up
@@ -474,8 +476,12 @@ class IsaacValidator:
             TRANSLATION_NOISE_CM = 0.1
             TRANSLATION_NOISE_M = TRANSLATION_NOISE_CM / 100
             ROTATION_NOISE_DEG = 1
-            xyz_noise = np.random.RandomState(seed=seed).uniform(-TRANSLATION_NOISE_M, TRANSLATION_NOISE_M, 3)
-            rpy_noise = np.random.RandomState(seed=seed).uniform(-ROTATION_NOISE_DEG, ROTATION_NOISE_DEG, 3)
+            xyz_noise = np.random.RandomState(seed=seed).uniform(
+                -TRANSLATION_NOISE_M, TRANSLATION_NOISE_M, 3
+            )
+            rpy_noise = np.random.RandomState(seed=seed).uniform(
+                -ROTATION_NOISE_DEG, ROTATION_NOISE_DEG, 3
+            )
             quat_wxyz = transforms3d.euler.euler2quat(*rpy_noise)
             assert xyz_noise.shape == (3,)
             assert rpy_noise.shape == (3,)
@@ -516,95 +522,7 @@ class IsaacValidator:
     def run_sim(self) -> List[bool]:
         gym.prepare_sim(self.sim)  # TODO: Check if this is needed?
 
-        sim_step_idx = 0
-        default_desc = "Simulating"
-        pbar = tqdm(total=self.num_sim_steps, desc=default_desc, dynamic_ncols=True)
-        while sim_step_idx < self.num_sim_steps:
-            # Set hand joint targets
-            # Heard that first few steps may be less deterministic because of isaacgym state
-            # Eg. contact buffers, so not moving for the first few steps may resolve this by clearing buffers
-            fraction_not_move_hand_joints = 0.1
-            total_steps_not_move_hand_joints = int(self.num_sim_steps * fraction_not_move_hand_joints)
-            if sim_step_idx == total_steps_not_move_hand_joints:
-                for env, hand_actor_handle, target_qpos in zip(
-                    self.envs, self.hand_handles, self.target_qpos_list,
-                ):
-                    self._set_dof_pos_targets(
-                        env=env,
-                        hand_actor_handle=hand_actor_handle,
-                        target_qpos=target_qpos,
-                    )
-
-            # Set virtual joint targets
-            virtual_joint_dof_pos_targets = self._compute_virtual_joint_dof_pos_targets(
-                sim_step_idx
-            )
-            if virtual_joint_dof_pos_targets is not None:
-                self._set_virtual_joint_dof_pos_targets(virtual_joint_dof_pos_targets)
-
-            # Step physics if not paused
-            if not self.is_paused:
-                gym.simulate(self.sim)
-                gym.fetch_results(
-                    self.sim, True
-                )  # TODO: Check if this slows things down
-
-                if self.camera_handles and sim_step_idx > 0:
-                    gym.step_graphics(self.sim)
-                    gym.render_all_camera_sensors(self.sim)
-                    for ii, env in enumerate(self.camera_envs):
-                        self.video_frames[ii].append(
-                            gym.get_camera_image(
-                                self.sim,
-                                env,
-                                self.camera_handles[ii],
-                                gymapi.IMAGE_COLOR,
-                            ).reshape(
-                                self.camera_properties_list[ii].height,
-                                self.camera_properties_list[ii].width,
-                                4,  # RGBA
-                            )
-                        )
-                sim_step_idx += 1
-                pbar.update(1)
-
-                # Step mode
-                if self.is_step_mode:
-                    self.is_paused = True
-
-            # Update viewer
-            if self.has_viewer:
-                sleep(self.debug_interval)
-                if gym.query_viewer_has_closed(self.viewer):
-                    break
-
-                # Check for keyboard events
-                for event in gym.query_viewer_action_events(self.viewer):
-                    if event.value > 0 and event.action in self.event_to_function:
-                        self.event_to_function[event.action]()
-
-                gym.clear_lines(self.viewer)
-
-                # Visualize origin lines
-                self._visualize_origin_lines()
-
-                # Visualize virtual joint targets
-                if virtual_joint_dof_pos_targets is not None:
-                    self._visualize_virtual_joint_dof_pos_targets(
-                        virtual_joint_dof_pos_targets
-                    )
-
-                gym.step_graphics(self.sim)
-                gym.draw_viewer(self.viewer, self.sim, False)
-
-                # Update progress bar text
-                desc = default_desc
-                desc += ". 'KEY_SPACE' = toggle pause. 'KEY_S' = toggle step mode"
-                if self.is_paused:
-                    desc += ". Paused"
-                if self.is_step_mode:
-                    desc += ". Step mode on"
-                pbar.set_description(desc)
+        objs_moved_before_hand_joint_closed = self._run_sim_steps()
 
         # Render out all videos.
         if self.camera_handles:
@@ -620,6 +538,21 @@ class IsaacValidator:
                 )
                 print(f"Done rendering camera {ii}.")
 
+        successes = self._check_successes()
+        print(f"successes = {successes}")
+        print(
+            f"objs_moved_before_hand_joint_closed = {objs_moved_before_hand_joint_closed}"
+        )
+        successes = [
+            success and obj_moved_before_hand_joint_closed
+            for success, obj_moved_before_hand_joint_closed in zip(
+                successes, objs_moved_before_hand_joint_closed
+            )
+        ]
+
+        return successes
+
+    def _check_successes(self) -> List[bool]:
         successes = []
         for i, (
             env,
@@ -745,10 +678,136 @@ class IsaacValidator:
                 print(f"len(hand_object_contacts) = {len(hand_object_contacts)}")
                 print(f"hand_link_contact_count = {hand_link_contact_count}")
                 print(f"not_allowed_contacts = {not_allowed_contacts}")
-                print(f"len(hand_link_contact_count.keys()) = {len(hand_link_contact_count.keys())}")
+                print(
+                    f"len(hand_link_contact_count.keys()) = {len(hand_link_contact_count.keys())}"
+                )
                 print("-------------")
 
         return successes
+
+    def _run_sim_steps(self) -> List[bool]:
+        sim_step_idx = 0
+        default_desc = "Simulating"
+        pbar = tqdm(total=self.num_sim_steps, desc=default_desc, dynamic_ncols=True)
+
+        objs_moved_before_hand_joint_closed = [False for _ in range(len(self.envs))]
+
+        while sim_step_idx < self.num_sim_steps:
+            # Set hand joint targets only after first few steps
+            #   Heard that first few steps may be less deterministic because of isaacgym state
+            #   Eg. contact buffers, so not moving for the first few steps may resolve this by clearing buffers
+            NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS = 10
+            if sim_step_idx >= NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS:
+                for env, hand_actor_handle, target_qpos in zip(
+                    self.envs,
+                    self.hand_handles,
+                    self.target_qpos_list,
+                ):
+                    self._set_dof_pos_targets(
+                        env=env,
+                        hand_actor_handle=hand_actor_handle,
+                        target_qpos=target_qpos,
+                    )
+            else:
+                # Check if object has velocity before hand joints start moving
+                OBJ_BASE_LINK_IDX = 0
+                for i, (env, obj_handle) in enumerate(zip(self.envs, self.obj_handles)):
+                    if objs_moved_before_hand_joint_closed[i]:
+                        continue
+
+                    obj_vel, _ = gym.get_actor_rigid_body_states(
+                        env, obj_handle, gymapi.STATE_VEL
+                    )[OBJ_BASE_LINK_IDX]["vel"]
+                    obj_speed = np.linalg.norm(
+                        [obj_vel["x"], obj_vel["y"], obj_vel["z"]]
+                    )
+                    if obj_speed > 0.01:
+                        objs_moved_before_hand_joint_closed[i] = True
+
+            # Set virtual joint targets (wrist pose) only after a few steps
+            #   Let hand close and object settle before moving wrist
+            #   Only do this when virtual joints exist
+            NUM_STEPS_TO_NOT_MOVE_WRIST_POSE = 20
+            assert NUM_STEPS_TO_NOT_MOVE_WRIST_POSE > NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS
+            if (
+                sim_step_idx >= NUM_STEPS_TO_NOT_MOVE_WRIST_POSE
+                and len(self.virtual_joint_names) > 0
+            ):
+                frac_progress = (sim_step_idx - NUM_STEPS_TO_NOT_MOVE_WRIST_POSE) / (
+                    self.num_sim_steps - NUM_STEPS_TO_NOT_MOVE_WRIST_POSE
+                )
+                virtual_joint_dof_pos_targets = (
+                    self._compute_virtual_joint_dof_pos_targets(
+                        frac_progress=frac_progress
+                    )
+                )
+                self._set_virtual_joint_dof_pos_targets(virtual_joint_dof_pos_targets)
+
+            # Step physics if not paused
+            if not self.is_paused:
+                gym.simulate(self.sim)
+                gym.fetch_results(
+                    self.sim, True
+                )  # TODO: Check if this slows things down
+
+                if self.camera_handles and sim_step_idx > 0:
+                    gym.step_graphics(self.sim)
+                    gym.render_all_camera_sensors(self.sim)
+                    for ii, env in enumerate(self.camera_envs):
+                        self.video_frames[ii].append(
+                            gym.get_camera_image(
+                                self.sim,
+                                env,
+                                self.camera_handles[ii],
+                                gymapi.IMAGE_COLOR,
+                            ).reshape(
+                                self.camera_properties_list[ii].height,
+                                self.camera_properties_list[ii].width,
+                                4,  # RGBA
+                            )
+                        )
+                sim_step_idx += 1
+                pbar.update(1)
+
+                # Step mode
+                if self.is_step_mode:
+                    self.is_paused = True
+
+            # Update viewer
+            if self.has_viewer:
+                sleep(self.debug_interval)
+                if gym.query_viewer_has_closed(self.viewer):
+                    break
+
+                # Check for keyboard events
+                for event in gym.query_viewer_action_events(self.viewer):
+                    if event.value > 0 and event.action in self.event_to_function:
+                        self.event_to_function[event.action]()
+
+                gym.clear_lines(self.viewer)
+
+                # Visualize origin lines
+                self._visualize_origin_lines()
+
+                # Visualize virtual joint targets
+                if virtual_joint_dof_pos_targets is not None:
+                    self._visualize_virtual_joint_dof_pos_targets(
+                        virtual_joint_dof_pos_targets
+                    )
+
+                gym.step_graphics(self.sim)
+                gym.draw_viewer(self.viewer, self.sim, False)
+
+                # Update progress bar text
+                desc = default_desc
+                desc += ". 'KEY_SPACE' = toggle pause. 'KEY_S' = toggle step mode"
+                if self.is_paused:
+                    desc += ". Paused"
+                if self.is_step_mode:
+                    desc += ". Step mode on"
+                pbar.set_description(desc)
+
+        return objs_moved_before_hand_joint_closed
 
     def _render_video(
         self, video_frames: List[torch.Tensor], video_path: pathlib.Path, fps: int
@@ -757,19 +816,10 @@ class IsaacValidator:
         imageio.mimsave(video_path, video_frames, fps=fps)
 
     def _compute_virtual_joint_dof_pos_targets(
-        self, sim_step_idx: int
-    ) -> Optional[List[torch.Tensor]]:
-        # Only when virtual joints exist
-        if len(self.virtual_joint_names) == 0:
-            return None
-
+        self,
+        frac_progress: float,
+    ) -> List[torch.Tensor]:
         assert len(self.virtual_joint_names) == 6
-
-        # First not move
-        fraction_not_moving = 0.2
-        total_steps_not_moving = int(self.num_sim_steps * fraction_not_moving)
-        if sim_step_idx < total_steps_not_moving:
-            return None
 
         # Set dof pos targets [+x, -x]*N, 0, [+y, -y]*N, 0, [+z, -z]*N
         dist_to_move = 0.05
@@ -784,11 +834,7 @@ class IsaacValidator:
             [0.0, 0.0, 0.0],
         ]
 
-        num_steps_moving_so_far = sim_step_idx - total_steps_not_moving
-        total_steps_moving = self.num_sim_steps - total_steps_not_moving
-        direction_idx = int(
-            (num_steps_moving_so_far / total_steps_moving) * len(directions_sequence)
-        )
+        direction_idx = int(frac_progress * len(directions_sequence))
         direction = directions_sequence[direction_idx]
 
         # direction in global frame
