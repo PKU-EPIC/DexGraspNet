@@ -25,6 +25,7 @@ from utils.hand_model_type import HandModelType
 from utils.pose_conversion import pose_to_hand_config
 from utils.seed import set_seed
 from utils.parse_object_code_and_scale import object_code_and_scale_to_str, parse_object_code_and_scale
+from utils.timers import LoopTimer
 
 from torch.multiprocessing import set_start_method
 from typing import Tuple, List, Optional, Dict, Any
@@ -268,86 +269,93 @@ def generate(
 ) -> None:
     args, object_codes, id, gpu_list, object_scales = args_tuple
     try:
+        loop_timer = LoopTimer()
+
         # Log to wandb
-        time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        name = f"{args.wandb_name}_{time_str}" if len(args.wandb_name) > 0 else time_str
-        if args.use_wandb:
-            wandb.init(
-                entity=args.wandb_entity,
-                project=args.wandb_project,
-                name=name,
-                config=args,
+        with loop_timer.add_section_timer("wandb and setup"):
+            time_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            name = f"{args.wandb_name}_{time_str}" if len(args.wandb_name) > 0 else time_str
+            if args.use_wandb:
+                wandb.init(
+                    entity=args.wandb_entity,
+                    project=args.wandb_project,
+                    name=name,
+                    config=args,
+                )
+
+            # prepare models
+            if args.use_multiprocess:
+                worker = multiprocessing.current_process()._identity[0]
+                os.environ["CUDA_VISIBLE_DEVICES"] = gpu_list[worker - 1]
+            else:
+                os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+            device = torch.device("cuda")
+
+        with loop_timer.add_section_timer("create hand model"):
+            hand_model = HandModel(
+                hand_model_type=args.hand_model_type,
+                device=device,
             )
 
-        # prepare models
-        if args.use_multiprocess:
-            worker = multiprocessing.current_process()._identity[0]
-            os.environ["CUDA_VISIBLE_DEVICES"] = gpu_list[worker - 1]
-        else:
-            os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-        device = torch.device("cuda")
+        with loop_timer.add_section_timer("create object model"):
+            object_model = ObjectModel(
+                meshdata_root_path=str(args.meshdata_root_path),
+                batch_size_each=args.batch_size_each_object,
+                num_samples=args.object_num_surface_samples,
+                num_calc_samples=args.object_num_samples_calc_penetration_energy,
+                device=device,
+            )
+            object_model.initialize(object_codes, object_scales)
 
-        hand_model = HandModel(
-            hand_model_type=args.hand_model_type,
-            device=device,
-        )
+        with loop_timer.add_section_timer("init convex hull"):
+            initialize_convex_hull(
+                hand_model=hand_model,
+                object_model=object_model,
+                distance_lower=args.distance_lower,
+                distance_upper=args.distance_upper,
+                theta_lower=args.theta_lower,
+                theta_upper=args.theta_upper,
+                hand_model_type=args.hand_model_type,
+                jitter_strength=args.jitter_strength,
+                n_contacts_per_finger=args.n_contacts_per_finger,
+            )
+            hand_pose_start = hand_model.hand_pose.detach()
 
-        object_model = ObjectModel(
-            meshdata_root_path=str(args.meshdata_root_path),
-            batch_size_each=args.batch_size_each_object,
-            num_samples=args.object_num_surface_samples,
-            num_calc_samples=args.object_num_samples_calc_penetration_energy,
-            device=device,
-        )
-        object_model.initialize(object_codes, object_scales)
-
-        initialize_convex_hull(
-            hand_model=hand_model,
-            object_model=object_model,
-            distance_lower=args.distance_lower,
-            distance_upper=args.distance_upper,
-            theta_lower=args.theta_lower,
-            theta_upper=args.theta_upper,
-            hand_model_type=args.hand_model_type,
-            jitter_strength=args.jitter_strength,
-            n_contacts_per_finger=args.n_contacts_per_finger,
-        )
-
-        hand_pose_start = hand_model.hand_pose.detach()
-
-        optim_config = {
-            "switch_possibility": args.switch_possibility,
-            "starting_temperature": args.starting_temperature,
-            "temperature_decay": args.temperature_decay,
-            "annealing_period": args.annealing_period,
-            "step_size": args.step_size,
-            "stepsize_period": args.stepsize_period,
-            "n_contacts_per_finger": args.n_contacts_per_finger,
-            "mu": args.mu,
-            "device": device,
-        }
-        optimizer = Annealing(hand_model, **optim_config)
+        with loop_timer.add_section_timer("create optimizer"):
+            optim_config = {
+                "switch_possibility": args.switch_possibility,
+                "starting_temperature": args.starting_temperature,
+                "temperature_decay": args.temperature_decay,
+                "annealing_period": args.annealing_period,
+                "step_size": args.step_size,
+                "stepsize_period": args.stepsize_period,
+                "n_contacts_per_finger": args.n_contacts_per_finger,
+                "mu": args.mu,
+                "device": device,
+            }
+            optimizer = Annealing(hand_model, **optim_config)
 
         # optimize
-        energy_name_to_weight_dict = {
-            "Force Closure": args.w_fc,
-            "Hand Contact Point to Object Distance": args.w_dis,
-            "Hand Object Penetration": args.w_pen,
-            "Hand Self Penetration": args.w_spen,
-            "Joint Limits Violation": args.w_joints,
-            "Finger Finger Distance": args.w_ff,
-            "Finger Palm Distance": args.w_fp,
-        }
+        with loop_timer.add_section_timer("energy forward"):
+            energy_name_to_weight_dict = {
+                "Force Closure": args.w_fc,
+                "Hand Contact Point to Object Distance": args.w_dis,
+                "Hand Object Penetration": args.w_pen,
+                "Hand Self Penetration": args.w_spen,
+                "Joint Limits Violation": args.w_joints,
+                "Finger Finger Distance": args.w_ff,
+                "Finger Palm Distance": args.w_fp,
+            }
+            energy, unweighted_energy_matrix, weighted_energy_matrix = cal_energy(
+                hand_model,
+                object_model,
+                energy_name_to_weight_dict=energy_name_to_weight_dict,
+                use_penetration_energy=args.use_penetration_energy,
+                thres_dis=args.thres_dis,
+            )
 
-        energy, unweighted_energy_matrix, weighted_energy_matrix = cal_energy(
-            hand_model,
-            object_model,
-            energy_name_to_weight_dict=energy_name_to_weight_dict,
-            use_penetration_energy=args.use_penetration_energy,
-            thres_dis=args.thres_dis,
-        )
-
-        energy.sum().backward(retain_graph=True)
+        with loop_timer.add_section_timer("energy backward"):
+            energy.sum().backward(retain_graph=True)
 
         idx_to_visualize = 0
         step_first_compute_penetration_energy = int(
@@ -355,13 +363,14 @@ def generate(
         )
         pbar = tqdm(range(args.n_iter), desc="optimizing", dynamic_ncols=True)
         for step in pbar:
-            wandb_log_dict = {}
-            wandb_log_dict["optimization_step"] = step
+            with loop_timer.add_section_timer("wandb and setup"):
+                wandb_log_dict = {}
+                wandb_log_dict["optimization_step"] = step
 
-            use_penetration_energy = (
-                args.use_penetration_energy
-                and step >= step_first_compute_penetration_energy
-            )
+                use_penetration_energy = (
+                    args.use_penetration_energy
+                    and step >= step_first_compute_penetration_energy
+                )
 
             # When we start using penetration energy, we must recompute the current energy with penetration energy
             # Else the current energy will appear artificially better than all new energies
@@ -385,99 +394,108 @@ def generate(
                 unweighted_energy_matrix[:] = updated_unweighted_energy_matrix
                 weighted_energy_matrix[:] = updated_weighted_energy_matrix
 
-            _ = optimizer.try_step()
+            with loop_timer.add_section_timer("optimizer try step zero grad"):
+                _ = optimizer.try_step()
+                optimizer.zero_grad()
 
-            optimizer.zero_grad()
+            with loop_timer.add_section_timer("energy forward"):
+                (
+                    new_energy,
+                    new_unweighted_energy_matrix,
+                    new_weighted_energy_matrix,
+                ) = cal_energy(
+                    hand_model,
+                    object_model,
+                    energy_name_to_weight_dict=energy_name_to_weight_dict,
+                    use_penetration_energy=use_penetration_energy,
+                )
+            with loop_timer.add_section_timer("energy backward"):
+                new_energy.sum().backward(retain_graph=True)
 
-            (
-                new_energy,
-                new_unweighted_energy_matrix,
-                new_weighted_energy_matrix,
-            ) = cal_energy(
-                hand_model,
-                object_model,
-                energy_name_to_weight_dict=energy_name_to_weight_dict,
-                use_penetration_energy=use_penetration_energy,
-            )
-            new_energy.sum().backward(retain_graph=True)
+            with loop_timer.add_section_timer("update energy"):
 
-            with torch.no_grad():
-                accept, temperature = optimizer.accept_step(energy, new_energy)
+                with torch.no_grad():
+                    accept, temperature = optimizer.accept_step(energy, new_energy)
 
-                energy[accept] = new_energy[accept]
-                unweighted_energy_matrix[accept] = new_unweighted_energy_matrix[accept]
-                weighted_energy_matrix[accept] = new_weighted_energy_matrix[accept]
+                    energy[accept] = new_energy[accept]
+                    unweighted_energy_matrix[accept] = new_unweighted_energy_matrix[accept]
+                    weighted_energy_matrix[accept] = new_weighted_energy_matrix[accept]
 
             # Store grasps mid optimization
-            if (
-                args.store_grasps_mid_optimization_freq is not None
-                and step % args.store_grasps_mid_optimization_freq == 0
-            ) or (
-                args.store_grasps_mid_optimization_iters is not None
-                and step in args.store_grasps_mid_optimization_iters
-            ):
-                new_output_folder = (
-                    pathlib.Path(f"{args.output_hand_config_dicts_path}")
-                    / "mid_optimization"
-                    / str(step)
-                )
-                new_output_folder.mkdir(parents=True, exist_ok=True)
-                save_hand_config_dicts(
-                    hand_model=hand_model,
-                    object_model=object_model,
-                    object_codes=object_codes,
-                    object_scales=object_scales,
-                    hand_pose_start=hand_pose_start,
-                    energy=energy,
-                    unweighted_energy_matrix=unweighted_energy_matrix,
-                    output_folder_path=new_output_folder,
-                )
+            with loop_timer.add_section_timer("save mid optimization grasps"):
+                if (
+                    args.store_grasps_mid_optimization_freq is not None
+                    and step % args.store_grasps_mid_optimization_freq == 0
+                ) or (
+                    args.store_grasps_mid_optimization_iters is not None
+                    and step in args.store_grasps_mid_optimization_iters
+                ):
+                    new_output_folder = (
+                        pathlib.Path(f"{args.output_hand_config_dicts_path}")
+                        / "mid_optimization"
+                        / str(step)
+                    )
+                    new_output_folder.mkdir(parents=True, exist_ok=True)
+                    save_hand_config_dicts(
+                        hand_model=hand_model,
+                        object_model=object_model,
+                        object_codes=object_codes,
+                        object_scales=object_scales,
+                        hand_pose_start=hand_pose_start,
+                        energy=energy,
+                        unweighted_energy_matrix=unweighted_energy_matrix,
+                        output_folder_path=new_output_folder,
+                    )
 
             # Log
-            wandb_log_dict.update(
-                {
-                    "accept": accept.sum().item(),
-                    "temperature": temperature.item(),
-                    "energy": energy.mean().item(),
-                    f"accept_{idx_to_visualize}": accept[idx_to_visualize].item(),
-                    f"energy_{idx_to_visualize}": energy[idx_to_visualize].item(),
-                }
-            )
-            wandb_log_dict.update(
-                get_energy_term_log_dict(
-                    unweighted_energy_matrix=unweighted_energy_matrix,
-                    weighted_energy_matrix=weighted_energy_matrix,
-                    idx_to_visualize=idx_to_visualize,
+            with loop_timer.add_section_timer("wandb and setup"):
+                wandb_log_dict.update(
+                    {
+                        "accept": accept.sum().item(),
+                        "temperature": temperature.item(),
+                        "energy": energy.mean().item(),
+                        f"accept_{idx_to_visualize}": accept[idx_to_visualize].item(),
+                        f"energy_{idx_to_visualize}": energy[idx_to_visualize].item(),
+                    }
                 )
-            )
-
-            # Visualize
-            if (
-                args.wandb_visualization_freq is not None
-                and step % args.wandb_visualization_freq == 0
-            ):
-                fig, fig_title = create_visualization_figure(
-                    hand_model=hand_model,
-                    object_model=object_model,
-                    idx_to_visualize=idx_to_visualize,
+                wandb_log_dict.update(
+                    get_energy_term_log_dict(
+                        unweighted_energy_matrix=unweighted_energy_matrix,
+                        weighted_energy_matrix=weighted_energy_matrix,
+                        idx_to_visualize=idx_to_visualize,
+                    )
                 )
-                wandb_log_dict[fig_title] = fig
 
-            if args.use_wandb:
-                wandb.log(wandb_log_dict)
+                # Visualize
+                if (
+                    args.wandb_visualization_freq is not None
+                    and step % args.wandb_visualization_freq == 0
+                ):
+                    fig, fig_title = create_visualization_figure(
+                        hand_model=hand_model,
+                        object_model=object_model,
+                        idx_to_visualize=idx_to_visualize,
+                    )
+                    wandb_log_dict[fig_title] = fig
 
-            pbar.set_description(f"optimizing, mean energy: {energy.mean().item():.4f}")
+                if args.use_wandb:
+                    wandb.log(wandb_log_dict)
 
-        save_hand_config_dicts(
-            hand_model=hand_model,
-            object_model=object_model,
-            object_codes=object_codes,
-            object_scales=object_scales,
-            hand_pose_start=hand_pose_start,
-            energy=energy,
-            unweighted_energy_matrix=unweighted_energy_matrix,
-            output_folder_path=args.output_hand_config_dicts_path,
-        )
+                pbar.set_description(f"optimizing, mean energy: {energy.mean().item():.4f}")
+            loop_timer.pretty_print_section_times()
+
+        with loop_timer.add_section_timer("save final grasps"):
+            save_hand_config_dicts(
+                hand_model=hand_model,
+                object_model=object_model,
+                object_codes=object_codes,
+                object_scales=object_scales,
+                hand_pose_start=hand_pose_start,
+                energy=energy,
+                unweighted_energy_matrix=unweighted_energy_matrix,
+                output_folder_path=args.output_hand_config_dicts_path,
+            )
+        loop_timer.pretty_print_section_times()
 
     except Exception as e:
         print(f"Exception: {e}")
