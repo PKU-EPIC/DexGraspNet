@@ -41,8 +41,13 @@ def generate_open_or_closed_grasps(
     if augment_only_successes:
         assert "passed_simulation" in grasp_config_dict.keys()
         inds = np.argwhere(grasp_config_dict["passed_simulation"])
+
+        if inds.size == 0:
+            print(f"WARNING: No successful grasps found, using first one")
+            inds = np.arange(1).reshape(-1, 1)
     else:
         inds = np.arange(orig_batch_size).reshape(-1, 1)
+
     assert inds.shape == (inds.size, 1)
 
     # Repeat inds to get desired number of augmentations per grasp.
