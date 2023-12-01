@@ -45,7 +45,7 @@ RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE = 1
 ISAAC_DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 
-def get_fixed_camera_transform(gym, sim, env, camera):
+def get_fixed_camera_transform(gym, sim, env, camera) -> Tuple[torch.Tensor, Quaternion]:
     # OLD: currently x+ is pointing down camera view axis - other degree of freedom is messed up
     # NEW: currently z- is pointing down camera view axis - other degree of freedom is messed up
     # output will have x+ be optical axis, y+ pointing left (looking down camera) and z+ pointing up
@@ -81,7 +81,7 @@ def get_fixed_camera_transform(gym, sim, env, camera):
 gym = gymapi.acquire_gym()
 
 
-def get_link_idx_to_name_dict(env, actor_handle):
+def get_link_idx_to_name_dict(env, actor_handle) -> dict:
     link_idx_to_name_dict = {}
     num_links = gym.get_actor_rigid_body_count(env, actor_handle)
     link_names = gym.get_actor_rigid_body_names(env, actor_handle)
@@ -323,7 +323,7 @@ class IsaacValidator:
             self._setup_camera(env)
 
     # TODO: be less lazy, integrate with NeRF datagen.
-    def _setup_camera(self, env):
+    def _setup_camera(self, env) -> None:
         camera_properties = gymapi.CameraProperties()  # type: ignore
 
         camera_properties.width = int(
@@ -513,7 +513,7 @@ class IsaacValidator:
         gym.set_actor_rigid_shape_properties(env, obj_actor_handle, obj_shape_props)
         return
 
-    def run_sim(self):
+    def run_sim(self) -> List[bool]:
         gym.prepare_sim(self.sim)  # TODO: Check if this is needed?
 
         sim_step_idx = 0
@@ -727,6 +727,7 @@ class IsaacValidator:
 
             success = (
                 len(hand_object_contacts) > 0
+                and len(hand_link_contact_count.keys()) >= 3
                 and len(not_allowed_contacts) == 0
                 and pos_change < 0.1
                 and max_euler_change < 30
@@ -735,7 +736,7 @@ class IsaacValidator:
             successes.append(success)
 
             DEBUG = False
-            if DEBUG and len(hand_object_contacts) > 0:
+            if DEBUG:
                 print(f"i = {i}")
                 print(f"success = {success}")
                 print(f"pos_change = {pos_change}")
@@ -744,12 +745,13 @@ class IsaacValidator:
                 print(f"len(hand_object_contacts) = {len(hand_object_contacts)}")
                 print(f"hand_link_contact_count = {hand_link_contact_count}")
                 print(f"not_allowed_contacts = {not_allowed_contacts}")
+                print(f"len(hand_link_contact_count.keys()) = {len(hand_link_contact_count.keys())}")
                 print("-------------")
 
         return successes
 
     def _render_video(
-        self, video_frames: List[torch.tensor], video_path: str, fps: int
+        self, video_frames: List[torch.Tensor], video_path: pathlib.Path, fps: int
     ):
         print(f"number of frames: {len(video_frames)}")
         imageio.mimsave(video_path, video_frames, fps=fps)
@@ -863,7 +865,7 @@ class IsaacValidator:
                 visualization_sphere_green, gym, self.viewer, env, sphere_pose
             )
 
-    def _visualize_origin_lines(self):
+    def _visualize_origin_lines(self) -> None:
         if not self.has_viewer:
             return
 
@@ -878,7 +880,7 @@ class IsaacValidator:
             for env in self.envs:
                 gymutil.draw_line(origin_pos, pos, color, gym, self.viewer, env)
 
-    def reset_simulator(self):
+    def reset_simulator(self) -> None:
         self.destroy()
 
         if self.has_viewer:
@@ -893,14 +895,14 @@ class IsaacValidator:
 
         self._reset_state()
 
-    def destroy(self):
+    def destroy(self) -> None:
         for env in self.envs:
             gym.destroy_env(env)
         gym.destroy_sim(self.sim)
         if self.has_viewer:
             gym.destroy_viewer(self.viewer)
 
-    def _reset_state(self):
+    def _reset_state(self) -> None:
         self.envs = []
         self.hand_handles = []
         self.obj_handles = []
@@ -917,7 +919,7 @@ class IsaacValidator:
         self.video_frames = []
         self.obj_asset = None
 
-    def subscribe_to_keyboard_events(self):
+    def subscribe_to_keyboard_events(self) -> None:
         if self.has_viewer:
             self.event_to_key = {
                 "STEP_MODE": gymapi.KEY_S,
