@@ -80,7 +80,8 @@ def main(args: VisualizeConfigDictArgumentParser):
                 skip_visualize_qpos_start=args.skip_visualize_qpos_start,
                 skip_visualize_grasp_config_dict=args.skip_visualize_grasp_config_dict,
                 idx_to_visualize=i + OFFSET,
-                title=f"{args.object_code_and_scale_str} {args.idx_to_visualize}",
+                title=f"{args.object_code_and_scale_str} {i + OFFSET}",
+                concise_title=True,
             )
             for i in range(MAX_TO_VISUALIZE)
         ]

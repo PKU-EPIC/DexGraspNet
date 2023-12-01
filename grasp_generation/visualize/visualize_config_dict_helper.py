@@ -185,6 +185,7 @@ def create_config_dict_fig(
     skip_visualize_grasp_config_dict: bool,
     title: str,
     idx_to_visualize: int,
+    concise_title: bool = False,
 ) -> go.Figure:
     object_plotly = object_model.get_plotly_data(
         i=0, color="lightgreen", opacity=0.5, with_surface_points=True
@@ -258,7 +259,9 @@ def create_config_dict_fig(
     # passed_eval
     if "passed_eval" in config_dict:
         passed_eval = config_dict["passed_eval"][idx_to_visualize]
-        passed_eval_str = f"Passed eval: {passed_eval}"
+        passed_eval_str = (
+            f"Passed eval: {passed_eval}" if not concise_title else f"E: {passed_eval}"
+        )
         fig.add_annotation(
             text=passed_eval_str, x=0.5, y=0.05, xref="paper", yref="paper"
         )
@@ -271,6 +274,8 @@ def create_config_dict_fig(
         ]
         passed_penetration_threshold_str = (
             f"Passed penetration threshold: {passed_penetration_threshold}"
+            if not concise_title
+            else f"P: {passed_penetration_threshold}"
         )
         fig.add_annotation(
             text=passed_penetration_threshold_str,
@@ -284,7 +289,9 @@ def create_config_dict_fig(
 
     if "penetration" in config_dict:
         penetration = config_dict["penetration"][idx_to_visualize]
-        penetration_str = f"Penetration: {round(penetration, 5)}"
+        penetration_str = (
+            f"Penetration: {round(penetration, 5)}" if not concise_title else ""
+        )
         fig.add_annotation(
             text=penetration_str, x=0.5, y=0.15, xref="paper", yref="paper"
         )
@@ -293,7 +300,11 @@ def create_config_dict_fig(
 
     if "passed_simulation" in config_dict:
         passed_simulation = config_dict["passed_simulation"][idx_to_visualize]
-        passed_simulation_str = f"Passed simulation: {passed_simulation}"
+        passed_simulation_str = (
+            f"Passed simulation: {passed_simulation}"
+            if not concise_title
+            else f"S: {passed_simulation}"
+        )
         fig.add_annotation(
             text=passed_simulation_str, x=0.5, y=0.2, xref="paper", yref="paper"
         )
