@@ -127,24 +127,12 @@ class IsaacValidator:
         self.gpu = gpu
         self.validation_type = validation_type
 
-        self.envs = []
-        self.hand_handles = []
-        self.obj_handles = []
-        self.hand_link_idx_to_name_dicts = []
-        self.obj_link_idx_to_name_dicts = []
-        self.init_hand_poses = []
-        self.init_obj_poses = []
-        self.init_rel_obj_poses = []
-        self.target_qpos_list = []
-
-        self.camera_handles = []
-        self.camera_envs = []
-        self.camera_properties_list = []
-        self.video_frames = []
         self.joint_names = handmodeltype_to_joint_names[hand_model_type]
         self.allowed_contact_link_names = handmodeltype_to_allowedcontactlinknames[
             hand_model_type
         ]
+
+        self._reset_state()
 
         # Need virtual joints to control hand position
         if self.validation_type == ValidationType.GRAVITY_IN_6_DIRS:
@@ -170,9 +158,6 @@ class IsaacValidator:
             ]
         else:
             raise ValueError(f"Unknown validation type: {validation_type}")
-
-        self.hand_asset = None
-        self.obj_asset = None
 
         self.sim_params = gymapi.SimParams()
 
@@ -894,38 +879,43 @@ class IsaacValidator:
                 gymutil.draw_line(origin_pos, pos, color, gym, self.viewer, env)
 
     def reset_simulator(self):
-        for env in self.envs:
-            gym.destroy_env(env)
-        gym.destroy_sim(self.sim)
+        self.destroy()
+
         if self.has_viewer:
-            gym.destroy_viewer(self.viewer)
             self.viewer = gym.create_viewer(self.sim, self.camera_props)
+
         self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
-        self.envs = []
-        self.hand_handles = []
-        self.obj_handles = []
-        self.hand_link_idx_to_name_dicts = []
-        self.obj_link_idx_to_name_dicts = []
-        self.camera_handles = []
-        self.camera_envs = []
-        self.camera_properties_list = []
-        self.video_frames = []
-        self.hand_asset = None
-        self.obj_asset = None
-        self.init_obj_poses = []
-        self.init_hand_poses = []
-        self.init_rel_obj_poses = []
-        self.target_qpos_list = []
 
         # Recreate hand asset in new sim.
         self.hand_asset = gym.load_asset(
             self.sim, self.hand_root, self.hand_file, self.hand_asset_options
         )
 
+        self._reset_state()
+
     def destroy(self):
+        for env in self.envs:
+            gym.destroy_env(env)
         gym.destroy_sim(self.sim)
         if self.has_viewer:
             gym.destroy_viewer(self.viewer)
+
+    def _reset_state(self):
+        self.envs = []
+        self.hand_handles = []
+        self.obj_handles = []
+        self.hand_link_idx_to_name_dicts = []
+        self.obj_link_idx_to_name_dicts = []
+        self.init_obj_poses = []
+        self.init_hand_poses = []
+        self.init_rel_obj_poses = []
+        self.target_qpos_list = []
+
+        self.camera_handles = []
+        self.camera_envs = []
+        self.camera_properties_list = []
+        self.video_frames = []
+        self.obj_asset = None
 
     def subscribe_to_keyboard_events(self):
         if self.has_viewer:

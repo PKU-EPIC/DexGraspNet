@@ -158,11 +158,15 @@ def main(args: EvalGraspConfigDictArgumentParser):
         hand_pose=hand_pose,
         grasp_orientations=torch.from_numpy(grasp_orientations).float().to(device),
     )
-    init_joint_angles = compute_init_joint_angles(
-        args=args,
-        hand_pose=hand_pose,
-        grasp_orientations=torch.from_numpy(grasp_orientations).float().to(device),
-    ) if args.move_fingers_back_at_init else joint_angles
+    init_joint_angles = (
+        compute_init_joint_angles(
+            args=args,
+            hand_pose=hand_pose,
+            grasp_orientations=torch.from_numpy(grasp_orientations).float().to(device),
+        )
+        if args.move_fingers_back_at_init
+        else joint_angles
+    )
 
     # Debug with single grasp
     if args.debug_index is not None:
@@ -216,10 +220,16 @@ def main(args: EvalGraspConfigDictArgumentParser):
     # Run for loop over minibatches of grasps.
     passed_simulation_array = []
     E_pen_array = []
-    pbar = tqdm(range(math.ceil(batch_size / args.max_grasps_per_batch)))
+    max_grasps_per_batch = (
+        args.max_grasps_per_batch
+        if args.num_random_pose_noise_samples_per_grasp is None
+        else args.max_grasps_per_batch
+        // (args.num_random_pose_noise_samples_per_grasp + 1)
+    )
+    pbar = tqdm(range(math.ceil(batch_size / max_grasps_per_batch)))
     for i in pbar:
-        start_index = i * args.max_grasps_per_batch
-        end_index = min((i + 1) * args.max_grasps_per_batch, batch_size)
+        start_index = i * max_grasps_per_batch
+        end_index = min((i + 1) * max_grasps_per_batch, batch_size)
         sim.set_obj_asset(
             obj_root=str(args.meshdata_root_path / object_code / "coacd"),
             obj_file="coacd.urdf",
@@ -278,9 +288,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             batch_size, args.num_random_pose_noise_samples_per_grasp + 1
         )
         passed_simulation_without_noise = passed_simulation_array[:, 0]
-        passed_simulation_with_noise = passed_simulation_array[
-            :, 1:
-        ]
+        passed_simulation_with_noise = passed_simulation_array[:, 1:]
         # Use mean of all noise samples
         mean_passed_simulation_with_noise = passed_simulation_with_noise.mean(axis=1)
         passed_simulation_array = mean_passed_simulation_with_noise

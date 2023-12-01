@@ -18,6 +18,7 @@ class ArgParser(Tap):
     generate_nerf_data: bool = False
     results_path: Optional[pathlib.Path] = None
     gcloud_results_path: Optional[pathlib.Path] = None
+    num_random_pose_noise_samples_per_grasp: Optional[int] = None
 
 
 def print_and_run(command: str) -> None:
@@ -42,8 +43,9 @@ def process_data(args: ArgParser):
     hand_gen_command = (
         f"python scripts/generate_hand_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
         + f" --output_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'hand_config_dicts'}"
-        # + " --rand_object_scale" # Turning off so we don't have to regen nerfs every time.
         + " --use_penetration_energy"
+        # + " --rand_object_scale" # Turning off so we don't have to regen nerfs every time.
+        # + " --batch_size_each_object 1000 --n_objects_per_batch 5"  # For more grasps per object
     )
 
     if args.use_multiprocess:
@@ -63,30 +65,35 @@ def process_data(args: ArgParser):
     )
     mid_opt_steps = [int(str(x.stem)) for x in mid_opt_path.iterdir()]
 
-    # Generate grasp configs.
-    grasp_gen_command = (
+    # Generate raw grasp configs.
+    init_grasp_gen_command = (
         f"python scripts/generate_grasp_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
         + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'hand_config_dicts'}"
         + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
     )
 
-    # Eval final grasp configs.
-    eval_final_grasp_command = (
+    print_and_run(init_grasp_gen_command)
+
+    # Eval raw grasp configs.
+    init_eval_grasp_command = (
         "python scripts/eval_all_grasp_config_dicts.py"
         + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
         + f" --output_evaled_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_evaled_grasp_config_dicts'}"
         + f" --meshdata_root_path {args.input_meshdata_path}"
+        + (f" --num_random_pose_noise_samples_per_grasp {args.num_random_pose_noise_samples_per_grasp}"
+           if args.num_random_pose_noise_samples_per_grasp is not None
+           else "")
     )
 
-    print_and_run(eval_final_grasp_command)
+    print_and_run(init_eval_grasp_command)
     if args.results_path is not None:
         print_and_run(sync_command)
 
-    # Augment grasp configs.
+    # Augment successful grasp configs.
     augment_grasp_command = (
         "python scripts/augment_grasp_config_dicts.py"
         + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_evaled_grasp_config_dicts'}"
-        + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
+        + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_grasp_config_dicts'}"
         + f" --augment_only_successes"
     )
 
@@ -105,7 +112,7 @@ def process_data(args: ArgParser):
     # Relabel open hand grasps.
     relabel_command = (
         "python scripts/generate_grasp_config_dicts.py"
-        + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts' / 'opened_hand'}"
+        + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_grasp_config_dicts' / 'opened_hand'}"
         + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts' / 'opened_hand'}"
     )
 
@@ -126,6 +133,9 @@ def process_data(args: ArgParser):
         + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'grasp_config_dicts'}"
         + f" --output_evaled_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'evaled_grasp_config_dicts'}"
         + f" --meshdata_root_path {args.input_meshdata_path}"
+        + (f" --num_random_pose_noise_samples_per_grasp {args.num_random_pose_noise_samples_per_grasp}"
+           if args.num_random_pose_noise_samples_per_grasp is not None
+           else "")
     )
 
     print_and_run(eval_grasp_command)
