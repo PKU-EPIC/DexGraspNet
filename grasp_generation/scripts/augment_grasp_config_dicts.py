@@ -1,7 +1,13 @@
+import os
+import sys
+
+sys.path.append(os.path.realpath("."))
+
 import pathlib
 from tap import Tap
 import numpy as np
-from typing import Optional, Dict
+from typing import Optional, Dict, List
+from utils.seed import set_seed
 
 
 class ArgParser(Tap):
@@ -13,11 +19,11 @@ class ArgParser(Tap):
         "../data/2023-09-05_grasp_config_dicts_trial"
     )
     output_grasp_config_dicts_path: Optional[pathlib.Path] = None
+    mid_optimization_steps: List[int] = []
     add_open_grasps: bool = True
-    frac_open_grasps: float = 5.0
-    """Relative fraction of grasps to add data for - e.g., frac_open_grasps=0.5 means add data for 50% of grasps."""
+    num_open_augmentations_per_grasp: int = 10
     add_closed_grasps: bool = True
-    frac_closed_grasps: float = 1.0
+    num_closed_augmentations_per_grasp: int = 10
     open_grasp_var: float = 0.075
     closed_grasp_var: float = 0.05
     augment_only_successes: bool = False
@@ -26,33 +32,39 @@ class ArgParser(Tap):
 
 def generate_open_or_closed_grasps(
     grasp_config_dict: Dict[str, np.ndarray],
-    frac_grasps: float,
+    num_augmentations_per_grasp: int,
     grasp_var: float,
     open_grasp: bool,
     augment_only_successes: bool,
 ) -> Dict[str, np.ndarray]:
-    # Compute how many times we need to copy the dataset to get the desired fraction of open grasps.
     orig_batch_size = grasp_config_dict["grasp_orientations"].shape[0]
-    num_grasps_needed = (1 + int(frac_grasps)) * orig_batch_size
     if augment_only_successes:
         assert "passed_simulation" in grasp_config_dict.keys()
-        success_inds = np.argwhere(grasp_config_dict["passed_simulation"])
-    else:
-        success_inds = np.arange(orig_batch_size)
+        inds = np.argwhere(grasp_config_dict["passed_simulation"])
 
-    sample_inds = np.random.choice(
-        success_inds.flatten(), size=num_grasps_needed, replace=True
-    )
+        if inds.size == 0:
+            print(f"WARNING: No successful grasps found, using first one")
+            inds = np.arange(1).reshape(-1, 1)
+    else:
+        inds = np.arange(orig_batch_size).reshape(-1, 1)
+
+    assert inds.shape == (inds.size, 1)
+
+    # Repeat inds to get desired number of augmentations per grasp.
+    repeated_inds = np.repeat(
+        inds, repeats=num_augmentations_per_grasp, axis=-1
+    ).flatten()
+    assert repeated_inds.shape == (inds.size * num_augmentations_per_grasp,)
 
     # Build new grasp config dict.
     aug_grasp_config_dict = {}
     for key, val in grasp_config_dict.items():
-        aug_grasp_config_dict[key] = val[sample_inds]
+        aug_grasp_config_dict[key] = val[repeated_inds]
 
     dir_str = "open" if open_grasp else "closed"
 
     # Now sample joint angle perturbations to open hand.
-    print(f"Adding {len(sample_inds)} {dir_str} grasps with variance {grasp_var}")
+    print(f"Adding {len(repeated_inds)} {dir_str} grasps with variance {grasp_var}")
     orig_joint_angles = aug_grasp_config_dict["joint_angles"]
     deltas = grasp_var * (np.random.rand(*orig_joint_angles.shape))
 
@@ -64,20 +76,14 @@ def generate_open_or_closed_grasps(
     return aug_grasp_config_dict
 
 
-def main(args: ArgParser):
-    print("=" * 80)
-    print(f"args = {args}")
-    print("=" * 80 + "\n")
-
-    # Create output path.
-    if args.output_grasp_config_dicts_path is None:
-        args.output_grasp_config_dicts_path = args.input_grasp_config_dicts_path
-
+def augment_grasp_config_dicts(
+    args: ArgParser,
+    input_grasp_config_dicts_path: pathlib.Path,
+    open_output_path: pathlib.Path,
+    closed_output_path: pathlib.Path,
+) -> None:
     # Load desired grasp config dict.
-    grasp_config_dict_paths = list(args.input_grasp_config_dicts_path.glob("*.npy"))
-
-    open_output_path = args.output_grasp_config_dicts_path / "opened_hand"
-    closed_output_path = args.output_grasp_config_dicts_path / "closed_hand"
+    grasp_config_dict_paths = list(input_grasp_config_dicts_path.glob("*.npy"))
 
     existing_open_grasp_config_dicts = (
         list(open_output_path.glob("*.npy")) if open_output_path.exists() else []
@@ -101,12 +107,12 @@ def main(args: ArgParser):
 
     if args.no_continue and len(existing_closed_code_and_scale_strs) > 0:
         raise ValueError(
-            f"Found {len(existing_object_code_and_scale_strs)} existing grasp config dicts in {args.output_grasp_config_dicts_path}."
+            f"Found {len(existing_object_code_and_scale_strs)} existing grasp config dicts in {open_output_path} and {closed_output_path}."
             + " Set no_continue to False to continue training on these objects, or change output path."
         )
     elif len(existing_object_code_and_scale_strs) > 0:
         print(
-            f"Found {len(existing_object_code_and_scale_strs)} existing grasp config dicts in {args.output_grasp_config_dicts_path}."
+            f"Found {len(existing_object_code_and_scale_strs)} existing grasp config dicts in {open_output_path} and {closed_output_path}."
             + " Continuing training on these objects."
         )
         grasp_config_dict_paths = [
@@ -131,17 +137,13 @@ def main(args: ArgParser):
         if args.add_open_grasps:
             open_grasp_config_dict = generate_open_or_closed_grasps(
                 grasp_config_dict=grasp_config_dict,
-                frac_grasps=args.frac_open_grasps,
+                num_augmentations_per_grasp=args.num_open_augmentations_per_grasp,
                 grasp_var=args.open_grasp_var,
                 open_grasp=True,
                 augment_only_successes=args.augment_only_successes,
             )
 
-            open_grasp_config_dict_path = (
-                args.output_grasp_config_dicts_path
-                / "opened_hand"
-                / grasp_config_dict_path.name
-            )
+            open_grasp_config_dict_path = open_output_path / grasp_config_dict_path.name
 
             open_grasp_config_dict_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -154,16 +156,14 @@ def main(args: ArgParser):
         if args.add_closed_grasps:
             closed_grasp_config_dict = generate_open_or_closed_grasps(
                 grasp_config_dict=grasp_config_dict,
-                frac_grasps=args.frac_closed_grasps,
+                num_augmentations_per_grasp=args.num_closed_augmentations_per_grasp,
                 grasp_var=args.closed_grasp_var,
                 open_grasp=False,
                 augment_only_successes=args.augment_only_successes,
             )
 
             closed_grasp_config_dict_path = (
-                args.output_grasp_config_dicts_path
-                / "closed_hand"
-                / grasp_config_dict_path.name
+                closed_output_path / grasp_config_dict_path.name
             )
 
             closed_grasp_config_dict_path.parent.mkdir(parents=True, exist_ok=True)
@@ -174,6 +174,58 @@ def main(args: ArgParser):
                 closed_grasp_config_dict,
                 allow_pickle=True,
             )
+
+
+def main(args: ArgParser) -> None:
+    print("=" * 80)
+    print(f"args = {args}")
+    print("=" * 80 + "\n")
+
+    set_seed(-1)
+
+    # Create output path.
+    if args.output_grasp_config_dicts_path is None:
+        output_grasp_config_dicts_path = args.input_grasp_config_dicts_path
+    else:
+        output_grasp_config_dicts_path = args.output_grasp_config_dicts_path
+
+    open_output_path = (
+        output_grasp_config_dicts_path.parent
+        / f"{output_grasp_config_dicts_path.name}_opened_hand"
+    )
+    closed_output_path = (
+        output_grasp_config_dicts_path.parent
+        / f"{output_grasp_config_dicts_path.name}_closed_hand"
+    )
+
+    augment_grasp_config_dicts(
+        args=args,
+        input_grasp_config_dicts_path=args.input_grasp_config_dicts_path,
+        open_output_path=open_output_path,
+        closed_output_path=closed_output_path,
+    )
+
+    for mid_optimization_step in args.mid_optimization_steps:
+        print("!" * 80)
+        print(f"Running mid_optimization_step: {mid_optimization_step}")
+        print("!" * 80 + "\n")
+        mid_optimization_input_grasp_config_dicts_path = (
+            args.input_grasp_config_dicts_path
+            / "mid_optimization"
+            / f"{mid_optimization_step}"
+        )
+        mid_optimization_open_output_path = (
+            open_output_path / "mid_optimization" / f"{mid_optimization_step}"
+        )
+        mid_optimization_closed_output_path = (
+            closed_output_path / "mid_optimization" / f"{mid_optimization_step}"
+        )
+        augment_grasp_config_dicts(
+            args=args,
+            input_grasp_config_dicts_path=mid_optimization_input_grasp_config_dicts_path,
+            open_output_path=mid_optimization_open_output_path,
+            closed_output_path=mid_optimization_closed_output_path,
+        )
 
 
 if __name__ == "__main__":
