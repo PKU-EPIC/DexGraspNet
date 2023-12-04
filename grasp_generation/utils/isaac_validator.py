@@ -520,7 +520,7 @@ class IsaacValidator:
         gym.set_actor_rigid_shape_properties(env, obj_actor_handle, obj_shape_props)
         return
 
-    def run_sim(self) -> List[bool]:
+    def run_sim(self) -> Tuple[List[bool], List[bool]]:
         gym.prepare_sim(self.sim)  # TODO: Check if this is needed?
 
         objs_stationary_before_hand_joint_closed = self._run_sim_steps()
@@ -540,18 +540,7 @@ class IsaacValidator:
                 print(f"Done rendering camera {ii}.")
 
         successes = self._check_successes()
-        print(f"successes = {successes} ({np.mean(successes) * 100:.2f}%)")
-        print(
-            f"objs_stationary_before_hand_joint_closed = {objs_stationary_before_hand_joint_closed} ({np.mean(objs_stationary_before_hand_joint_closed) * 100:.2f}%)"
-        )
-        successes = [
-            success and obj_moved_before_hand_joint_closed
-            for success, obj_moved_before_hand_joint_closed in zip(
-                successes, objs_stationary_before_hand_joint_closed
-            )
-        ]
-
-        return successes
+        return successes, objs_stationary_before_hand_joint_closed
 
     def _check_successes(self) -> List[bool]:
         successes = []
@@ -661,7 +650,7 @@ class IsaacValidator:
 
             success = (
                 len(hand_object_contacts) > 0
-                and len(hand_link_contact_count.keys()) >= 2
+                and len(hand_link_contact_count.keys()) >= 3
                 and len(not_allowed_contacts) == 0
                 and pos_change < 0.1
                 and max_euler_change < 30
@@ -699,8 +688,8 @@ class IsaacValidator:
             #   Eg. contact buffers, so not moving for the first few steps may resolve this by clearing buffers
             #   Move hand joints to target qpos linearly over a few steps
             NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS = 10
+            NUM_STEPS_TO_CLOSE_HAND_JOINTS = 15
             if sim_step_idx >= NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS:
-                NUM_STEPS_TO_CLOSE_HAND_JOINTS = 10
                 frac_progress = (
                     sim_step_idx - NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS
                 ) / NUM_STEPS_TO_CLOSE_HAND_JOINTS
@@ -743,7 +732,7 @@ class IsaacValidator:
             #   Let hand close and object settle before moving wrist
             #   Only do this when virtual joints exist
             NUM_STEPS_TO_NOT_MOVE_WRIST_POSE = 30
-            assert NUM_STEPS_TO_NOT_MOVE_WRIST_POSE > NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS
+            assert NUM_STEPS_TO_NOT_MOVE_WRIST_POSE > (NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS + NUM_STEPS_TO_CLOSE_HAND_JOINTS)
             if (
                 sim_step_idx >= NUM_STEPS_TO_NOT_MOVE_WRIST_POSE
                 and len(self.virtual_joint_names) > 0

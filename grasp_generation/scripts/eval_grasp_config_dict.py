@@ -192,9 +192,14 @@ def main(args: EvalGraspConfigDictArgumentParser):
             add_random_pose_noise=add_random_pose_noise,
             record=index in args.record_indices,
         )
-        passed_simulation = sim.run_sim()
+        passed_simulation, passed_new_penetration_test = sim.run_sim()
         sim.reset_simulator()
-        print(f"passed_simulation = {passed_simulation}")
+        print(
+            f"passed_simulation = {passed_simulation} ({np.mean(passed_simulation) * 100:.2f}%)"
+        )
+        print(
+            f"passed_new_penetration_test = {passed_new_penetration_test} ({np.mean(passed_new_penetration_test) * 100:.2f}%)"
+        )
         print("Ending...")
         return
 
@@ -219,6 +224,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
     # Run for loop over minibatches of grasps.
     passed_simulation_array = []
+    passed_new_penetration_test_array = []
     E_pen_array = []
     max_grasps_per_batch = (
         args.max_grasps_per_batch
@@ -257,8 +263,9 @@ def main(args: EvalGraspConfigDictArgumentParser):
                         record=index in args.record_indices,
                     )
 
-        passed_simulation = sim.run_sim()
+        passed_simulation, passed_new_penetration_test = sim.run_sim()
         passed_simulation_array.extend(passed_simulation)
+        passed_new_penetration_test_array.extend(passed_new_penetration_test)
         sim.reset_simulator()
         pbar.set_description(f"mean_success = {np.mean(passed_simulation_array)}")
 
@@ -279,11 +286,10 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
     # Aggregate results
     passed_simulation_array = np.array(passed_simulation_array)
+    passed_new_penetration_test_array = np.array(passed_new_penetration_test_array)
     E_pen_array = np.array(E_pen_array)
 
-    if args.num_random_pose_noise_samples_per_grasp is None:
-        assert passed_simulation_array.shape == (batch_size,)
-    else:
+    if args.num_random_pose_noise_samples_per_grasp is not None:
         passed_simulation_array = passed_simulation_array.reshape(
             batch_size, args.num_random_pose_noise_samples_per_grasp + 1
         )
@@ -293,28 +299,70 @@ def main(args: EvalGraspConfigDictArgumentParser):
         mean_passed_simulation_with_noise = passed_simulation_with_noise.mean(axis=1)
         passed_simulation_array = mean_passed_simulation_with_noise
 
+        passed_new_penetration_test_array = passed_new_penetration_test_array.reshape(
+            batch_size, args.num_random_pose_noise_samples_per_grasp + 1
+        )
+        passed_new_penetration_test_without_noise = passed_new_penetration_test_array[
+            :, 0
+        ]
+        passed_new_penetration_test_with_noise = passed_new_penetration_test_array[
+            :, 1:
+        ]
+        # Use mean of all noise samples
+        mean_passed_new_penetration_test_with_noise = (
+            passed_new_penetration_test_with_noise.mean(axis=1)
+        )
+        passed_new_penetration_test_array = mean_passed_new_penetration_test_with_noise
+
+    assert passed_simulation_array.shape == (batch_size,)
+    assert passed_new_penetration_test_array.shape == (batch_size,)
     assert E_pen_array.shape == (batch_size,)
 
     if args.penetration_threshold is None:
         print("WARNING: penetration check skipped")
-        passed_penetration_threshold = np.ones(batch_size, dtype=np.bool8)
+        passed_penetration_threshold_array = np.ones(batch_size, dtype=np.bool8)
     else:
-        passed_penetration_threshold = E_pen_array < args.penetration_threshold
+        passed_penetration_threshold_array = E_pen_array < args.penetration_threshold
 
-    passed_eval = passed_simulation_array * passed_penetration_threshold
-    pen_frac = np.mean(passed_penetration_threshold)
+    # TODO: Remove these prints
+    DEBUG = True
+    if DEBUG:
+        print(
+            f"passed_simulation_array = {passed_simulation_array} ({passed_simulation_array.mean() * 100:.2f}%)"
+        )
+        print(
+            f"passed_new_penetration_test_array = {passed_new_penetration_test_array} ({passed_new_penetration_test_array.mean() * 100:.2f}%)"
+        )
+        print(
+            f"passed_penetration_threshold_array = {passed_penetration_threshold_array} ({passed_penetration_threshold_array.mean() * 100:.2f}%)"
+        )
+        print(f"E_pen_array = {E_pen_array}")
+
+    passed_eval = (
+        passed_simulation_array
+        * passed_penetration_threshold_array
+        * passed_new_penetration_test_array
+    )
     sim_frac = np.mean(passed_simulation_array)
+    new_pen_frac = np.mean(passed_new_penetration_test_array)
+    pen_frac = np.mean(passed_penetration_threshold_array)
     eval_frac = np.mean(passed_eval)
     print("=" * 80)
     print(
-        f"passed_penetration_threshold: {passed_penetration_threshold.sum().item()}/{batch_size} ({100*pen_frac:.2f}%),"
+        f"passed_penetration_threshold: {passed_penetration_threshold_array.sum().item()}/{batch_size} ({100*pen_frac:.2f}%),"
         f"passed_simulation: {passed_simulation_array.sum().item()}/{batch_size} ({100 * sim_frac:.2f}%),"
-        f"passed_eval = passed_simulation * passed_penetration_threshold: {passed_eval.sum().item()}/{batch_size} ({100 * eval_frac:.2f}%)"
+        f"passed_new_penetration_test: {passed_new_penetration_test_array.sum().item()}/{batch_size} ({100 * new_pen_frac:.2f}%),"
+        f"passed_eval = passed_simulation * passed_penetration_threshold * passed_new_penetration_test: {passed_eval.sum().item()}/{batch_size} ({100 * eval_frac:.2f}%)"
     )
     print("=" * 80)
+
+    # TODO: new_penetration_test is not currently stored, decide if we want to:
+    #  1. Store it separately
+    #  2. Replace it in the "passed_penetration_threshold" key
+    #  3. And it with passed_penetration_threshold_array
     evaled_grasp_config_dict = {
         **grasp_config_dict,
-        "passed_penetration_threshold": passed_penetration_threshold,
+        "passed_penetration_threshold": passed_penetration_threshold_array,
         "passed_simulation": passed_simulation_array,
         "passed_eval": passed_eval,
         "penetration": E_pen_array,
