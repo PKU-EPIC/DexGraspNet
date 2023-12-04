@@ -8,6 +8,11 @@ This is the official repository of [DexGraspNet: A Large-Scale Robotic Dexterous
 
 ### Run Full Pipeline (in development)
 
+Everything must be run from `grasp_generation` folder:
+```
+cd grasp_generation
+```
+
 After following instructions below to set up the environment and the mesh dataset, create a new folder with the meshes you would like to generate grasps for (if run on default `../data/meshdata`, it will take very long running on all meshes). For example:
 
 ```
