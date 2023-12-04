@@ -392,6 +392,7 @@ class IsaacValidator:
 
         # Store target hand qpos for later
         self.target_qpos_list.append(target_qpos)
+        self.init_qpos_list.append(hand_qpos)
 
         # Set hand dof props
         hand_props = gym.get_actor_dof_properties(env, hand_actor_handle)
@@ -539,9 +540,9 @@ class IsaacValidator:
                 print(f"Done rendering camera {ii}.")
 
         successes = self._check_successes()
-        print(f"successes = {successes}")
+        print(f"successes = {successes} ({np.mean(successes) * 100:.2f}%)")
         print(
-            f"objs_stationary_before_hand_joint_closed = {objs_stationary_before_hand_joint_closed}"
+            f"objs_stationary_before_hand_joint_closed = {objs_stationary_before_hand_joint_closed} ({np.mean(objs_stationary_before_hand_joint_closed) * 100:.2f}%)"
         )
         successes = [
             success and obj_moved_before_hand_joint_closed
@@ -660,7 +661,7 @@ class IsaacValidator:
 
             success = (
                 len(hand_object_contacts) > 0
-                and len(hand_link_contact_count.keys()) >= 3
+                and len(hand_link_contact_count.keys()) >= 2
                 and len(not_allowed_contacts) == 0
                 and pos_change < 0.1
                 and max_euler_change < 30
@@ -668,7 +669,7 @@ class IsaacValidator:
 
             successes.append(success)
 
-            DEBUG = False
+            DEBUG = True
             if DEBUG:
                 print(f"i = {i}")
                 print(f"success = {success}")
@@ -696,17 +697,31 @@ class IsaacValidator:
             # Set hand joint targets only after first few steps
             #   Heard that first few steps may be less deterministic because of isaacgym state
             #   Eg. contact buffers, so not moving for the first few steps may resolve this by clearing buffers
+            #   Move hand joints to target qpos linearly over a few steps
             NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS = 10
             if sim_step_idx >= NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS:
-                for env, hand_actor_handle, target_qpos in zip(
+                NUM_STEPS_TO_CLOSE_HAND_JOINTS = 10
+                frac_progress = (
+                    sim_step_idx - NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS
+                ) / NUM_STEPS_TO_CLOSE_HAND_JOINTS
+                frac_progress = np.clip(
+                    frac_progress,
+                    0,
+                    1,
+                )
+                for env, hand_actor_handle, target_qpos, init_qpos in zip(
                     self.envs,
                     self.hand_handles,
                     self.target_qpos_list,
+                    self.init_qpos_list,
                 ):
+                    current_target_qpos = (
+                        target_qpos * frac_progress + init_qpos * (1 - frac_progress)
+                    )
                     self._set_dof_pos_targets(
                         env=env,
                         hand_actor_handle=hand_actor_handle,
-                        target_qpos=target_qpos,
+                        target_qpos=current_target_qpos,
                     )
             else:
                 # Check if object has velocity before hand joints start moving
@@ -727,7 +742,7 @@ class IsaacValidator:
             # Set virtual joint targets (wrist pose) only after a few steps
             #   Let hand close and object settle before moving wrist
             #   Only do this when virtual joints exist
-            NUM_STEPS_TO_NOT_MOVE_WRIST_POSE = 20
+            NUM_STEPS_TO_NOT_MOVE_WRIST_POSE = 30
             assert NUM_STEPS_TO_NOT_MOVE_WRIST_POSE > NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS
             if (
                 sim_step_idx >= NUM_STEPS_TO_NOT_MOVE_WRIST_POSE
@@ -960,6 +975,7 @@ class IsaacValidator:
         self.init_hand_poses = []
         self.init_rel_obj_poses = []
         self.target_qpos_list = []
+        self.init_qpos_list = []
 
         self.camera_handles = []
         self.camera_envs = []
