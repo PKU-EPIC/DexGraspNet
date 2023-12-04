@@ -4,6 +4,97 @@ This is the official repository of [DexGraspNet: A Large-Scale Robotic Dexterous
 
 [[project page]](https://pku-epic.github.io/DexGraspNet/)
 
+## How to Run (Updated 2023-12-04)
+
+### Run Full Pipeline (in development)
+
+After following instructions below to set up the environment and the mesh dataset, create a new folder with the meshes you would like to generate grasps for (if run on default `../data/meshdata`, it will take very long running on all meshes). For example:
+
+```
+# Create new folder that symlinks to data in main meshdata folder (can also directly copy as well)
+mkdir ../data/2023-12-04_meshdata_rubikscube_one_object
+ln -rs ../data/meshdata/ddg-gd_rubik_cube_poisson_004 ../data/2023-12-04_meshdata_rubikscube_one_object/ddg-gd_rubik_cube_poisson_004
+```
+
+Then run the following:
+```
+time CUDA_VISIBLE_DEVICES=0 python scripts/generate_all_grasps.py --input_meshdata_path ../data/2023-12-04_meshdata_rubikscube_one_object/ddg-gd_rubik_cube_poisson_004 --experiment_name 2023-12-04_rubikscube_one_object --genera --generate_nerf_data --num_random_pose_noise_samples_per_grasp 5
+```
+
+This runs the full pipeline for all meshes in `../data/2023-12-04_meshdata_rubikscube_one_object` and generates nerfdata and tests each grasp in isaacgym validation 5 times (each with slight pose noise)
+
+After running this, you will have the following rough directory structure in `2023-12-04_rubikscube_one_object`:
+
+```
+ls ../data/2023-12-04_rubikscube_one_object
+augmented_raw_evaled_grasp_config_dicts_opened_hand  augmented_raw_hand_config_dicts_opened_hand  nerfdata
+augmented_raw_grasp_config_dicts_opened_hand         evaled_grasp_config_dicts                    raw_evaled_grasp_config_dicts
+augmented_raw_hand_config_dicts_closed_hand          hand_config_dicts                            raw_grasp_config_dicts
+```
+
+You are ready for nerf_grasping!
+
+### Debugging Generate Hand Config Dicts
+
+Add in wandb logging and modify `thres_dis`
+```
+CUDA_VISIBLE_DEVICES=0 python scripts/generate_hand_config_dicts.py --meshdata_root_path ../data/2023-12-04_meshdata_rubikscube_one_object/  --output_hand_config_dicts_path ../data/2023-12-04_debug/hand_config_dicts  --use_penetration_energy --thres_dis 0.2 --use_wandb         
+```
+
+Can view plots of energy vs. iteration and visualize the grasps on wandb.
+
+### Debugging Isaac Validator
+
+Change the `DEBUG` flag in `eval_grasp_config_dict.py` and/or `isaac_validator.py` to get more detailed debug info. 
+
+You can visualize specific simulations like so (this looks at a specific augmented grasp from opening a mid optimization grasp):
+
+```
+CUDA_VISIBLE_DEVICES=0 python scripts/eval_grasp_config_dict.py --hand_model_type ALLEGRO_HAND --validation_type NO_GRAVITY_SHAKING --gpu 0 --meshdata_root_path ../data/meshdata --input_grasp_config_dicts_path ../data/2023-12-04_rubikscube_one_object/evaled_grasp_config_dicts --output_evaled_grasp_config_dicts_path ../data/2023-12-04_rubikscube_one_object/augmented_raw_evaled_grasp_config_dicts_opened_hand/mid_optimization/1800 --object_code_and_scale_str ddg-gd_rubik_cube_poisson_004_0_1000 --max_grasps_per_batch 5000 --debug_index 0 --use_gui
+```
+
+Move fingers back first (different strategy)
+```
+CUDA_VISIBLE_DEVICES=0 python scripts/eval_grasp_config_dict.py --hand_model_type ALLEGRO_HAND --validation_type NO_GRAVITY_SHAKING --gpu 0 --meshdata_root_path ../data/meshdata --input_grasp_config_dicts_path ../data/2023-12-04_rubikscube_one_object/evaled_grasp_config_dicts --output_evaled_grasp_config_dicts_path ../data/2023-12-04_rubikscube_one_object/augmented_raw_evaled_grasp_config_dicts_opened_hand/mid_optimization/1800 --object_code_and_scale_str ddg-gd_rubik_cube_poisson_004_0_1000 --max_grasps_per_batch 5000 --debug_index 0 --use_gui --move_fingers_back_at_init
+```
+
+Run for all grasps (can change `set_seed` to get different results to see reproducibility):
+```
+CUDA_VISIBLE_DEVICES=0 python scripts/eval_grasp_config_dict.py --hand_model_type ALLEGRO_HAND --validation_type NO_GRAVITY_SHAKING --gpu 0 --meshdata_root_path ../data/meshdata --input_grasp_config_dicts_path ../data/2023-12-04_rubikscube_one_object/evaled_grasp_config_dicts --output_evaled_grasp_config_dicts_path ../data/2023-12-04_rubikscube_one_object/augmented_raw_evaled_grasp_config_dicts_opened_hand/mid_optimization/1800 --object_code_and_scale_str ddg-gd_rubik_cube_poisson_004_0_1000 --max_grasps_per_batch 5000 --move_fingers_back_at_init
+```
+
+Some params to investigate:
+```
+NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS = 10
+NUM_STEPS_TO_CLOSE_HAND_JOINTS = 15
+NUM_STEPS_TO_NOT_MOVE_WRIST_POSE = 30
+
+DIST_MOVE_FINGER_BACKWARDS = -0.06
+DIST_MOVE_FINGER = 0.1
+```
+
+### Visualize Tools
+
+Visualize one grasp on one object:
+```
+python visualize/visualize_config_dict.py --input_config_dicts_path ../data/2023-12-04_rubikscube_one_object/evaled_grasp_config_dicts --meshdata_root_path ../data/meshdata --object_code_and_scale_str ddg-gd_rubik_cube_poisson_004_0_1000 --idx_to_visualize 0
+```
+
+Visualize multiple grasps on one object:
+```
+python visualize/visualize_config_dict.py --input_config_dicts_path ../data/2023-12-04_rubikscube_one_object/evaled_grasp_config_dicts --meshdata_root_path ../data/meshdata --object_code_and_scale_str ddg-gd_rubik_cube_poisson_004_0_1000 --visualize_all
+```
+
+Visualize the optimization of one grasp on one object (may only work if have a fixed frequency of mid_optimizations stored, set with `--store_grasps_mid_optimization_freq 25` for generate_hand_config_dicts.py):
+```
+python visualize/visualize_config_dict_optimization.py --input_config_dicts_mid_optimization_path ../data/2023-12-04_rubikscube_one_object/hand_config_dicts/mid_optimization --object_code_and_scale_str ddg-gd_rubik_cube_poisson_004_0_1000 --meshdata_root_path ../data/meshdata --idx_to_visualize 0
+```
+
+Visualize multiple meshes files (useful when looking at meshes generated by nerf):
+```
+python visualize_objs.py --meshdata_root_path ../data/meshdata
+```
+
 ## Saved Data Format (Last Updated 2023-09-05)
 
 From the DexGraspNet pipeline, we need to read and write grasp data to files. Here, we specify what the file format should look like. Each stored file will be in the form <object_code_and_scale_str>.npy (eg. mug_0_1000.npy), which stores a config dict. Each config dict contains grasp information for a batch of grasps associated with this object and object scale.
