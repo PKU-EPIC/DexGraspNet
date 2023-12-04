@@ -3,11 +3,12 @@ import pathlib
 import subprocess
 import datetime
 import numpy as np
+from typing import Optional
 
 
 class ArgumentParser(Tap):
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
-    nerf_meshdata_root_path: pathlib.Path = pathlib.Path("../data/nerf_meshdata")
+    nerf_meshdata_root_path: Optional[pathlib.Path] = None
     plan_using_nerf: bool = False
     eval_using_nerf: bool = False
     output_eval_results_path: pathlib.Path = pathlib.Path(
@@ -32,12 +33,14 @@ def main() -> None:
 
     assert args.meshdata_root_path.exists(), f"{args.meshdata_root_path} does not exist"
     assert (
-        args.nerf_meshdata_root_path.exists()
+        args.nerf_meshdata_root_path is None or args.nerf_meshdata_root_path.exists()
     ), f"{args.nerf_meshdata_root_path} does not exist"
 
     args.output_eval_results_path.mkdir(parents=True)
 
-    # NOTE: Expects the scale of the nerf_meshdata to be the same as the scale of the meshdata.
+    print("~" * 80)
+    print("REMINDER: Expects the scale of the nerf_meshdata to be the same as the scale of the meshdata.")
+    print("~" * 80 + "\n")
     planning_meshdata_root_path = (
         args.nerf_meshdata_root_path
         if args.plan_using_nerf
@@ -48,6 +51,12 @@ def main() -> None:
         if args.eval_using_nerf
         else args.meshdata_root_path
     )
+    assert (
+        planning_meshdata_root_path is not None and planning_meshdata_root_path.exists()
+    ), f"{planning_meshdata_root_path} does not exist"
+    assert (
+        eval_meshdata_root_path is not None and eval_meshdata_root_path.exists()
+    ), f"{eval_meshdata_root_path} does not exist"
 
     # Gen hand configs
     hand_gen_command = (
