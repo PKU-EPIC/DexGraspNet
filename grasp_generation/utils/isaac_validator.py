@@ -179,7 +179,7 @@ class IsaacValidator:
         self.sim_params.physx.solver_type = 1
         self.sim_params.physx.num_position_iterations = 8
         self.sim_params.physx.num_velocity_iterations = 0
-        self.sim_params.physx.contact_offset = 0.01
+        self.sim_params.physx.contact_offset = 0.00001
         self.sim_params.physx.rest_offset = 0.0
 
         self.sim_params.use_gpu_pipeline = False

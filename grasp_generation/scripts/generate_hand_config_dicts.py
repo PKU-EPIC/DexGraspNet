@@ -89,7 +89,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     # w_fp: float = 0.0
     n_contacts_per_finger: int = 5
     w_fc: float = 0.5
-    w_dis: float = 500.0
+    w_dis: float = 500
     w_pen: float = 300.0
     w_spen: float = 100.0
     w_joints: float = 1.0
@@ -352,6 +352,7 @@ def generate(
                 energy_name_to_weight_dict=energy_name_to_weight_dict,
                 use_penetration_energy=args.use_penetration_energy,
                 thres_dis=args.thres_dis,
+                thres_pen=args.thres_pen,
             )
 
         with loop_timer.add_section_timer("energy backward"):
@@ -389,6 +390,8 @@ def generate(
                     object_model,
                     energy_name_to_weight_dict=energy_name_to_weight_dict,
                     use_penetration_energy=use_penetration_energy,
+                    thres_dis=args.thres_dis,
+                    thres_pen=args.thres_pen,
                 )
                 energy[:] = updated_energy
                 unweighted_energy_matrix[:] = updated_unweighted_energy_matrix
@@ -408,6 +411,8 @@ def generate(
                     object_model,
                     energy_name_to_weight_dict=energy_name_to_weight_dict,
                     use_penetration_energy=use_penetration_energy,
+                    thres_dis=args.thres_dis,
+                    thres_pen=args.thres_pen,
                 )
             with loop_timer.add_section_timer("energy backward"):
                 new_energy.sum().backward(retain_graph=True)
