@@ -12,7 +12,6 @@ from typing import Dict, Tuple
 ENERGY_NAMES = [
     "Force Closure",
     "Hand Contact Point to Object Distance",
-    "Object Normal Variance",
     "Hand Object Penetration",
     "Hand Self Penetration",
     "Joint Limits Violation",
@@ -25,7 +24,6 @@ ENERGY_NAME_TO_SHORTHAND_DICT = {
     "Hand Contact Point to Object Distance": "E_dis",
     "Hand Object Penetration": "E_pen",
     "Hand Self Penetration": "E_spen",
-    "Object Normal Variance": "E_nvar",
     "Joint Limits Violation": "E_joints",
     "Finger Finger Distance": "E_ff",
     "Finger Palm Distance": "E_fp",
@@ -144,24 +142,11 @@ def cal_energy(
         contact_points=hand_model.contact_points,
         device=device,
     )
-    # thresholded_distances = torch.maximum(
-    #     object_to_hand_contact_point_distances.abs() - thres_dis,
-    #     torch.zeros_like(object_to_hand_contact_point_distances),
-    # )
-    # rel_sq_distances = torch.square(object_to_hand_contact_point_distances + thres_dis)
     rel_distances = torch.nn.SmoothL1Loss(reduction="none", beta = 2 * thres_dis)(
         object_to_hand_contact_point_distances, -thres_dis * torch.ones_like(object_to_hand_contact_point_distances))
     energy_dict["Hand Contact Point to Object Distance"] = torch.sum(
         rel_distances, dim=-1, dtype=torch.float
     ).to(device)
-
-    # Compute normal variance energy
-    n_contacts_total = object_to_hand_contact_point_normal.shape[1]
-    n_contacts_per_finger = (n_contacts_total // hand_model.n_fingers)
-    normals_reshaped = object_to_hand_contact_point_normal.reshape(-1, hand_model.n_fingers, n_contacts_per_finger, 3)
-    normal_covariance = batch_cov(object_to_hand_contact_point_normal.reshape(-1, n_contacts_per_finger, 3)).reshape(-1, hand_model.n_fingers, 3, 3)
-    
-    energy_dict["Object Normal Variance"] = torch.diagonal(normal_covariance, dim1=-2, dim2=-1).sum((-2, -1))
 
     if use_penetration_energy:
         energy_dict["Hand Object Penetration"] = _cal_hand_object_penetration(

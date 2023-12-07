@@ -93,7 +93,6 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     w_pen: float = 300.0
     w_spen: float = 100.0
     w_joints: float = 1.0
-    w_norm_var: float = 1e1
     w_ff: float = 3.0
     w_fp: float = 0.0
     use_penetration_energy: bool = False
@@ -341,7 +340,6 @@ def generate(
             energy_name_to_weight_dict = {
                 "Force Closure": args.w_fc,
                 "Hand Contact Point to Object Distance": args.w_dis,
-                "Object Normal Variance": args.w_norm_var,
                 "Hand Object Penetration": args.w_pen,
                 "Hand Self Penetration": args.w_spen,
                 "Joint Limits Violation": args.w_joints,
