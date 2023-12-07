@@ -12,6 +12,7 @@ from typing import Dict, Tuple
 ENERGY_NAMES = [
     "Force Closure",
     "Hand Contact Point to Object Distance",
+    "Object Normal Variance",
     "Hand Object Penetration",
     "Hand Self Penetration",
     "Joint Limits Violation",
@@ -24,6 +25,7 @@ ENERGY_NAME_TO_SHORTHAND_DICT = {
     "Hand Contact Point to Object Distance": "E_dis",
     "Hand Object Penetration": "E_pen",
     "Hand Self Penetration": "E_spen",
+    "Object Normal Variance": "E_nvar",
     "Joint Limits Violation": "E_joints",
     "Finger Finger Distance": "E_ff",
     "Finger Palm Distance": "E_fp",
@@ -153,6 +155,14 @@ def cal_energy(
         rel_distances, dim=-1, dtype=torch.float
     ).to(device)
 
+    # Compute normal variance energy
+    n_contacts_total = object_to_hand_contact_point_normal.shape[1]
+    n_contacts_per_finger = (n_contacts_total // hand_model.n_fingers)
+    normals_reshaped = object_to_hand_contact_point_normal.reshape(-1, hand_model.n_fingers, n_contacts_per_finger, 3)
+    normal_covariance = batch_cov(object_to_hand_contact_point_normal.reshape(-1, n_contacts_per_finger, 3)).reshape(-1, hand_model.n_fingers, 3, 3)
+    
+    energy_dict["Object Normal Variance"] = torch.diagonal(normal_covariance, dim1=-2, dim2=-1).sum((-2, -1))
+
     if use_penetration_energy:
         energy_dict["Hand Object Penetration"] = _cal_hand_object_penetration(
             hand_model, object_model, thres_pen=thres_pen
@@ -184,3 +194,11 @@ def cal_energy(
     weighted_energy_matrix = unweighted_energy_matrix * energy_weights[None, ...]
     energy = weighted_energy_matrix.sum(dim=-1)
     return energy, unweighted_energy_matrix, weighted_energy_matrix
+
+def batch_cov(points):
+    B, N, D = points.shape
+    mean = points.mean(dim=1).unsqueeze(1)
+    diffs = (points - mean).reshape(B * N, D)
+    prods = torch.bmm(diffs.unsqueeze(2), diffs.unsqueeze(1)).reshape(B, N, D, D)
+    bcov = prods.sum(dim=1) / (N - 1)  # Unbiased estimate
+    return bcov  # (B, D, D)
