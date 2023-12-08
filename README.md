@@ -23,7 +23,7 @@ ln -rs ../data/meshdata/ddg-gd_rubik_cube_poisson_004 ../data/2023-12-04_meshdat
 
 Then run the following:
 ```
-time CUDA_VISIBLE_DEVICES=0 python scripts/generate_all_grasps.py --input_meshdata_path ../data/2023-12-04_meshdata_rubikscube_one_object/ddg-gd_rubik_cube_poisson_004 --experiment_name 2023-12-04_rubikscube_one_object --genera --generate_nerf_data --num_random_pose_noise_samples_per_grasp 5
+time CUDA_VISIBLE_DEVICES=0 python scripts/generate_all_grasps.py --input_meshdata_path ../data/2023-12-04_meshdata_rubikscube_one_object/ddg-gd_rubik_cube_poisson_004 --experiment_name 2023-12-04_rubikscube_one_object --generate_nerf_data --num_random_pose_noise_samples_per_grasp 5
 ```
 
 This runs the full pipeline for all meshes in `../data/2023-12-04_meshdata_rubikscube_one_object` and generates nerfdata and tests each grasp in isaacgym validation 5 times (each with slight pose noise)
@@ -127,7 +127,7 @@ tree ../data/2023-11-17_meshdata_mugs/core-mug-1038e4eac0e18dcce02ae6d2a21d494a
 
 Ground truth mesh:
 ```
-time CUDA_VISIBLE_DEVICES=0 python eval_dgn_baseline.py --meshdata_root_path ../data/2023-11-17_meshdata_mugs --nerf_meshdata_root_path --output_eval_results_path ../data/eval_results/meshplan
+time CUDA_VISIBLE_DEVICES=0 python eval_dgn_baseline.py --meshdata_root_path ../data/2023-11-17_meshdata_mugs --output_eval_results_path ../data/eval_results/meshplan
 ```
 
 Nerf generated mesh:
