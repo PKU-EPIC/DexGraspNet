@@ -23,7 +23,7 @@ ln -rs ../data/meshdata/ddg-gd_rubik_cube_poisson_004 ../data/2023-12-04_meshdat
 
 Then run the following:
 ```
-time CUDA_VISIBLE_DEVICES=0 python scripts/generate_all_grasps.py --input_meshdata_path ../data/2023-12-04_meshdata_rubikscube_one_object/ddg-gd_rubik_cube_poisson_004 --experiment_name 2023-12-04_rubikscube_one_object --generate_nerf_data --num_random_pose_noise_samples_per_grasp 5
+time CUDA_VISIBLE_DEVICES=0 python scripts/generate_all_grasps.py --input_meshdata_path ../data/2023-12-04_meshdata_rubikscube_one_object --experiment_name 2023-12-04_rubikscube_one_object --generate_nerf_data --num_random_pose_noise_samples_per_grasp 5
 ```
 
 This runs the full pipeline for all meshes in `../data/2023-12-04_meshdata_rubikscube_one_object` and generates nerfdata and tests each grasp in isaacgym validation 5 times (each with slight pose noise)
