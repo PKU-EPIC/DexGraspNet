@@ -75,6 +75,7 @@ def _cal_hand_object_penetration(
     hand_model: HandModel,
     object_model: ObjectModel,
     reduction: str = "sum",
+    thres_pen: float = 0.005,
 ) -> torch.Tensor:
     # Subsample object surface points
     sample_inds = torch.randint(
@@ -103,7 +104,7 @@ def _cal_hand_object_penetration(
     )  # (n_objects * batch_size_each, num_samples, 3)
     hand_to_object_surface_point_distances = hand_model.cal_distance(
         object_surface_points
-    )
+    ) + thres_pen
     hand_to_object_surface_point_distances[
         hand_to_object_surface_point_distances <= 0
     ] = 0
@@ -122,6 +123,7 @@ def cal_energy(
     energy_name_to_weight_dict: Dict[str, float],
     use_penetration_energy: bool = False,
     thres_dis: float = 0.005,
+    thres_pen: float = 0.005,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     assert set(energy_name_to_weight_dict.keys()) == set(ENERGY_NAMES)
 
@@ -140,17 +142,15 @@ def cal_energy(
         contact_points=hand_model.contact_points,
         device=device,
     )
-    thresholded_distances = torch.maximum(
-        object_to_hand_contact_point_distances.abs() - thres_dis,
-        torch.zeros_like(object_to_hand_contact_point_distances),
-    )
+    rel_distances = torch.nn.SmoothL1Loss(reduction="none", beta = 2 * thres_dis)(
+        object_to_hand_contact_point_distances, -thres_dis * torch.ones_like(object_to_hand_contact_point_distances))
     energy_dict["Hand Contact Point to Object Distance"] = torch.sum(
-        thresholded_distances, dim=-1, dtype=torch.float
+        rel_distances, dim=-1, dtype=torch.float
     ).to(device)
 
     if use_penetration_energy:
         energy_dict["Hand Object Penetration"] = _cal_hand_object_penetration(
-            hand_model, object_model
+            hand_model, object_model, thres_pen=thres_pen
         )
     else:
         energy_dict["Hand Object Penetration"] = torch.zeros_like(
@@ -179,3 +179,11 @@ def cal_energy(
     weighted_energy_matrix = unweighted_energy_matrix * energy_weights[None, ...]
     energy = weighted_energy_matrix.sum(dim=-1)
     return energy, unweighted_energy_matrix, weighted_energy_matrix
+
+def batch_cov(points):
+    B, N, D = points.shape
+    mean = points.mean(dim=1).unsqueeze(1)
+    diffs = (points - mean).reshape(B * N, D)
+    prods = torch.bmm(diffs.unsqueeze(2), diffs.unsqueeze(1)).reshape(B, N, D, D)
+    bcov = prods.sum(dim=1) / (N - 1)  # Unbiased estimate
+    return bcov  # (B, D, D)

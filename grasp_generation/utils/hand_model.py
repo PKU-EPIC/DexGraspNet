@@ -966,6 +966,10 @@ class HandModel:
                 )
 
         return data
+    
+    @property
+    def n_fingers(self):
+        return len(handmodeltype_to_fingerkeywords[self.hand_model_type])
 
     def get_trimesh_data(self, i):
         """

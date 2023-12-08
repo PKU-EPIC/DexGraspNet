@@ -113,8 +113,8 @@ class IsaacValidator:
         self,
         hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
         mode: str = "direct",
-        hand_friction: float = 3.0,
-        obj_friction: float = 3.0,
+        hand_friction: float = 0.6,
+        obj_friction: float = 0.6,
         num_sim_steps: int = 120,
         gpu: int = 0,
         debug_interval: float = 0.05,
@@ -178,8 +178,8 @@ class IsaacValidator:
 
         self.sim_params.physx.solver_type = 1
         self.sim_params.physx.num_position_iterations = 8
-        self.sim_params.physx.num_velocity_iterations = 0
-        self.sim_params.physx.contact_offset = 0.01
+        self.sim_params.physx.num_velocity_iterations = 8
+        self.sim_params.physx.contact_offset = 0.005
         self.sim_params.physx.rest_offset = 0.0
 
         self.sim_params.use_gpu_pipeline = False
@@ -413,7 +413,7 @@ class IsaacValidator:
             joint_idx = gym.find_actor_dof_index(
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
-            hand_props["stiffness"][joint_idx] = 200.0
+            hand_props["stiffness"][joint_idx] = 500.0 # increased from 200 for more vigorous shaking.
             hand_props["damping"][joint_idx] = 10.0
 
         gym.set_actor_dof_properties(env, hand_actor_handle, hand_props)
@@ -473,16 +473,15 @@ class IsaacValidator:
         obj_pose.r = gymapi.Quat(0, 0, 0, 1)
 
         if add_random_pose_noise:
-            seed = None
-            TRANSLATION_NOISE_CM = 0.1
+            TRANSLATION_NOISE_CM = 0.5
             TRANSLATION_NOISE_M = TRANSLATION_NOISE_CM / 100
-            ROTATION_NOISE_DEG = 1
-            xyz_noise = np.random.RandomState(seed=seed).uniform(
+            ROTATION_NOISE_DEG = 5
+            xyz_noise = np.random.uniform(
                 -TRANSLATION_NOISE_M, TRANSLATION_NOISE_M, 3
             )
-            rpy_noise = np.random.RandomState(seed=seed).uniform(
+            rpy_noise = np.random.uniform(
                 -ROTATION_NOISE_DEG, ROTATION_NOISE_DEG, 3
-            )
+            ) * math.pi / 180
             quat_wxyz = transforms3d.euler.euler2quat(*rpy_noise)
             assert xyz_noise.shape == (3,)
             assert rpy_noise.shape == (3,)
@@ -826,6 +825,8 @@ class IsaacValidator:
         frac_progress: float,
     ) -> List[torch.Tensor]:
         assert len(self.virtual_joint_names) == 6
+
+        # Shaking / perturbation parameters for virtual joint targets.
 
         # Set dof pos targets [+x, -x]*N, 0, [+y, -y]*N, 0, [+z, -z]*N
         dist_to_move = 0.05
