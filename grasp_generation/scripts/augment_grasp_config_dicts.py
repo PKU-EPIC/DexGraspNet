@@ -40,7 +40,8 @@ def generate_open_or_closed_grasps(
     orig_batch_size = grasp_config_dict["grasp_orientations"].shape[0]
     if augment_only_successes:
         assert "passed_simulation" in grasp_config_dict.keys()
-        inds = np.argwhere(grasp_config_dict["passed_simulation"])
+        PASSED_THRESHOLD = 0.5
+        inds = np.argwhere(grasp_config_dict["passed_simulation"] > PASSED_THRESHOLD)
 
         if inds.size == 0:
             print(f"WARNING: No successful grasps found, using first one")

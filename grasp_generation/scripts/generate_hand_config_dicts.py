@@ -53,7 +53,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
         "../data/hand_config_dicts"
     )
     rand_object_scale: bool = False
-    object_scale: Optional[float] = 0.1
+    object_scale: Optional[float] = 0.075
     min_object_scale: float = 0.05
     max_object_scale: float = 0.125
     seed: Optional[int] = None
@@ -109,10 +109,9 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     theta_lower: float = -math.pi / 6
     theta_upper: float = math.pi / 6
 
-    # energy thresholds
-    thres_fc: float = 0.3
-    thres_dis: float = 0.001
-    thres_pen: float = 0.001
+    # energy function params
+    thres_dis: float = 0.015
+    thres_pen: float = 0.015
 
     # verbose (grasps throughout)
     store_grasps_mid_optimization_freq: Optional[int] = None

@@ -413,7 +413,9 @@ class IsaacValidator:
             joint_idx = gym.find_actor_dof_index(
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
-            hand_props["stiffness"][joint_idx] = 500.0 # increased from 200 for more vigorous shaking.
+            HARD_SHAKE_STIFFNESS = 500.0
+            LIGHT_SHAKE_STIFFNESS = 200.0
+            hand_props["stiffness"][joint_idx] = LIGHT_SHAKE_STIFFNESS
             hand_props["damping"][joint_idx] = 10.0
 
         gym.set_actor_dof_properties(env, hand_actor_handle, hand_props)

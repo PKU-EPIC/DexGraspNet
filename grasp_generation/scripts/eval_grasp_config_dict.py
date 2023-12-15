@@ -279,6 +279,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         )
         object_model.initialize(object_code, object_scale)
 
+        # TODO: Do we need to use thres_pen param here? Does threshold change? Do we even need passed_penetration_threshold now?
         batch_E_pen_array = _cal_hand_object_penetration(
             hand_model=hand_model, object_model=object_model, reduction="max"
         )
@@ -356,13 +357,14 @@ def main(args: EvalGraspConfigDictArgumentParser):
     )
     print("=" * 80)
 
-    # TODO: new_penetration_test is not currently stored, decide if we want to:
+    # TODO: passed_penetration_threshold_array, passed_new_penetration_test_array: decide if we want to:
     #  1. Store it separately
     #  2. Replace it in the "passed_penetration_threshold" key
     #  3. And it with passed_penetration_threshold_array
     evaled_grasp_config_dict = {
         **grasp_config_dict,
         "passed_penetration_threshold": passed_penetration_threshold_array,
+        "passed_new_penetration_test": passed_new_penetration_test_array,
         "passed_simulation": passed_simulation_array,
         "passed_eval": passed_eval,
         "penetration": E_pen_array,
