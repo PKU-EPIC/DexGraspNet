@@ -47,7 +47,8 @@ def process_data(args: ArgParser):
         + f" --output_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'hand_config_dicts'}"
         + " --use_penetration_energy"
         # + " --rand_object_scale" # Turning off so we don't have to regen nerfs every time.
-        # + " --batch_size_each_object 1000 --n_objects_per_batch 5"  # For more grasps per object
+        + " --batch_size_each_object 1000 --n_objects_per_batch 5"  # For more grasps per object
+        + " --store_grasps_mid_optimization_freq 200"  # For more low-quality grasps
     )
     if args.use_multiprocess:
         hand_gen_command += " --use_multiprocess"
