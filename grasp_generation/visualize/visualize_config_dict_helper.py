@@ -311,12 +311,13 @@ def create_config_dict_fig(
         # For some reason, annotations not showing up in the multi fig plot
         title += f" | {passed_simulation_str}"
 
-    # score
-    if "score" in config_dict:
-        score = round(config_dict["score"][idx_to_visualize], 3)
-        score_str = f"Score: {score}"
-        fig.add_annotation(text=score_str, x=0.5, y=0.25, xref="paper", yref="paper")
-        title += f" | {score_str}"
+    # loss
+    if "loss" in config_dict:
+        loss = round(config_dict["loss"][idx_to_visualize], 3)
+        predicted_score = 1 - loss
+        predicted_score_str = f"predicted: {predicted_score}"
+        fig.add_annotation(text=predicted_score_str, x=0.5, y=0.25, xref="paper", yref="paper")
+        title += f" | {predicted_score_str}"
 
     fig.update_layout(
         title=title,
