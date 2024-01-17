@@ -107,7 +107,7 @@ def process_data(args: ArgParser):
 
     # Relabel open hand grasps.
     opened_update_augmented_grasp_command = (
-        "python scripts/generate_grasp_config_dicts.py"
+        f"python scripts/generate_grasp_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
         + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_hand_config_dicts_opened_hand'}"
         + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_grasp_config_dicts_opened_hand'}"
         + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
@@ -116,7 +116,7 @@ def process_data(args: ArgParser):
 
     # Relabel closed hand grasps.
     closed_update_augmented_grasp_command = (
-        "python scripts/generate_grasp_config_dicts.py"
+        f"python scripts/generate_grasp_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
         + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_hand_config_dicts_closed_hand'}"
         + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_grasp_config_dicts_closed_hand'}"
         + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
