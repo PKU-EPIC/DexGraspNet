@@ -29,6 +29,17 @@ In Isaac Gym, objects are currently created at the world origin with no translat
 
 ![image_480](https://github.com/tylerlum/DexGraspNet/assets/26510814/54a0e65a-a4fe-4414-aa4a-2cf40c6bd6d5)
 
+## NeRF Studio Images
+
+Following NeRF Studio data conventions (https://docs.nerf.studio/quickstart/data_conventions.html), we define camera orientation such that X = right, Y = up, Z = optical axis into camera. The translation xyz are the same as Isaac Gym coordinates.
+
+![image](https://github.com/tylerlum/DexGraspNet/assets/26510814/8d21d7da-b936-45cf-9737-b499701d7767)
+
+Note that in some intermediate computation, we first compute the camera transform with the following orientation convention (before adding a rotation to modify it).
+
+![image](https://github.com/tylerlum/DexGraspNet/assets/26510814/aff47d97-1f19-4864-8373-d887046aac9b)
+
+
 
 ## How to Run (Updated 2023-12-04)
 
