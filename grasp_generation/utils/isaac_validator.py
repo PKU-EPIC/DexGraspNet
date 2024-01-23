@@ -355,7 +355,7 @@ class IsaacValidator:
             self._setup_camera(env)
 
     def _setup_table(self, env, transformation: gymapi.Transform, collision_idx: int, obj_scale: int) -> None:
-        OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0 * obj_scale
+        OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0 * obj_scale * 1.2
         TABLE_THICKNESS = 0.1
         y_offset = OBJ_MAX_EXTENT_FROM_ORIGIN + TABLE_THICKNESS / 2
         table_pose = gymapi.Transform()
@@ -373,6 +373,11 @@ class IsaacValidator:
             collision_idx,
             TABLE_COLLISION_FILTER,
             TABLE_SEGMENTATION_ID,
+        )
+
+        # Store table link_idx_to_name_dict
+        self.table_link_idx_to_name_dicts.append(
+            get_link_idx_to_name_dict(env=env, actor_handle=table_actor_handle)
         )
 
         # Set table shape props
@@ -421,7 +426,9 @@ class IsaacValidator:
         # Set hand pose
         hand_pose = gymapi.Transform()
         hand_pose.r = gymapi.Quat(*hand_quaternion_wxyz[1:], hand_quaternion_wxyz[0])
-        hand_pose.p = gymapi.Vec3(*hand_translation)
+        hand_pose.p = gymapi.Vec3(*hand_translation) + gymapi.Vec3(0, 0.02, 0)
+        # hand_pose.p = gymapi.Vec3(*hand_translation) + gymapi.Vec3(0.0049912226386368275, -0.01308782771229744, 0.00011764767987187952)
+
         hand_pose = transformation * hand_pose
         self.init_hand_poses.append(hand_pose)
 
@@ -517,8 +524,8 @@ class IsaacValidator:
         add_random_pose_noise: bool = False,
     ) -> None:
         obj_pose = gymapi.Transform()
-        obj_pose.p = gymapi.Vec3(0, 0, 0)
-        obj_pose.r = gymapi.Quat(0, 0, 0, 1)
+        obj_pose.p = gymapi.Vec3(0.0049912226386368275, -0.01308782771229744, 0.00011764767987187952)
+        obj_pose.r = gymapi.Quat(-0.00011171400547027588, -0.0005018487572669983, -0.04898533225059509, 0.9987992644309998)
 
         if add_random_pose_noise:
             TRANSLATION_NOISE_CM = 0.5
@@ -680,6 +687,7 @@ class IsaacValidator:
                     final_rel_obj_pose.r.w,
                 ]
             )
+            print(f"final_obj_pose.p, final_obj_pose.r = {(final_obj_pose.p.x, final_obj_pose.p.y, final_obj_pose.p.z), (final_obj_pose.r.w, final_obj_pose.r.x, final_obj_pose.r.y, final_obj_pose.r.z)}")
 
             quat_diff = torch_utils.quat_mul(
                 final_rel_obj_quat, torch_utils.quat_conjugate(init_rel_obj_quat)
@@ -728,11 +736,29 @@ class IsaacValidator:
 
         objs_stationary_before_hand_joint_closed = [True for _ in range(len(self.envs))]
 
+        for env, table_link_idx_to_name, hand_link_idx_to_name in zip(self.envs, self.table_link_idx_to_name_dicts, self.hand_link_idx_to_name_dicts):
+            hand_table_contacts = []
+            contacts = gym.get_env_rigid_contacts(env)
+            for contact in contacts:
+                body0 = contact["body0"]
+                body1 = contact["body1"]
+                is_hand_table_contact = (
+                    body0 in hand_link_idx_to_name and body1 in table_link_idx_to_name
+                ) or (body1 in hand_link_idx_to_name and body0 in table_link_idx_to_name)
+                if is_hand_table_contact:
+                    hand_table_contacts.append(contact)
+
+            if len(hand_table_contacts) > 0:
+                print(f"hand_table_contacts = {hand_table_contacts}")
+                breakpoint()
+
+
         while sim_step_idx < self.num_sim_steps:
             # Set hand joint targets only after first few steps
             #   Heard that first few steps may be less deterministic because of isaacgym state
             #   Eg. contact buffers, so not moving for the first few steps may resolve this by clearing buffers
             #   Move hand joints to target qpos linearly over a few steps
+
             NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS = 10
             NUM_STEPS_TO_CLOSE_HAND_JOINTS = 15
             if sim_step_idx >= NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS:
@@ -1022,6 +1048,7 @@ class IsaacValidator:
         self.obj_handles = []
         self.hand_link_idx_to_name_dicts = []
         self.obj_link_idx_to_name_dicts = []
+        self.table_link_idx_to_name_dicts = []
         self.init_obj_poses = []
         self.init_hand_poses = []
         self.init_rel_obj_poses = []
