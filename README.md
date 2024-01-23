@@ -4,6 +4,32 @@ This is the official repository of [DexGraspNet: A Large-Scale Robotic Dexterous
 
 [[project page]](https://pku-epic.github.io/DexGraspNet/)
 
+# Coordinate Frames and Scales (2024-01-22)
+
+In order to ensure the system works properly, we need to be precise and clear about our coordinate frames and conventions.
+
+## Objects
+
+Obj files of objects from the DexGraspNet dataset are sized to be contained roughly in a bounding box of shape $[-1m, 1m]^3$. The maximum width of most objects is about 190cm. This is very large, so for all grasping, we scale the object size down by a factor of roughly 0.05 to 0.1. Objects from the DexGraspNet dataset are oriented so that Y-axis is up, as shown in the images below (XYZ = RGB, with Green pointed up).
+
+![image_720](https://github.com/tylerlum/nerf_grasping/assets/26510814/4ad00640-ec8f-463a-a2e4-f81346589ab2)
+
+![image_720](https://github.com/tylerlum/nerf_grasping/assets/26510814/77b2c167-1c44-4ef1-886e-1a0d990c78f6)
+
+## Allegro Hand
+
+The Allegro Hand's origin is roughly at the base of its middle finger, with Y-axis (Green) along the direction from middle finger to index finger and Z-axis (Blue) along the direction from middle finger base to tip. An Allegro hand with 0 translation, 0 rotation, and 0 joint angles is shown below.
+
+![image_720](https://github.com/tylerlum/DexGraspNet/assets/26510814/42f7230f-738f-4ac5-a9fd-197a7d1ef12e)
+
+
+## Isaac Gym
+
+In Isaac Gym, objects are currently created at the world origin with no translation or rotation. Isaac Gym is set up so that Y-axis is up and gravity points along -Y (when gravity is not disabled), as shown below.
+
+![image_480](https://github.com/tylerlum/DexGraspNet/assets/26510814/54a0e65a-a4fe-4414-aa4a-2cf40c6bd6d5)
+
+
 ## How to Run (Updated 2023-12-04)
 
 ### Run Full Pipeline (in development)
