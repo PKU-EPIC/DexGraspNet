@@ -421,7 +421,7 @@ class IsaacValidator:
         # Set hand pose
         hand_pose = gymapi.Transform()
         hand_pose.r = gymapi.Quat(*hand_quaternion_wxyz[1:], hand_quaternion_wxyz[0])
-        hand_pose.p = gymapi.Vec3(*hand_translation) + gymapi.Vec3(0, 1.0, 0)  # HACK
+        hand_pose.p = gymapi.Vec3(*hand_translation)
         hand_pose = transformation * hand_pose
         self.init_hand_poses.append(hand_pose)
 
