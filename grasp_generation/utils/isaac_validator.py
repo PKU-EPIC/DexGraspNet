@@ -41,6 +41,12 @@ CAMERA_VERTICAL_FOV_DEG = (
     CAMERA_IMG_HEIGHT / CAMERA_IMG_WIDTH
 ) * CAMERA_HORIZONTAL_FOV_DEG
 OBJ_SEGMENTATION_ID = 1
+TABLE_SEGMENTATION_ID = 2
+
+# collision_filter is a bit mask that lets you filter out collision between bodies. Two bodies will not collide if their collision filters have a common bit set. 
+HAND_COLLISION_FILTER = 0  # 0 means turn off collisions
+OBJ_COLLISION_FILTER = 0  # 0 means don't turn off collisions
+TABLE_COLLISION_FILTER = 0  # 0 means don't turn off collisions
 RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE = 1
 ISAAC_DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
@@ -106,6 +112,7 @@ class AutoName(Enum):
 class ValidationType(AutoName):
     GRAVITY_IN_6_DIRS = auto()
     NO_GRAVITY_SHAKING = auto()
+    GRAVITY_AND_TABLE = auto()
 
 
 class IsaacValidator:
@@ -143,6 +150,22 @@ class IsaacValidator:
             ]
             self.virtual_joint_names = []
         elif self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
+            (
+                self.hand_root,
+                self.hand_file,
+            ) = handmodeltype_to_hand_root_hand_file_with_virtual_joints[
+                hand_model_type
+            ]
+            # HACK: Hardcoded virtual joint names
+            self.virtual_joint_names = [
+                "virtual_joint_translation_x",
+                "virtual_joint_translation_y",
+                "virtual_joint_translation_z",
+                "virtual_joint_rotation_z",
+                "virtual_joint_rotation_y",
+                "virtual_joint_rotation_x",
+            ]
+        elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
             (
                 self.hand_root,
                 self.hand_file,
@@ -217,6 +240,8 @@ class IsaacValidator:
             self.obj_asset_options.disable_gravity = False
         elif self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
             self.obj_asset_options.disable_gravity = True
+        elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+            self.obj_asset_options.disable_gravity = False
         else:
             raise ValueError(f"Unknown validation type: {validation_type}")
 
@@ -287,6 +312,8 @@ class IsaacValidator:
         test_rotation_index: int = 0,
         record: bool = False,
     ) -> None:
+        collision_idx = len(self.envs)  # Should be unique for each env so envs don't collide
+
         # Set test rotation
         test_rot = self.test_rotations[test_rotation_index]
 
@@ -306,14 +333,14 @@ class IsaacValidator:
             hand_qpos=hand_qpos,
             transformation=test_rot,
             target_qpos=target_qpos,
-            collision_idx=test_rotation_index,  # BRITTLE: ASSUMES ONLY ONE OBJECT AT A TIME.
+            collision_idx=collision_idx,
         )
 
         self._setup_obj(
             env,
             obj_scale,
             test_rot,
-            collision_idx=test_rotation_index,
+            collision_idx=collision_idx,
             add_random_pose_noise=add_random_pose_noise,
         )
 
@@ -321,8 +348,36 @@ class IsaacValidator:
             self.init_hand_poses[-1].inverse() * self.init_obj_poses[-1]
         )
 
+        if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+            self._setup_table(env=env, transformation=test_rot, collision_idx=collision_idx)
+
         if record:
             self._setup_camera(env)
+
+    def _setup_table(self, env, transformation: gymapi.Transform, collision_idx: int) -> None:
+        table_pose = gymapi.Transform()
+        table_pose.p = gymapi.Vec3(0, -0.2, 0)
+        table_pose.r = gymapi.Quat(0, 0, 0, 1)
+
+        table_pose = transformation * table_pose
+
+        # Create table
+        table_actor_handle = gym.create_actor(
+            env,
+            self.table_asset,
+            table_pose,
+            "table",
+            collision_idx,
+            TABLE_COLLISION_FILTER,
+            TABLE_SEGMENTATION_ID,
+        )
+
+        # Set table shape props
+        table_shape_props = gym.get_actor_rigid_shape_properties(env, table_actor_handle)
+        for i in range(len(table_shape_props)):
+            table_shape_props[i].friction = 1.0
+        gym.set_actor_rigid_shape_properties(env, table_actor_handle, table_shape_props)
+        return
 
     # TODO: be less lazy, integrate with NeRF datagen.
     def _setup_camera(self, env) -> None:
@@ -363,21 +418,9 @@ class IsaacValidator:
         # Set hand pose
         hand_pose = gymapi.Transform()
         hand_pose.r = gymapi.Quat(*hand_quaternion_wxyz[1:], hand_quaternion_wxyz[0])
-        hand_pose.p = gymapi.Vec3(*hand_translation)
+        hand_pose.p = gymapi.Vec3(*hand_translation) + gymapi.Vec3(0, 1.0, 0)  # HACK
         hand_pose = transformation * hand_pose
         self.init_hand_poses.append(hand_pose)
-        self.collision_idx = collision_idx
-
-        # 💀 HERE THAR BE MONSTERS 👹
-        # We hardcoded the collision filter for the hand to 2, but have no clue
-        # what this actually does. It was originally set to -1, but this
-        # would cause the collision buffer to overflow.
-
-        # Occasionally we get a warning like:
-        # "internal error : Contact buffer overflow detected, please increase its size"
-        # but it doesn't seem to affect the realism of the simulation.
-
-        # <3 preston and albert
 
         # Create hand
         hand_actor_handle = gym.create_actor(
@@ -386,7 +429,7 @@ class IsaacValidator:
             hand_pose,
             "hand",
             collision_idx,
-            2,
+            HAND_COLLISION_FILTER,
         )
         self.hand_handles.append(hand_actor_handle)
 
@@ -494,7 +537,6 @@ class IsaacValidator:
 
         obj_pose = transformation * obj_pose
         self.init_obj_poses.append(obj_pose)
-        self.collision_idx = collision_idx
 
         # Create obj
         obj_actor_handle = gym.create_actor(
@@ -503,7 +545,7 @@ class IsaacValidator:
             obj_pose,
             "obj",
             collision_idx,
-            1,
+            OBJ_COLLISION_FILTER,
             OBJ_SEGMENTATION_ID,
         )
         self.obj_handles.append(obj_actor_handle)
@@ -815,6 +857,20 @@ class IsaacValidator:
                 pbar.set_description(desc)
 
         return objs_stationary_before_hand_joint_closed
+
+    @property
+    def table_asset(self):
+        if not hasattr(self, "_table_asset"):
+            table_asset_options = gymapi.AssetOptions()
+            table_asset_options.fix_base_link = True
+            table_root, table_file = (
+                "table",
+                "table.urdf",
+            )
+            self._table_asset = gym.load_asset(
+                self.sim, table_root, table_file, table_asset_options
+            )
+        return self._table_asset
 
     def _render_video(
         self, video_frames: List[torch.Tensor], video_path: pathlib.Path, fps: int
