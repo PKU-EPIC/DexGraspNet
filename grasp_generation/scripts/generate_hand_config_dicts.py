@@ -294,6 +294,7 @@ def generate(
             hand_model = HandModel(
                 hand_model_type=args.hand_model_type,
                 device=device,
+                n_surface_points=1000,  # Need this for table penetration
             )
 
         with loop_timer.add_section_timer("create object model"):
@@ -344,6 +345,7 @@ def generate(
                 "Joint Limits Violation": args.w_joints,
                 "Finger Finger Distance": args.w_ff,
                 "Finger Palm Distance": args.w_fp,
+                "Hand Table Penetration": 10.0,  # TODO: Set this
             }
             energy, unweighted_energy_matrix, weighted_energy_matrix = cal_energy(
                 hand_model,

@@ -125,6 +125,7 @@ class ObjectModel:
                 )[0][0]
                 surface_points.to(dtype=float, device=self.device)
                 self.surface_points_tensor.append(surface_points)
+
         if self.num_samples != 0:
             self.surface_points_tensor = (
                 torch.stack(self.surface_points_tensor, dim=0)
@@ -255,3 +256,35 @@ class ObjectModel:
             )
 
         return data
+
+    def get_bounds(self, scaled: bool = False) -> torch.Tensor:
+        """
+        Get bounds of object meshes
+
+        Args
+        ----
+        scaled: bool
+            whether to return scaled bounds
+
+        Returns
+        -------
+        bounds: (n_objects * batch_size_each, 2, 3) torch.Tensor
+            bounds of object meshes
+        """
+        bounds = []
+        for i in range(len(self.object_mesh_list)):
+            mesh = self.object_mesh_list[i]
+            bounds.append(
+                torch.from_numpy(mesh.bounds).float().to(self.device)
+            )
+        bounds = torch.stack(bounds)
+        assert bounds.shape == (len(self.object_mesh_list), 2, 3)
+        bounds = bounds.unsqueeze(1).expand(-1, self.batch_size_each, -1, -1).reshape(-1, 2, 3)
+        assert bounds.shape == (len(self.object_mesh_list) * self.batch_size_each, 2, 3)
+
+        if scaled:
+            scale = self.object_scale_tensor.reshape(-1, 1, 1)
+            assert scale.shape == (len(self.object_mesh_list) * self.batch_size_each, 1, 1)
+            bounds = bounds * scale
+
+        return bounds

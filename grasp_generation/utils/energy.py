@@ -17,6 +17,7 @@ ENERGY_NAMES = [
     "Joint Limits Violation",
     "Finger Finger Distance",
     "Finger Palm Distance",
+    "Hand Table Penetration",
 ]
 
 ENERGY_NAME_TO_SHORTHAND_DICT = {
@@ -27,6 +28,7 @@ ENERGY_NAME_TO_SHORTHAND_DICT = {
     "Joint Limits Violation": "E_joints",
     "Finger Finger Distance": "E_ff",
     "Finger Palm Distance": "E_fp",
+    "Hand Table Penetration": "E_tpen",
 }
 
 assert set(ENERGY_NAMES) == set(ENERGY_NAME_TO_SHORTHAND_DICT.keys())
@@ -116,6 +118,30 @@ def _cal_hand_object_penetration(
         raise ValueError(f"Unknown reduction {reduction}")
     return E_pen
 
+def _cal_hand_table_penetration(
+    hand_model: HandModel,
+    object_model: ObjectModel,
+) -> torch.Tensor:
+    # (n_objects * batch_size_each,)
+    n_objects = len(object_model.object_mesh_list)
+    full_batch_size = n_objects * object_model.batch_size_each
+    object_bounds = object_model.get_bounds(scaled=True)
+    assert object_bounds.shape == (full_batch_size, 2, 3)
+
+    min_object_y = object_bounds[:, 0, 1]
+    table_y = min_object_y
+    assert table_y.shape == (full_batch_size,)
+
+    table_pos = torch.zeros([full_batch_size, 3], dtype=torch.float, device=hand_model.device)
+    table_pos[:, 1] = table_y
+
+    table_normal = torch.tensor([0, 1, 0], dtype=torch.float, device=hand_model.device).reshape(1, 3).expand(len(object_model.object_mesh_list) * object_model.batch_size_each, -1)
+    assert table_normal.shape == (full_batch_size, 3)
+
+    assert hand_model.hand_pose.shape[0] == full_batch_size
+
+    return hand_model.cal_table_penetration(table_pos=table_pos, table_normal=table_normal)
+
 
 def cal_energy(
     hand_model: HandModel,
@@ -163,6 +189,10 @@ def cal_energy(
         "Finger Finger Distance"
     ] = hand_model.cal_finger_finger_distance_energy()
     energy_dict["Finger Palm Distance"] = hand_model.cal_palm_finger_distance_energy()
+    energy_dict["Hand Table Penetration"] = _cal_hand_table_penetration(
+        hand_model, object_model
+    )
+
 
     assert set(energy_dict.keys()) == set(ENERGY_NAMES)
 
