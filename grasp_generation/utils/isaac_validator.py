@@ -926,7 +926,6 @@ class IsaacValidator:
             poses[i, :3] = torch.tensor([transform.p.x, transform.p.y, transform.p.z])
             poses[i, 3:] = torch.tensor(
                 [transform.r.x, transform.r.y, transform.r.z, transform.r.w]
-                # [0.707, 0, 0, 0.707]  # HACK
             )
         return poses
 
@@ -1214,10 +1213,10 @@ class IsaacValidator:
                 [0.0, 0.0, 0.0],
             ]
         elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
-            y_offset = 0.5
+            Y_LIFT = 0.5
             directions_sequence = [
-                [0.0, -y_offset, 0.0],
-                [0.0, -y_offset, 0.0],
+                [0.0, -Y_LIFT, 0.0],
+                [0.0, -Y_LIFT, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
@@ -1226,13 +1225,12 @@ class IsaacValidator:
                 *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
             ]
             directions_sequence = [
-                [direction[0], direction[1] + y_offset, direction[2]]
+                [direction[0], direction[1] + Y_LIFT, direction[2]]
                 for direction in directions_sequence
             ]
 
         direction_idx = int(frac_progress * len(directions_sequence))
         direction = directions_sequence[direction_idx]
-        # direction = [0.0, 1.0, 0.0]  # HACK
 
         # direction in global frame
         # dof_pos_targets in hand frame
@@ -1245,13 +1243,6 @@ class IsaacValidator:
             rotation_transform.inverse().transform_point(gymapi.Vec3(*direction))
             for rotation_transform in rotation_transforms
         ]
-        print("compute")
-        print(f"direction = {direction}")
-        print("rotation_transforms:")
-        print_transform(rotation_transforms[0])
-        print("dof_pos_targets:")
-        print_vec3(dof_pos_targets[0])
-        print()
         dof_pos_targets = [
             torch.tensor([dof_pos_target.x, dof_pos_target.y, dof_pos_target.z])
             for dof_pos_target in dof_pos_targets
@@ -1321,15 +1312,6 @@ class IsaacValidator:
             )
             rotation_transform = gymapi.Transform(gymapi.Vec3(0, 0, 0), hand_pose.r)
             direction = rotation_transform.transform_point(dof_pos_target)
-            print(f"vis:")
-            print("dof_pos_target:")
-            print_vec3(dof_pos_target)
-            print("rotation_transform:")
-            print_transform(rotation_transform)
-            print("direction:")
-            print_vec3(direction)
-            print()
-
             sphere_pose = gymapi.Transform(
                 p=hand_pose.p + direction,
                 r=None,
@@ -1804,21 +1786,3 @@ class IsaacValidator:
             outfile.write(json.dumps(json_dict))
 
     ########## NERF DATA COLLECTION END ##########
-
-
-def print_vec3(vec: gymapi.Vec3) -> None:
-    print(f"({vec.x}, {vec.y}, {vec.z})")
-
-
-def print_quat(quat: gymapi.Quat) -> None:
-    print(f"({quat.x}, {quat.y}, {quat.z}, {quat.w})")
-
-
-def print_transform(transform: gymapi.Transform) -> None:
-    print_vec3(transform.p)
-    print_quat(transform.r)
-    quat_wxyz = torch.tensor(
-        [transform.r.w, transform.r.x, transform.r.y, transform.r.z]
-    ).reshape(1, 4)
-    matrix = quaternion_to_matrix(quat_wxyz)
-    print(f"matrix = {matrix}")
