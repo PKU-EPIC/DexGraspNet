@@ -943,6 +943,7 @@ class IsaacValidator:
             PHASE_4_LAST_STEP = self.num_sim_steps
             assert_equals(PHASE_4_LAST_STEP, self.num_sim_steps)
 
+            virtual_joint_dof_pos_targets = None
             if sim_step_idx < PHASE_1_LAST_STEP:
                 self._run_phase_1(step=sim_step_idx, length=PHASE_1_LAST_STEP)
             elif sim_step_idx < PHASE_2_LAST_STEP:
@@ -950,7 +951,7 @@ class IsaacValidator:
             elif sim_step_idx < PHASE_3_LAST_STEP:
                 self._run_phase_3(step=sim_step_idx-PHASE_2_LAST_STEP, length=PHASE_3_LAST_STEP-PHASE_2_LAST_STEP)
             elif sim_step_idx < PHASE_4_LAST_STEP:
-                self._run_phase_4(step=sim_step_idx-PHASE_3_LAST_STEP, length=PHASE_4_LAST_STEP-PHASE_3_LAST_STEP)
+                virtual_joint_dof_pos_targets = self._run_phase_4(step=sim_step_idx-PHASE_3_LAST_STEP, length=PHASE_4_LAST_STEP-PHASE_3_LAST_STEP)
             else:
                 raise ValueError(f"Unknown sim_step_idx: {sim_step_idx}")
 
@@ -1032,7 +1033,12 @@ class IsaacValidator:
 
         # TODO: Check if need to do this after sim only
         hand_colliding_obj = self._is_hand_colliding_with_obj()
-        hand_colliding_table = self._is_hand_colliding_with_table()
+        print(f"step = {step}")
+        print(f"hand_colliding_obj = {hand_colliding_obj}")
+        if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+            hand_colliding_table = self._is_hand_colliding_with_table()
+            print(f"hand_colliding_table = {hand_colliding_table}")
+        print()
         # TODO: return this
         return
 
@@ -1054,7 +1060,7 @@ class IsaacValidator:
                 target_qpos=current_target_qpos,
             )
 
-    def _run_phase_4(self, step: int, length: int) -> None:
+    def _run_phase_4(self, step: int, length: int) -> Optional[List[torch.Tensor]]:
         assert step < length, f"{step} >= {length}"
         frac_progress = step / length
         if len(self.virtual_joint_names) > 0:
@@ -1064,10 +1070,22 @@ class IsaacValidator:
                 )
             )
             self._set_virtual_joint_dof_pos_targets(virtual_joint_dof_pos_targets)
+            return virtual_joint_dof_pos_targets
+        return None
 
     ########## RUN SIM END ##########
 
     ########## HELPERS START ##########
+    def _get_hand_poses(self) -> List[gymapi.Transform]:
+        # Get current pose of hand
+        hand_indices = self._get_actor_indices(
+            envs=self.envs, actors=self.hand_handles
+        ).to(self.root_state_tensor.device)
+        hand_poses = self.root_state_tensor[hand_indices, :7].clone()
+        assert_equals(hand_poses.shape, (len(self.envs), 7))
+        hand_poses = [gymapi.Transform(p=gymapi.Vec3(*pose[:3]), r=gymapi.Quat(*pose[3:])) for pose in hand_poses]
+        return hand_poses
+
     def _get_actor_indices(self, envs, actors) -> torch.Tensor:
         assert_equals(len(envs), len(actors))
         actor_indices = torch_utils.to_torch(
@@ -1173,8 +1191,8 @@ class IsaacValidator:
         # dof_pos_targets in hand frame
         # so need to perform inverse hand frame rotation
         rotation_transforms = [
-            gymapi.Transform(gymapi.Vec3(0, 0, 0), init_hand_pose.r)
-            for init_hand_pose in self.init_hand_poses
+            gymapi.Transform(gymapi.Vec3(0, 0, 0), hand_pose.r)
+            for hand_pose in self._get_hand_poses()
         ]
         dof_pos_targets = [
             rotation_transform.inverse().transform_point(gymapi.Vec3(*direction))
@@ -1236,18 +1254,11 @@ class IsaacValidator:
         )
 
         # Get current pose of hand
-        hand_indices = self._get_actor_indices(
-            envs=self.envs, actors=self.hand_handles
-        ).to(self.root_state_tensor.device)
-        hand_poses = self.root_state_tensor[hand_indices, :7].clone()
-        assert_equals(hand_poses.shape, (len(self.envs), 7))
-        hand_poses = [hand_poses[i] for i in range(len(self.envs))]
+        hand_poses = self._get_hand_poses()
 
         for env, hand_pose, dof_pos_target in zip(
             self.envs, hand_poses, dof_pos_targets
         ):
-            hand_pos, hand_quat_xyzw = hand_pose[:3], hand_pose[3:]
-
             # dof_pos_targets in hand frame
             # direction in global frame
             # so need to perform hand frame rotation
@@ -1255,16 +1266,12 @@ class IsaacValidator:
                 dof_pos_target[0], dof_pos_target[1], dof_pos_target[2]
             )
             rotation_transform = gymapi.Transform(
-                gymapi.Vec3(0, 0, 0), gymapi.Quat(*hand_quat_xyzw)
+                gymapi.Vec3(0, 0, 0), hand_pose.r
             )
             direction = rotation_transform.transform_point(dof_pos_target)
 
             sphere_pose = gymapi.Transform(
-                gymapi.Vec3(
-                    hand_pos[0].item() + direction.x,
-                    hand_pos[1].item() + direction.y,
-                    hand_pos[2].item() + direction.z,
-                ),
+                p=hand_pose.p + direction,
                 r=None,
             )
             gymutil.draw_lines(
