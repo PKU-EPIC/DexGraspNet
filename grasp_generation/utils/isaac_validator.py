@@ -666,13 +666,13 @@ class IsaacValidator:
         root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
         self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
 
-        hand_not_penetrate_obj_list = self._run_sim_steps()
+        hand_not_penetrate_list = self._run_sim_steps()
 
         # Render out all videos.
         self._save_video_if_needed()
 
         successes = self._check_successes()
-        return successes, hand_not_penetrate_obj_list
+        return successes, hand_not_penetrate_list
 
     def _check_successes(self) -> List[bool]:
         successes = []
@@ -934,7 +934,7 @@ class IsaacValidator:
         default_desc = "Simulating"
         pbar = tqdm(total=self.num_sim_steps, desc=default_desc, dynamic_ncols=True)
 
-        hand_not_penetrate_obj_list = [True for _ in range(len(self.envs))]
+        hand_not_penetrate_list = [True for _ in range(len(self.envs))]
 
         while sim_step_idx < self.num_sim_steps:
             # Phase 1: Do nothing, hand far away
@@ -961,10 +961,10 @@ class IsaacValidator:
                     step=sim_step_idx - PHASE_1_LAST_STEP,
                     length=PHASE_2_LAST_STEP - PHASE_1_LAST_STEP,
                 )
-                hand_not_penetrate_obj_list = [
+                hand_not_penetrate_list = [
                     hand_not_penetrate_obj and TEMP_hand_not_penetrate_obj
                     for hand_not_penetrate_obj, TEMP_hand_not_penetrate_obj in zip(
-                        hand_not_penetrate_obj_list, TEMP_hand_not_penetrate_obj_list
+                        hand_not_penetrate_list, TEMP_hand_not_penetrate_obj_list
                     )
                 ]
             elif sim_step_idx < PHASE_3_LAST_STEP:
@@ -1045,7 +1045,7 @@ class IsaacValidator:
                     desc += ". Step mode on"
                 pbar.set_description(desc)
 
-        return hand_not_penetrate_obj_list
+        return hand_not_penetrate_list
 
     def _run_phase_1(self, step: int, length: int) -> None:
         assert step < length, f"{step} >= {length}"
