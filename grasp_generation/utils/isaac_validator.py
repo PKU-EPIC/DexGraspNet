@@ -4,7 +4,7 @@ Author: Ruicheng Wang
 Description: Class IsaacValidator
 """
 
-from isaacgym import gymapi, torch_utils, gymutil
+from isaacgym import gymapi, torch_utils, gymutil, gymtorch
 import math
 from time import sleep
 from tqdm import tqdm
@@ -43,12 +43,13 @@ CAMERA_VERTICAL_FOV_DEG = (
 OBJ_SEGMENTATION_ID = 1
 TABLE_SEGMENTATION_ID = 2
 
-# collision_filter is a bit mask that lets you filter out collision between bodies. Two bodies will not collide if their collision filters have a common bit set. 
+# collision_filter is a bit mask that lets you filter out collision between bodies. Two bodies will not collide if their collision filters have a common bit set.
 HAND_COLLISION_FILTER = 0  # 0 means turn off collisions
 OBJ_COLLISION_FILTER = 0  # 0 means don't turn off collisions
 TABLE_COLLISION_FILTER = 0  # 0 means don't turn off collisions
 RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE = 1
 ISAAC_DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+INIT_HAND_OFFSET = gymapi.Vec3(0, 1, 0)
 
 
 def get_fixed_camera_transform(
@@ -312,7 +313,9 @@ class IsaacValidator:
         test_rotation_index: int = 0,
         record: bool = False,
     ) -> None:
-        collision_idx = len(self.envs)  # Should be unique for each env so envs don't collide
+        collision_idx = len(
+            self.envs
+        )  # Should be unique for each env so envs don't collide
 
         # Set test rotation
         test_rot = self.test_rotations[test_rotation_index]
@@ -349,13 +352,21 @@ class IsaacValidator:
         )
 
         if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
-            self._setup_table(env=env, transformation=test_rot, collision_idx=collision_idx, obj_scale=obj_scale)
+            self._setup_table(
+                env=env,
+                transformation=test_rot,
+                collision_idx=collision_idx,
+                obj_scale=obj_scale,
+            )
 
         if record:
             self._setup_camera(env)
 
-    def _setup_table(self, env, transformation: gymapi.Transform, collision_idx: int, obj_scale: int) -> None:
-        OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0 * obj_scale * 1.2
+    def _setup_table(
+        self, env, transformation: gymapi.Transform, collision_idx: int, obj_scale: int
+    ) -> None:
+        BUFFER = 1.2
+        OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0 * obj_scale * BUFFER
         TABLE_THICKNESS = 0.1
         y_offset = OBJ_MAX_EXTENT_FROM_ORIGIN + TABLE_THICKNESS / 2
         table_pose = gymapi.Transform()
@@ -381,7 +392,9 @@ class IsaacValidator:
         )
 
         # Set table shape props
-        table_shape_props = gym.get_actor_rigid_shape_properties(env, table_actor_handle)
+        table_shape_props = gym.get_actor_rigid_shape_properties(
+            env, table_actor_handle
+        )
         for i in range(len(table_shape_props)):
             table_shape_props[i].friction = 1.0
         gym.set_actor_rigid_shape_properties(env, table_actor_handle, table_shape_props)
@@ -426,8 +439,7 @@ class IsaacValidator:
         # Set hand pose
         hand_pose = gymapi.Transform()
         hand_pose.r = gymapi.Quat(*hand_quaternion_wxyz[1:], hand_quaternion_wxyz[0])
-        hand_pose.p = gymapi.Vec3(*hand_translation) + gymapi.Vec3(0, 0.02, 0)
-        # hand_pose.p = gymapi.Vec3(*hand_translation) + gymapi.Vec3(0.0049912226386368275, -0.01308782771229744, 0.00011764767987187952)
+        hand_pose.p = gymapi.Vec3(*hand_translation) + INIT_HAND_OFFSET
 
         hand_pose = transformation * hand_pose
         self.init_hand_poses.append(hand_pose)
@@ -524,19 +536,19 @@ class IsaacValidator:
         add_random_pose_noise: bool = False,
     ) -> None:
         obj_pose = gymapi.Transform()
-        obj_pose.p = gymapi.Vec3(0.0049912226386368275, -0.01308782771229744, 0.00011764767987187952)
-        obj_pose.r = gymapi.Quat(-0.00011171400547027588, -0.0005018487572669983, -0.04898533225059509, 0.9987992644309998)
+        obj_pose.p = gymapi.Vec3(0.0, 0.0, 0.0)
+        obj_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
         if add_random_pose_noise:
             TRANSLATION_NOISE_CM = 0.5
             TRANSLATION_NOISE_M = TRANSLATION_NOISE_CM / 100
             ROTATION_NOISE_DEG = 5
-            xyz_noise = np.random.uniform(
-                -TRANSLATION_NOISE_M, TRANSLATION_NOISE_M, 3
+            xyz_noise = np.random.uniform(-TRANSLATION_NOISE_M, TRANSLATION_NOISE_M, 3)
+            rpy_noise = (
+                np.random.uniform(-ROTATION_NOISE_DEG, ROTATION_NOISE_DEG, 3)
+                * math.pi
+                / 180
             )
-            rpy_noise = np.random.uniform(
-                -ROTATION_NOISE_DEG, ROTATION_NOISE_DEG, 3
-            ) * math.pi / 180
             quat_wxyz = transforms3d.euler.euler2quat(*rpy_noise)
             assert xyz_noise.shape == (3,)
             assert rpy_noise.shape == (3,)
@@ -575,6 +587,9 @@ class IsaacValidator:
 
     def run_sim(self) -> Tuple[List[bool], List[bool]]:
         gym.prepare_sim(self.sim)  # TODO: Check if this is needed?
+
+        root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
+        self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
 
         objs_stationary_before_hand_joint_closed = self._run_sim_steps()
 
@@ -687,7 +702,9 @@ class IsaacValidator:
                     final_rel_obj_pose.r.w,
                 ]
             )
-            print(f"final_obj_pose.p, final_obj_pose.r = {(final_obj_pose.p.x, final_obj_pose.p.y, final_obj_pose.p.z), (final_obj_pose.r.w, final_obj_pose.r.x, final_obj_pose.r.y, final_obj_pose.r.z)}")
+            print(
+                f"final_obj_pose.p, final_obj_pose.r = {(final_obj_pose.p.x, final_obj_pose.p.y, final_obj_pose.p.z), (final_obj_pose.r.w, final_obj_pose.r.x, final_obj_pose.r.y, final_obj_pose.r.z)}"
+            )
 
             quat_diff = torch_utils.quat_mul(
                 final_rel_obj_quat, torch_utils.quat_conjugate(init_rel_obj_quat)
@@ -729,6 +746,43 @@ class IsaacValidator:
 
         return successes
 
+    def _is_hand_colliding_with_table(self) -> List[bool]:
+        is_hand_colliding_with_table = []
+        for env, table_link_idx_to_name, hand_link_idx_to_name in zip(
+            self.envs,
+            self.table_link_idx_to_name_dicts,
+            self.hand_link_idx_to_name_dicts,
+        ):
+            hand_table_contacts = []
+            contacts = gym.get_env_rigid_contacts(env)
+            breakpoint()
+            for contact in contacts:
+                body0 = contact["body0"]
+                body1 = contact["body1"]
+                is_hand_table_contact = (
+                    body0 in hand_link_idx_to_name and body1 in table_link_idx_to_name
+                ) or (
+                    body1 in hand_link_idx_to_name and body0 in table_link_idx_to_name
+                )
+                if is_hand_table_contact:
+                    hand_table_contacts.append(contact)
+
+            breakpoint()
+            if len(hand_table_contacts) > 0:
+                print(f"hand_table_contacts = {hand_table_contacts}")
+                is_hand_colliding_with_table.append(True)
+            else:
+                is_hand_colliding_with_table.append(False)
+        return is_hand_colliding_with_table
+
+    def _move_hand_to_object(self) -> None:
+        if hasattr(self, "DONE"):
+            return
+
+        self.DONE = True
+        self.root_state_tensor[::3, 1] -= 1
+        gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_state_tensor))
+
     def _run_sim_steps(self) -> List[bool]:
         sim_step_idx = 0
         default_desc = "Simulating"
@@ -736,34 +790,16 @@ class IsaacValidator:
 
         objs_stationary_before_hand_joint_closed = [True for _ in range(len(self.envs))]
 
-        for env, table_link_idx_to_name, hand_link_idx_to_name in zip(self.envs, self.table_link_idx_to_name_dicts, self.hand_link_idx_to_name_dicts):
-            hand_table_contacts = []
-            contacts = gym.get_env_rigid_contacts(env)
-            for contact in contacts:
-                body0 = contact["body0"]
-                body1 = contact["body1"]
-                is_hand_table_contact = (
-                    body0 in hand_link_idx_to_name and body1 in table_link_idx_to_name
-                ) or (body1 in hand_link_idx_to_name and body0 in table_link_idx_to_name)
-                if is_hand_table_contact:
-                    hand_table_contacts.append(contact)
-
-            if len(hand_table_contacts) > 0:
-                print(f"hand_table_contacts = {hand_table_contacts}")
-                breakpoint()
-
-
         while sim_step_idx < self.num_sim_steps:
             # Set hand joint targets only after first few steps
             #   Heard that first few steps may be less deterministic because of isaacgym state
             #   Eg. contact buffers, so not moving for the first few steps may resolve this by clearing buffers
             #   Move hand joints to target qpos linearly over a few steps
-            x = gym.get_actor_rigid_body_states(self.envs[0], self.hand_handles[0], gymapi.STATE_POS)
-            hand_link_idxs = [
-                idx
-                for idx, name in self.hand_link_idx_to_name_dicts[0].items()
-            ]
-            breakpoint()
+
+            if sim_step_idx == 1:
+                print("Moving hand to object")
+                self._move_hand_to_object()
+            self._is_hand_colliding_with_table()
 
             NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS = 10
             NUM_STEPS_TO_CLOSE_HAND_JOINTS = 15
@@ -782,8 +818,8 @@ class IsaacValidator:
                     self.target_qpos_list,
                     self.init_qpos_list,
                 ):
-                    current_target_qpos = (
-                        target_qpos * frac_progress + init_qpos * (1 - frac_progress)
+                    current_target_qpos = target_qpos * frac_progress + init_qpos * (
+                        1 - frac_progress
                     )
                     self._set_dof_pos_targets(
                         env=env,
@@ -810,7 +846,9 @@ class IsaacValidator:
             #   Let hand close and object settle before moving wrist
             #   Only do this when virtual joints exist
             NUM_STEPS_TO_NOT_MOVE_WRIST_POSE = 30
-            assert NUM_STEPS_TO_NOT_MOVE_WRIST_POSE > (NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS + NUM_STEPS_TO_CLOSE_HAND_JOINTS)
+            assert NUM_STEPS_TO_NOT_MOVE_WRIST_POSE > (
+                NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS + NUM_STEPS_TO_CLOSE_HAND_JOINTS
+            )
             if (
                 sim_step_idx >= NUM_STEPS_TO_NOT_MOVE_WRIST_POSE
                 and len(self.virtual_joint_names) > 0
@@ -833,6 +871,7 @@ class IsaacValidator:
                 gym.fetch_results(
                     self.sim, True
                 )  # TODO: Check if this slows things down
+                gym.refresh_actor_root_state_tensor(self.sim)
 
                 if self.camera_handles and sim_step_idx > 0:
                     gym.step_graphics(self.sim)
