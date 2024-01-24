@@ -1201,21 +1201,33 @@ class IsaacValidator:
 
         # Set dof pos targets [+x, -x]*N, 0, [+y, -y]*N, 0, [+z, -z]*N
         dist_to_move = 0.05
-        y_offset = 0.1
         N = 2
-        directions_sequence = [
-            [0.0, 0.0, 0.0],
-            *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
-            [0.0, 0.0, 0.0],
-            *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
-            [0.0, 0.0, 0.0],
-            *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
-            [0.0, 0.0, 0.0],
-        ]
-        directions_sequence = [
-            [direction[0], direction[1] + y_offset, direction[2]]
-            for direction in directions_sequence
-        ]
+        if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
+            directions_sequence = [
+                *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
+                [0.0, 0.0, 0.0],
+                *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
+                [0.0, 0.0, 0.0],
+                *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+            ]
+        elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+            y_offset = 0.1
+            directions_sequence = [
+                [0.0, -y_offset, 0.0],
+                [0.0, -y_offset, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
+                *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
+                *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
+            ]
+            directions_sequence = [
+                [direction[0], direction[1] + y_offset, direction[2]]
+                for direction in directions_sequence
+            ]
 
         direction_idx = int(frac_progress * len(directions_sequence))
         direction = directions_sequence[direction_idx]
