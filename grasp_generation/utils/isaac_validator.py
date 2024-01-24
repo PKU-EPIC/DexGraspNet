@@ -29,7 +29,7 @@ OBJ_COLLISION_FILTER = 0  # 0 means don't turn off collisions
 TABLE_COLLISION_FILTER = 0  # 0 means don't turn off collisions
 RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE = 1
 ISAAC_DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-INIT_HAND_OFFSET = gymapi.Vec3(0, 1, 0)
+ARBITRARY_INIT_HAND_OFFSET = gymapi.Vec3(0, 1, 0)
 
 
 def assert_equals(a, b):
@@ -517,9 +517,12 @@ class IsaacValidator:
         collision_idx: int,
     ) -> None:
         # Set hand pose
+        # For now, move hand to arbitrary offset from origin
+        # Will move hand to object later
         hand_pose = gymapi.Transform()
-        hand_pose.r = gymapi.Quat(*hand_quaternion_wxyz[1:], hand_quaternion_wxyz[0])
-        hand_pose.p = gymapi.Vec3(*hand_translation) + INIT_HAND_OFFSET
+        hand_pose.p = ARBITRARY_INIT_HAND_OFFSET
+        # hand_pose.r = gymapi.Quat(*hand_quaternion_wxyz[1:], hand_quaternion_wxyz[0])
+        # hand_pose.p = gymapi.Vec3(*hand_translation)
 
         hand_pose = transformation * hand_pose
         self.init_hand_poses.append(hand_pose)
@@ -535,9 +538,11 @@ class IsaacValidator:
         )
         self.hand_handles.append(hand_actor_handle)
 
-        # Store target hand qpos for later
+        # Store for later
         self.target_qpos_list.append(target_qpos)
         self.init_qpos_list.append(hand_qpos)
+        self.init_hand_pos_list.append(hand_translation)
+        self.init_hand_quat_wxyz_list.append(hand_quaternion_wxyz)
 
         # Set hand dof props
         hand_props = gym.get_actor_dof_properties(env, hand_actor_handle)
@@ -602,7 +607,7 @@ class IsaacValidator:
         add_random_pose_noise: bool = False,
     ) -> None:
         obj_pose = gymapi.Transform()
-        obj_pose.p = gymapi.Vec3(0.3, 0.0, 0.0)
+        obj_pose.p = gymapi.Vec3(0.0, 0.0, 0.0)
         obj_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
         if add_random_pose_noise:
@@ -876,12 +881,7 @@ class IsaacValidator:
         assert_equals(len(is_hand_colliding_with_obj), len(self.envs))
         return is_hand_colliding_with_obj
 
-    def _move_hand_to_object(self) -> None:
-        # Only run once
-        if hasattr(self, "ALREADY_MOVED"):
-            return
-        self.ALREADY_MOVED = True
-
+    def _move_hands_to_objects(self) -> None:
         # Get current poses
         hand_indices = self._get_actor_indices(
             envs=self.envs, actors=self.hand_handles
@@ -899,9 +899,9 @@ class IsaacValidator:
         # Currently: hand_pose = desired_hand_pose_in_object_frame + INIT_HAND_OFFSET
         # Next: hand_pose = desired_hand_pose_in_world_frame = desired_hand_pose_in_object_frame + object_pose
         # Remove init offset
-        current_hand_poses[:, 0] -= INIT_HAND_OFFSET.x
-        current_hand_poses[:, 1] -= INIT_HAND_OFFSET.y
-        current_hand_poses[:, 2] -= INIT_HAND_OFFSET.z
+        current_hand_poses[:, 0] -= ARBITRARY_INIT_HAND_OFFSET.x
+        current_hand_poses[:, 1] -= ARBITRARY_INIT_HAND_OFFSET.y
+        current_hand_poses[:, 2] -= ARBITRARY_INIT_HAND_OFFSET.z
 
         # pseudocode:
         # object_transform = pose_to_4x4(current_object_poses)
@@ -1316,6 +1316,8 @@ class IsaacValidator:
         self.init_rel_obj_poses = []
         self.target_qpos_list = []
         self.init_qpos_list = []
+        self.init_hand_pos_list = []
+        self.init_hand_quat_wxyz_list = []
 
         self.camera_handles = []
         self.camera_envs = []
