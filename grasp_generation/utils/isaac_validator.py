@@ -755,7 +755,6 @@ class IsaacValidator:
         ):
             hand_table_contacts = []
             contacts = gym.get_env_rigid_contacts(env)
-            breakpoint()
             for contact in contacts:
                 body0 = contact["body0"]
                 body1 = contact["body1"]
@@ -767,9 +766,7 @@ class IsaacValidator:
                 if is_hand_table_contact:
                     hand_table_contacts.append(contact)
 
-            breakpoint()
             if len(hand_table_contacts) > 0:
-                print(f"hand_table_contacts = {hand_table_contacts}")
                 is_hand_colliding_with_table.append(True)
             else:
                 is_hand_colliding_with_table.append(False)
@@ -780,7 +777,8 @@ class IsaacValidator:
             return
 
         self.DONE = True
-        self.root_state_tensor[::3, 1] -= 1
+        # self.root_state_tensor[::3, 1] -= 1
+        self.root_state_tensor[::3, 1] -= 1.0
         gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_state_tensor))
 
     def _run_sim_steps(self) -> List[bool]:
@@ -796,10 +794,12 @@ class IsaacValidator:
             #   Eg. contact buffers, so not moving for the first few steps may resolve this by clearing buffers
             #   Move hand joints to target qpos linearly over a few steps
 
+            print(f"sim_step_idx = {sim_step_idx}")
+            print(f"Before move hand to object: {self._is_hand_colliding_with_table()}")
             if sim_step_idx == 1:
                 print("Moving hand to object")
                 self._move_hand_to_object()
-            self._is_hand_colliding_with_table()
+            print(f"After move hand to object: {self._is_hand_colliding_with_table()}")
 
             NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS = 10
             NUM_STEPS_TO_CLOSE_HAND_JOINTS = 15
