@@ -29,7 +29,7 @@ OBJ_COLLISION_FILTER = 0  # 0 means don't turn off collisions
 TABLE_COLLISION_FILTER = 0  # 0 means don't turn off collisions
 RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE = 1
 ISAAC_DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-ARBITRARY_INIT_HAND_OFFSET = gymapi.Vec3(0, 1, 0)
+ARBITRARY_INIT_HAND_POS = gymapi.Vec3(0, 1, 0)
 
 
 def assert_equals(a, b):
@@ -449,10 +449,6 @@ class IsaacValidator:
             add_random_pose_noise=add_random_pose_noise,
         )
 
-        self.init_rel_obj_poses.append(
-            self.init_hand_poses[-1].inverse() * self.init_obj_poses[-1]
-        )
-
         if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
             self._setup_table(
                 env=env,
@@ -520,12 +516,11 @@ class IsaacValidator:
         # For now, move hand to arbitrary offset from origin
         # Will move hand to object later
         hand_pose = gymapi.Transform()
-        hand_pose.p = ARBITRARY_INIT_HAND_OFFSET
+        hand_pose.p = ARBITRARY_INIT_HAND_POS
         # hand_pose.r = gymapi.Quat(*hand_quaternion_wxyz[1:], hand_quaternion_wxyz[0])
         # hand_pose.p = gymapi.Vec3(*hand_translation)
 
         hand_pose = transformation * hand_pose
-        self.init_hand_poses.append(hand_pose)
 
         # Create hand
         hand_actor_handle = gym.create_actor(
@@ -541,8 +536,11 @@ class IsaacValidator:
         # Store for later
         self.target_qpos_list.append(target_qpos)
         self.init_qpos_list.append(hand_qpos)
-        self.init_hand_pos_list.append(hand_translation)
-        self.init_hand_quat_wxyz_list.append(hand_quaternion_wxyz)
+        hand_quaternion_xyzw = np.concatenate(
+            [hand_quaternion_wxyz[1:], hand_quaternion_wxyz[:1]]
+        )
+        desired_hand_pose_object_frame = gymapi.Transform(p=gymapi.Vec3(*hand_translation), r=gymapi.Quat(*hand_quaternion_xyzw))
+        self.desired_hand_poses_object_frame.append(desired_hand_pose_object_frame)
 
         # Set hand dof props
         hand_props = gym.get_actor_dof_properties(env, hand_actor_handle)
@@ -666,13 +664,13 @@ class IsaacValidator:
         root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
         self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
 
-        objs_stationary_before_hand_joint_closed = self._run_sim_steps()
+        hand_not_penetrate_obj_list = self._run_sim_steps()
 
         # Render out all videos.
         self._save_video_if_needed()
 
         successes = self._check_successes()
-        return successes, objs_stationary_before_hand_joint_closed
+        return successes, hand_not_penetrate_obj_list
 
     def _check_successes(self) -> List[bool]:
         successes = []
@@ -682,7 +680,6 @@ class IsaacValidator:
             obj_link_idx_to_name,
             obj_handle,
             hand_handle,
-            init_rel_obj_pose,
         ) in enumerate(
             zip(
                 self.envs,
@@ -690,7 +687,6 @@ class IsaacValidator:
                 self.obj_link_idx_to_name_dicts,
                 self.obj_handles,
                 self.hand_handles,
-                self.init_rel_obj_poses,
             )
         ):
             contacts = gym.get_env_rigid_contacts(env)
@@ -731,6 +727,7 @@ class IsaacValidator:
             )
             final_obj_pose = self._get_object_pose(env=env, obj_handle=obj_handle)
             final_rel_obj_pose = final_hand_pose.inverse() * final_obj_pose
+            init_rel_obj_pose = self.desired_hand_poses_object_frame[i].inverse()  # TODO: Check if this makes sense
             pos_change, max_euler_change = self._get_pos_and_euler_change(
                 pose1=init_rel_obj_pose, pose2=final_rel_obj_pose
             )
@@ -882,26 +879,23 @@ class IsaacValidator:
         return is_hand_colliding_with_obj
 
     def _move_hands_to_objects(self) -> None:
-        # Get current poses
+        # Get current object poses
         hand_indices = self._get_actor_indices(
             envs=self.envs, actors=self.hand_handles
         ).to(self.root_state_tensor.device)
         object_indices = self._get_actor_indices(
             envs=self.envs, actors=self.obj_handles
         ).to(self.root_state_tensor.device)
-        current_hand_poses = self.root_state_tensor[hand_indices, :7].clone()
         current_object_poses = self.root_state_tensor[object_indices, :7].clone()
 
-        N = current_hand_poses.shape[0]
-        assert_equals(current_hand_poses.shape, (N, 7))
+        N = current_object_poses.shape[0]
         assert_equals(current_object_poses.shape, (N, 7))
 
-        # Currently: hand_pose = desired_hand_pose_in_object_frame + INIT_HAND_OFFSET
+        # Currently: hand_pose = ARBITRARY_INIT_HAND_POS
         # Next: hand_pose = desired_hand_pose_in_world_frame = desired_hand_pose_in_object_frame + object_pose
-        # Remove init offset
-        current_hand_poses[:, 0] -= ARBITRARY_INIT_HAND_OFFSET.x
-        current_hand_poses[:, 1] -= ARBITRARY_INIT_HAND_OFFSET.y
-        current_hand_poses[:, 2] -= ARBITRARY_INIT_HAND_OFFSET.z
+        desired_hand_pose_in_object_frame = 
+
+
 
         # pseudocode:
         # object_transform = pose_to_4x4(current_object_poses)
@@ -928,77 +922,37 @@ class IsaacValidator:
         default_desc = "Simulating"
         pbar = tqdm(total=self.num_sim_steps, desc=default_desc, dynamic_ncols=True)
 
-        objs_stationary_before_hand_joint_closed = [True for _ in range(len(self.envs))]
+        hand_not_penetrate_obj_list = [True for _ in range(len(self.envs))]
 
         while sim_step_idx < self.num_sim_steps:
-            # Set hand joint targets only after first few steps
-            #   Heard that first few steps may be less deterministic because of isaacgym state
-            #   Eg. contact buffers, so not moving for the first few steps may resolve this by clearing buffers
-            #   Move hand joints to target qpos linearly over a few steps
+            # Phase 1: Do nothing, hand far away
+            #   * For NO_GRAVITY_SHAKING: object should stay in place
+            #   * For GRAVITY_AND_TABLE: object should fall to table and settle
+            # Phase 2: Move hand to object
+            #   * For NO_GRAVITY_SHAKING: check if hand collides with object
+            #   * For GRAVITY_AND_TABLE: check if hand collides with object AND if hand collides with table
+            # Phase 3: Close hand
+            # Phase 4: Shake hand
+            #   * For NO_GRAVITY_SHAKING: shake from this position
+            #   * For GRAVITY_AND_TABLE: lift from table first, then shake
+            PHASE_1_LAST_STEP = 30
+            PHASE_2_LAST_STEP = PHASE_1_LAST_STEP + 10
+            PHASE_3_LAST_STEP = PHASE_2_LAST_STEP + 15
+            PHASE_4_LAST_STEP = self.num_sim_steps
+            assert_equals(PHASE_4_LAST_STEP, self.num_sim_steps)
 
-            NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS = 10
-            NUM_STEPS_TO_CLOSE_HAND_JOINTS = 15
-            if sim_step_idx >= NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS:
-                frac_progress = (
-                    sim_step_idx - NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS
-                ) / NUM_STEPS_TO_CLOSE_HAND_JOINTS
-                frac_progress = np.clip(
-                    frac_progress,
-                    0,
-                    1,
-                )
-                for env, hand_actor_handle, target_qpos, init_qpos in zip(
-                    self.envs,
-                    self.hand_handles,
-                    self.target_qpos_list,
-                    self.init_qpos_list,
-                ):
-                    current_target_qpos = target_qpos * frac_progress + init_qpos * (
-                        1 - frac_progress
-                    )
-                    self._set_dof_pos_targets(
-                        env=env,
-                        hand_actor_handle=hand_actor_handle,
-                        target_qpos=current_target_qpos,
-                    )
+            if sim_step_idx < PHASE_1_LAST_STEP:
+                self._run_phase_1(step=sim_step_idx, length=PHASE_1_LAST_STEP)
+            elif sim_step_idx < PHASE_2_LAST_STEP:
+                self._run_phase_2(step=sim_step_idx-PHASE_1_LAST_STEP, length=PHASE_2_LAST_STEP-PHASE_1_LAST_STEP)
+            elif sim_step_idx < PHASE_3_LAST_STEP:
+                self._run_phase_3(step=sim_step_idx-PHASE_2_LAST_STEP, length=PHASE_3_LAST_STEP-PHASE_2_LAST_STEP)
+            elif sim_step_idx < PHASE_4_LAST_STEP:
+                self._run_phase_4(step=sim_step_idx-PHASE_3_LAST_STEP, length=PHASE_4_LAST_STEP-PHASE_3_LAST_STEP)
             else:
-                # Check if object has velocity before hand joints start moving
-                OBJ_BASE_LINK_IDX = 0
-                for i, (env, obj_handle) in enumerate(zip(self.envs, self.obj_handles)):
-                    if not objs_stationary_before_hand_joint_closed[i]:
-                        continue
+                raise ValueError(f"Unknown sim_step_idx: {sim_step_idx}")
 
-                    obj_vel, _ = gym.get_actor_rigid_body_states(
-                        env, obj_handle, gymapi.STATE_VEL
-                    )[OBJ_BASE_LINK_IDX]["vel"]
-                    obj_speed = np.linalg.norm(
-                        [obj_vel["x"], obj_vel["y"], obj_vel["z"]]
-                    )
-                    if obj_speed > 0.01:
-                        objs_stationary_before_hand_joint_closed[i] = False
 
-            # Set virtual joint targets (wrist pose) only after a few steps
-            #   Let hand close and object settle before moving wrist
-            #   Only do this when virtual joints exist
-            NUM_STEPS_TO_NOT_MOVE_WRIST_POSE = 30
-            assert NUM_STEPS_TO_NOT_MOVE_WRIST_POSE > (
-                NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS + NUM_STEPS_TO_CLOSE_HAND_JOINTS
-            )
-            if (
-                sim_step_idx >= NUM_STEPS_TO_NOT_MOVE_WRIST_POSE
-                and len(self.virtual_joint_names) > 0
-            ):
-                frac_progress = (sim_step_idx - NUM_STEPS_TO_NOT_MOVE_WRIST_POSE) / (
-                    self.num_sim_steps - NUM_STEPS_TO_NOT_MOVE_WRIST_POSE
-                )
-                virtual_joint_dof_pos_targets = (
-                    self._compute_virtual_joint_dof_pos_targets(
-                        frac_progress=frac_progress
-                    )
-                )
-                self._set_virtual_joint_dof_pos_targets(virtual_joint_dof_pos_targets)
-            else:
-                virtual_joint_dof_pos_targets = None
 
             # Step physics if not paused
             if not self.is_paused:
@@ -1065,7 +1019,51 @@ class IsaacValidator:
                     desc += ". Step mode on"
                 pbar.set_description(desc)
 
-        return objs_stationary_before_hand_joint_closed
+        return hand_not_penetrate_obj_list
+
+    def _run_phase_1(self, step: int, length: int) -> None:
+        assert step < length, f"{step} >= {length}"
+        return
+
+    def _run_phase_2(self, step: int, length: int) -> None:
+        assert step < length, f"{step} >= {length}"
+        if step == 0:
+            self._move_hands_to_objects()
+
+        # TODO: Check if need to do this after sim only
+        hand_colliding_obj = self._is_hand_colliding_with_obj()
+        hand_colliding_table = self._is_hand_colliding_with_table()
+        # TODO: return this
+        return
+
+    def _run_phase_3(self, step: int, length: int) -> None:
+        assert step < length, f"{step} >= {length}"
+        frac_progress = step / length
+        for env, hand_actor_handle, target_qpos, init_qpos in zip(
+            self.envs,
+            self.hand_handles,
+            self.target_qpos_list,
+            self.init_qpos_list,
+        ):
+            current_target_qpos = target_qpos * frac_progress + init_qpos * (
+                1 - frac_progress
+            )
+            self._set_dof_pos_targets(
+                env=env,
+                hand_actor_handle=hand_actor_handle,
+                target_qpos=current_target_qpos,
+            )
+
+    def _run_phase_4(self, step: int, length: int) -> None:
+        assert step < length, f"{step} >= {length}"
+        frac_progress = step / length
+        if len(self.virtual_joint_names) > 0:
+            virtual_joint_dof_pos_targets = (
+                self._compute_virtual_joint_dof_pos_targets(
+                    frac_progress=frac_progress
+                )
+            )
+            self._set_virtual_joint_dof_pos_targets(virtual_joint_dof_pos_targets)
 
     ########## RUN SIM END ##########
 
@@ -1236,9 +1234,20 @@ class IsaacValidator:
         visualization_sphere_green = gymutil.WireframeSphereGeometry(
             radius=0.01, num_lats=10, num_lons=10, color=(0, 1, 0)
         )
-        for env, init_hand_pose, dof_pos_target in zip(
-            self.envs, self.init_hand_poses, dof_pos_targets
+
+        # Get current pose of hand
+        hand_indices = self._get_actor_indices(
+            envs=self.envs, actors=self.hand_handles
+        ).to(self.root_state_tensor.device)
+        hand_poses = self.root_state_tensor[hand_indices, :7].clone()
+        assert_equals(hand_poses.shape, (len(self.envs), 7))
+        hand_poses = [hand_poses[i] for i in range(len(self.envs))]
+
+        for env, hand_pose, dof_pos_target in zip(
+            self.envs, hand_poses, dof_pos_targets
         ):
+            hand_pos, hand_quat_xyzw = hand_pose[:3], hand_pose[3:]
+
             # dof_pos_targets in hand frame
             # direction in global frame
             # so need to perform hand frame rotation
@@ -1246,15 +1255,15 @@ class IsaacValidator:
                 dof_pos_target[0], dof_pos_target[1], dof_pos_target[2]
             )
             rotation_transform = gymapi.Transform(
-                gymapi.Vec3(0, 0, 0), init_hand_pose.r
+                gymapi.Vec3(0, 0, 0), gymapi.Quat(*hand_quat_xyzw)
             )
             direction = rotation_transform.transform_point(dof_pos_target)
 
             sphere_pose = gymapi.Transform(
                 gymapi.Vec3(
-                    init_hand_pose.p.x + direction.x,
-                    init_hand_pose.p.y + direction.y,
-                    init_hand_pose.p.z + direction.z,
+                    hand_pos[0].item() + direction.x,
+                    hand_pos[1].item() + direction.y,
+                    hand_pos[2].item() + direction.z,
                 ),
                 r=None,
             )
@@ -1312,12 +1321,9 @@ class IsaacValidator:
         self.table_link_idx_to_name_dicts = []
 
         self.init_obj_poses = []
-        self.init_hand_poses = []
-        self.init_rel_obj_poses = []
         self.target_qpos_list = []
         self.init_qpos_list = []
-        self.init_hand_pos_list = []
-        self.init_hand_quat_wxyz_list = []
+        self.desired_hand_poses_object_frame = []
 
         self.camera_handles = []
         self.camera_envs = []
