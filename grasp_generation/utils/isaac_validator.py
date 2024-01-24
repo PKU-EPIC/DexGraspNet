@@ -19,7 +19,7 @@ from collections import defaultdict
 import torch
 import torch.nn.functional as F
 from enum import Enum, auto
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 import transforms3d
 from datetime import datetime
 
@@ -236,7 +236,7 @@ def get_fixed_camera_transform(
 gym = gymapi.acquire_gym()
 
 
-def get_link_idx_to_name_dict(env, actor_handle) -> dict:
+def get_link_idx_to_name_dict(env, actor_handle) -> Dict[int, str]:
     link_idx_to_name_dict = {}
     num_links = gym.get_actor_rigid_body_count(env, actor_handle)
     link_names = gym.get_actor_rigid_body_names(env, actor_handle)
@@ -417,7 +417,7 @@ class IsaacValidator:
         record: bool = False,
     ) -> None:
         # collision_idx should be unique for each env so envs don't collide
-        collision_idx = len(self.envs)  
+        collision_idx = len(self.envs)
 
         transformation = gymapi.Transform()
 
@@ -465,7 +465,11 @@ class IsaacValidator:
             self._setup_camera(env)
 
     def _setup_table(
-        self, env, transformation: gymapi.Transform, collision_idx: int, obj_scale: float
+        self,
+        env,
+        transformation: gymapi.Transform,
+        collision_idx: int,
+        obj_scale: float,
     ) -> None:
         BUFFER = 1.2
         OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0 * obj_scale * BUFFER
@@ -646,6 +650,7 @@ class IsaacValidator:
             obj_shape_props[i].friction = self.obj_friction
         gym.set_actor_rigid_shape_properties(env, obj_actor_handle, obj_shape_props)
         return
+
     ########## ENV SETUP START ##########
 
     ########## RUN SIM END ##########
@@ -671,6 +676,7 @@ class IsaacValidator:
             hand_link_idx_to_name,
             obj_link_idx_to_name,
             obj_handle,
+            hand_handle,
             init_rel_obj_pose,
         ) in enumerate(
             zip(
@@ -678,6 +684,7 @@ class IsaacValidator:
                 self.hand_link_idx_to_name_dicts,
                 self.obj_link_idx_to_name_dicts,
                 self.obj_handles,
+                self.hand_handles,
                 self.init_rel_obj_poses,
             )
         ):
@@ -706,73 +713,24 @@ class IsaacValidator:
                 )
                 hand_link_contact_count[hand_link_name] += 1
 
-            # Success conditions
+            # Find not allowed contacts
             not_allowed_contacts = set(hand_link_contact_count.keys()) - set(
                 self.allowed_contact_link_names
             )
 
-            # palm_link_idx
-            palm_link_idxs = [
-                idx
-                for idx, name in hand_link_idx_to_name.items()
-                if name == "palm_link"
-            ]
-            assert (
-                len(palm_link_idxs) == 1
-            ), f"len(palm_link_idxs) = {len(palm_link_idxs)}"
-            palm_link_idx = palm_link_idxs[0]
-
-            final_hand_pose = gymapi.Transform()
-            final_hand_pose.p, final_hand_pose.r = gym.get_actor_rigid_body_states(
-                env, self.hand_handles[i], gymapi.STATE_POS
-            )[palm_link_idx]["pose"]
-
-            OBJ_BASE_LINK_IDX = 0
-            final_obj_pose = gymapi.Transform()
-            final_obj_pose.p, final_obj_pose.r = gym.get_actor_rigid_body_states(
-                env, obj_handle, gymapi.STATE_POS
-            )[OBJ_BASE_LINK_IDX]["pose"]
-            init_rel_obj_pos = torch.tensor(
-                [init_rel_obj_pose.p.x, init_rel_obj_pose.p.y, init_rel_obj_pose.p.z]
+            # Change from init to final obj pose relative to hand
+            final_hand_pose = self._get_palm_pose(
+                env=env,
+                hand_handle=hand_handle,
+                hand_link_idx_to_name=hand_link_idx_to_name,
             )
-            init_rel_obj_quat = torch.tensor(
-                [
-                    init_rel_obj_pose.r.x,
-                    init_rel_obj_pose.r.y,
-                    init_rel_obj_pose.r.z,
-                    init_rel_obj_pose.r.w,
-                ]
-            )
+            final_obj_pose = self._get_object_pose(env=env, obj_handle=obj_handle)
             final_rel_obj_pose = final_hand_pose.inverse() * final_obj_pose
-
-            final_rel_obj_pos = torch.tensor(
-                [final_rel_obj_pose.p.x, final_rel_obj_pose.p.y, final_rel_obj_pose.p.z]
-            )
-            final_rel_obj_quat = torch.tensor(
-                [
-                    final_rel_obj_pose.r.x,
-                    final_rel_obj_pose.r.y,
-                    final_rel_obj_pose.r.z,
-                    final_rel_obj_pose.r.w,
-                ]
-            )
-            print(
-                f"final_obj_pose.p, final_obj_pose.r = {(final_obj_pose.p.x, final_obj_pose.p.y, final_obj_pose.p.z), (final_obj_pose.r.w, final_obj_pose.r.x, final_obj_pose.r.y, final_obj_pose.r.z)}"
+            pos_change, max_euler_change = self._get_pos_and_euler_change(
+                pose1=init_rel_obj_pose, pose2=final_rel_obj_pose
             )
 
-            quat_diff = torch_utils.quat_mul(
-                final_rel_obj_quat, torch_utils.quat_conjugate(init_rel_obj_quat)
-            )
-            pos_change = torch.linalg.norm(final_rel_obj_pos - init_rel_obj_pos).item()
-
-            euler_change = torch.stack(
-                torch_utils.get_euler_xyz(quat_diff[None, ...])
-            ).abs()
-            euler_change = torch.where(
-                euler_change > math.pi, 2 * math.pi - euler_change, euler_change
-            )
-            max_euler_change = euler_change.max().rad2deg().item()
-
+            # Success conditions
             success = (
                 len(hand_object_contacts) > 0
                 and len(hand_link_contact_count.keys()) >= 3
@@ -800,7 +758,69 @@ class IsaacValidator:
 
         return successes
 
+    def _get_palm_pose(
+        self, env, hand_handle, hand_link_idx_to_name: Dict[int, str]
+    ) -> gymapi.Transform:
+        palm_link_idxs = [
+            idx for idx, name in hand_link_idx_to_name.items() if name == "palm_link"
+        ]
+        assert len(palm_link_idxs) == 1, f"len(palm_link_idxs) = {len(palm_link_idxs)}"
+        palm_link_idx = palm_link_idxs[0]
+
+        final_hand_pose = gymapi.Transform()
+        final_hand_pose.p, final_hand_pose.r = gym.get_actor_rigid_body_states(
+            env, hand_handle, gymapi.STATE_POS
+        )[palm_link_idx]["pose"]
+        return final_hand_pose
+
+    def _get_object_pose(self, env, obj_handle: int) -> gymapi.Transform:
+        OBJ_BASE_LINK_IDX = 0
+        final_obj_pose = gymapi.Transform()
+        final_obj_pose.p, final_obj_pose.r = gym.get_actor_rigid_body_states(
+            env, obj_handle, gymapi.STATE_POS
+        )[OBJ_BASE_LINK_IDX]["pose"]
+        return final_obj_pose
+
+    def _get_pos_and_euler_change(
+        self, pose1: gymapi.Transform, pose2: gymapi.Transform
+    ) -> Tuple[float, float]:
+        pos1 = torch.tensor([pose1.p.x, pose1.p.y, pose1.p.z])
+        quat1_xyzw = torch.tensor(
+            [
+                pose1.r.x,
+                pose1.r.y,
+                pose1.r.z,
+                pose1.r.w,
+            ]
+        )
+
+        pos2 = torch.tensor([pose2.p.x, pose2.p.y, pose2.p.z])
+        quat2_xyzw = torch.tensor(
+            [
+                pose2.r.x,
+                pose2.r.y,
+                pose2.r.z,
+                pose2.r.w,
+            ]
+        )
+
+        quat_diff = torch_utils.quat_mul(
+            quat2_xyzw, torch_utils.quat_conjugate(quat1_xyzw)
+        )
+        pos_change = torch.linalg.norm(pos2 - pos1).item()
+
+        euler_change = torch.stack(
+            torch_utils.get_euler_xyz(quat_diff[None, ...])
+        ).abs()
+        euler_change = torch.where(
+            euler_change > math.pi, 2 * math.pi - euler_change, euler_change
+        )
+        max_euler_change = euler_change.max().rad2deg().item()
+        return pos_change, max_euler_change
+
     def _is_hand_colliding_with_table(self) -> List[bool]:
+        assert_equals(len(self.table_link_idx_to_name_dicts), len(self.envs))
+
         is_hand_colliding_with_table = []
         for env, table_link_idx_to_name, hand_link_idx_to_name in zip(
             self.envs,
@@ -824,7 +844,37 @@ class IsaacValidator:
                 is_hand_colliding_with_table.append(True)
             else:
                 is_hand_colliding_with_table.append(False)
+
+        assert_equals(len(is_hand_colliding_with_table), len(self.envs))
         return is_hand_colliding_with_table
+
+    def _is_hand_colliding_with_obj(self) -> List[bool]:
+        assert_equals(len(self.obj_link_idx_to_name_dicts), len(self.envs))
+
+        is_hand_colliding_with_obj = []
+        for env, obj_link_idx_to_name, hand_link_idx_to_name in zip(
+            self.envs,
+            self.obj_link_idx_to_name_dicts,
+            self.hand_link_idx_to_name_dicts,
+        ):
+            hand_obj_contacts = []
+            contacts = gym.get_env_rigid_contacts(env)
+            for contact in contacts:
+                body0 = contact["body0"]
+                body1 = contact["body1"]
+                is_hand_obj_contact = (
+                    body0 in hand_link_idx_to_name and body1 in obj_link_idx_to_name
+                ) or (body1 in hand_link_idx_to_name and body0 in obj_link_idx_to_name)
+                if is_hand_obj_contact:
+                    hand_obj_contacts.append(contact)
+
+            if len(hand_obj_contacts) > 0:
+                is_hand_colliding_with_obj.append(True)
+            else:
+                is_hand_colliding_with_obj.append(False)
+
+        assert_equals(len(is_hand_colliding_with_obj), len(self.envs))
+        return is_hand_colliding_with_obj
 
     def _move_hand_to_object(self) -> None:
         # Only run once
@@ -832,7 +882,7 @@ class IsaacValidator:
             return
         self.ALREADY_MOVED = True
 
-        # Pose = [x, y, z, qx, qy, qz, qw]
+        # Get current poses
         hand_indices = self._get_actor_indices(
             envs=self.envs, actors=self.hand_handles
         ).to(self.root_state_tensor.device)
@@ -841,6 +891,7 @@ class IsaacValidator:
         ).to(self.root_state_tensor.device)
         current_hand_poses = self.root_state_tensor[hand_indices, :7].clone()
         current_object_poses = self.root_state_tensor[object_indices, :7].clone()
+
         N = current_hand_poses.shape[0]
         assert_equals(current_hand_poses.shape, (N, 7))
         assert_equals(current_object_poses.shape, (N, 7))
@@ -884,13 +935,6 @@ class IsaacValidator:
             #   Heard that first few steps may be less deterministic because of isaacgym state
             #   Eg. contact buffers, so not moving for the first few steps may resolve this by clearing buffers
             #   Move hand joints to target qpos linearly over a few steps
-
-            print(f"sim_step_idx = {sim_step_idx}")
-            print(f"Before move hand to object: {self._is_hand_colliding_with_table()}")
-            if sim_step_idx == 1:
-                print("Moving hand to object")
-                self._move_hand_to_object()
-            print(f"After move hand to object: {self._is_hand_colliding_with_table()}")
 
             NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS = 10
             NUM_STEPS_TO_CLOSE_HAND_JOINTS = 15
@@ -1022,6 +1066,7 @@ class IsaacValidator:
                 pbar.set_description(desc)
 
         return objs_stationary_before_hand_joint_closed
+
     ########## RUN SIM END ##########
 
     ########## HELPERS START ##########
@@ -1035,6 +1080,7 @@ class IsaacValidator:
             dtype=torch.long,
         )
         return actor_indices
+
     @property
     def table_asset(self):
         if not hasattr(self, "_table_asset"):
@@ -1048,6 +1094,7 @@ class IsaacValidator:
                 self.sim, table_root, table_file, table_asset_options
             )
         return self._table_asset
+
     ########## HELPERS END ##########
 
     ########## VIDEO START ##########
@@ -1096,6 +1143,7 @@ class IsaacValidator:
     ):
         print(f"number of frames: {len(video_frames)}")
         imageio.mimsave(video_path, video_frames, fps=fps)
+
     ########## VIDEO END ##########
 
     ########## DOF TARGETS START ##########
@@ -1176,6 +1224,7 @@ class IsaacValidator:
             )
             dof_pos_targets[joint_idx] = target_qpos[i]
         gym.set_actor_dof_position_targets(env, hand_actor_handle, dof_pos_targets)
+
     ########## DOF TARGETS END ##########
 
     ########## VISUALIZE START ##########
@@ -1227,6 +1276,7 @@ class IsaacValidator:
         for pos, color in zip([x_pos, y_pos, z_pos], [red, green, blue]):
             for env in self.envs:
                 gymutil.draw_line(origin_pos, pos, color, gym, self.viewer, env)
+
     ########## VISUALIZE END ##########
 
     ########## RESET START ##########
@@ -1272,6 +1322,7 @@ class IsaacValidator:
         self.camera_properties_list = []
         self.video_frames = []
         self.obj_asset = None
+
     ########## RESET END ##########
 
     ########## KEYBOARD SUBSCRIPTIONS START ##########
