@@ -175,7 +175,7 @@ def T_to_pose(T: torch.Tensor) -> torch.Tensor:
     return pose
 
 
-## NERF GRASPING START ##
+########## NERF GRASPING START ##########
 
 import numpy as np
 import os
@@ -230,7 +230,7 @@ def get_fixed_camera_transform(
     return pos, fixed_quat
 
 
-## NERF GRASPING END ##
+########## NERF GRASPING END ##########
 
 
 gym = gymapi.acquire_gym()
@@ -288,7 +288,7 @@ class IsaacValidator:
             hand_model_type
         ]
 
-        self._reset_state()
+        self._init_or_reset_state()
 
         # Need virtual joints to control hand position
         if self.validation_type == ValidationType.GRAVITY_IN_6_DIRS:
@@ -392,30 +392,7 @@ class IsaacValidator:
         else:
             raise ValueError(f"Unknown validation type: {validation_type}")
 
-        self.test_rotations = [
-            gymapi.Transform(gymapi.Vec3(0, 0, 0), gymapi.Quat(0, 0, 0, 1)),
-            gymapi.Transform(
-                gymapi.Vec3(0, 0, 0),
-                gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), 1 * math.pi),
-            ),
-            gymapi.Transform(
-                gymapi.Vec3(0, 0, 0),
-                gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), 0.5 * math.pi),
-            ),
-            gymapi.Transform(
-                gymapi.Vec3(0, 0, 0),
-                gymapi.Quat.from_axis_angle(gymapi.Vec3(0, 0, 1), -0.5 * math.pi),
-            ),
-            gymapi.Transform(
-                gymapi.Vec3(0, 0, 0),
-                gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), 0.5 * math.pi),
-            ),
-            gymapi.Transform(
-                gymapi.Vec3(0, 0, 0),
-                gymapi.Quat.from_axis_angle(gymapi.Vec3(1, 0, 0), -0.5 * math.pi),
-            ),
-        ]
-
+        # Simulation state
         self.is_paused = False
         self.is_step_mode = self.has_viewer and start_with_step_mode
 
@@ -428,26 +405,7 @@ class IsaacValidator:
             self.sim, obj_root, obj_file, self.obj_asset_options
         )
 
-    def add_env_all_test_rotations(
-        self,
-        hand_quaternion_wxyz: np.ndarray,
-        hand_translation: np.ndarray,
-        hand_qpos: np.ndarray,
-        obj_scale: float,
-        target_qpos: np.ndarray,
-        add_random_pose_noise: bool = False,
-    ) -> None:
-        for test_rotation_idx in range(len(self.test_rotations)):
-            self.add_env_single_test_rotation(
-                hand_quaternion_wxyz=hand_quaternion_wxyz,
-                hand_translation=hand_translation,
-                hand_qpos=hand_qpos,
-                obj_scale=obj_scale,
-                target_qpos=target_qpos,
-                add_random_pose_noise=add_random_pose_noise,
-                test_rotation_index=test_rotation_idx,
-            )
-
+    ########## ENV SETUP START ##########
     def add_env_single_test_rotation(
         self,
         hand_quaternion_wxyz: np.ndarray,
@@ -456,22 +414,20 @@ class IsaacValidator:
         obj_scale: float,
         target_qpos: np.ndarray,
         add_random_pose_noise: bool = False,
-        test_rotation_index: int = 0,
         record: bool = False,
     ) -> None:
-        collision_idx = len(
-            self.envs
-        )  # Should be unique for each env so envs don't collide
+        # collision_idx should be unique for each env so envs don't collide
+        collision_idx = len(self.envs)  
 
-        # Set test rotation
-        test_rot = self.test_rotations[test_rotation_index]
+        transformation = gymapi.Transform()
 
         # Create env
+        ENVS_PER_ROW = 6
         env = gym.create_env(
             self.sim,
             gymapi.Vec3(-1, -1, -1),
             gymapi.Vec3(1, 1, 1),
-            len(self.test_rotations),
+            ENVS_PER_ROW,
         )
         self.envs.append(env)
 
@@ -480,7 +436,7 @@ class IsaacValidator:
             hand_quaternion_wxyz=hand_quaternion_wxyz,
             hand_translation=hand_translation,
             hand_qpos=hand_qpos,
-            transformation=test_rot,
+            transformation=transformation,
             target_qpos=target_qpos,
             collision_idx=collision_idx,
         )
@@ -488,7 +444,7 @@ class IsaacValidator:
         self._setup_obj(
             env,
             obj_scale,
-            test_rot,
+            transformation,
             collision_idx=collision_idx,
             add_random_pose_noise=add_random_pose_noise,
         )
@@ -500,7 +456,7 @@ class IsaacValidator:
         if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
             self._setup_table(
                 env=env,
-                transformation=test_rot,
+                transformation=transformation,
                 collision_idx=collision_idx,
                 obj_scale=obj_scale,
             )
@@ -509,7 +465,7 @@ class IsaacValidator:
             self._setup_camera(env)
 
     def _setup_table(
-        self, env, transformation: gymapi.Transform, collision_idx: int, obj_scale: int
+        self, env, transformation: gymapi.Transform, collision_idx: int, obj_scale: float
     ) -> None:
         BUFFER = 1.2
         OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0 * obj_scale * BUFFER
@@ -545,32 +501,6 @@ class IsaacValidator:
             table_shape_props[i].friction = 1.0
         gym.set_actor_rigid_shape_properties(env, table_actor_handle, table_shape_props)
         return
-
-    # TODO: be less lazy, integrate with NeRF datagen.
-    def _setup_camera(self, env) -> None:
-        camera_properties = gymapi.CameraProperties()  # type: ignore
-
-        camera_properties.width = int(
-            CAMERA_IMG_WIDTH / RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE
-        )
-        camera_properties.height = int(
-            CAMERA_IMG_HEIGHT / RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE
-        )
-
-        camera_handle = gym.create_camera_sensor(
-            env,
-            camera_properties,
-        )
-        self.camera_handles.append(camera_handle)
-        self.camera_properties_list.append(camera_properties)
-
-        self.camera_envs.append(env)
-
-        cam_target = gymapi.Vec3(0, 0, 0)  # type: ignore  # where object s
-        cam_pos = cam_target + gymapi.Vec3(-0.25, 0.1, 0.1)  # Define offset
-
-        self.video_frames.append([])
-        gym.set_camera_location(camera_handle, env, cam_pos, cam_target)
 
     def _setup_hand(
         self,
@@ -659,20 +589,6 @@ class IsaacValidator:
         gym.set_actor_rigid_shape_properties(env, hand_actor_handle, hand_shape_props)
         return
 
-    def _set_dof_pos_targets(
-        self,
-        env,
-        hand_actor_handle,
-        target_qpos: np.ndarray,
-    ) -> None:
-        dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_actor_handle)
-        for i, joint in enumerate(self.joint_names):
-            joint_idx = gym.find_actor_dof_index(
-                env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
-            )
-            dof_pos_targets[joint_idx] = target_qpos[i]
-        gym.set_actor_dof_position_targets(env, hand_actor_handle, dof_pos_targets)
-
     def _setup_obj(
         self,
         env,
@@ -730,18 +646,9 @@ class IsaacValidator:
             obj_shape_props[i].friction = self.obj_friction
         gym.set_actor_rigid_shape_properties(env, obj_actor_handle, obj_shape_props)
         return
+    ########## ENV SETUP START ##########
 
-    def _get_actor_indices(self, envs, actors) -> torch.Tensor:
-        assert_equals(len(envs), len(actors))
-        actor_indices = torch_utils.to_torch(
-            [
-                gym.get_actor_index(env, actor, gymapi.DOMAIN_SIM)  # type: ignore
-                for env, actor in zip(envs, actors)
-            ],
-            dtype=torch.long,
-        )
-        return actor_indices
-
+    ########## RUN SIM END ##########
     def run_sim(self) -> Tuple[List[bool], List[bool]]:
         gym.prepare_sim(self.sim)  # TODO: Check if this is needed?
 
@@ -752,18 +659,7 @@ class IsaacValidator:
         objs_stationary_before_hand_joint_closed = self._run_sim_steps()
 
         # Render out all videos.
-        if self.camera_handles:
-            for ii, _ in enumerate(self.camera_envs):
-                video_path = pathlib.Path(f"videos/{ISAAC_DATETIME_STR}_video_{ii}.mp4")
-                if not video_path.parent.exists():
-                    video_path.parent.mkdir(parents=True)
-                print(f"Rendering camera {ii} to video at path {video_path}.")
-                self._render_video(
-                    video_frames=self.video_frames[ii],
-                    video_path=video_path,
-                    fps=int(1 / self.sim_params.dt),
-                )
-                print(f"Done rendering camera {ii}.")
+        self._save_video_if_needed()
 
         successes = self._check_successes()
         return successes, objs_stationary_before_hand_joint_closed
@@ -1126,7 +1022,19 @@ class IsaacValidator:
                 pbar.set_description(desc)
 
         return objs_stationary_before_hand_joint_closed
+    ########## RUN SIM END ##########
 
+    ########## HELPERS START ##########
+    def _get_actor_indices(self, envs, actors) -> torch.Tensor:
+        assert_equals(len(envs), len(actors))
+        actor_indices = torch_utils.to_torch(
+            [
+                gym.get_actor_index(env, actor, gymapi.DOMAIN_SIM)  # type: ignore
+                for env, actor in zip(envs, actors)
+            ],
+            dtype=torch.long,
+        )
+        return actor_indices
     @property
     def table_asset(self):
         if not hasattr(self, "_table_asset"):
@@ -1140,13 +1048,57 @@ class IsaacValidator:
                 self.sim, table_root, table_file, table_asset_options
             )
         return self._table_asset
+    ########## HELPERS END ##########
+
+    ########## VIDEO START ##########
+    # TODO: be less lazy, integrate with NeRF datagen.
+    def _setup_camera(self, env) -> None:
+        camera_properties = gymapi.CameraProperties()  # type: ignore
+
+        camera_properties.width = int(
+            CAMERA_IMG_WIDTH / RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE
+        )
+        camera_properties.height = int(
+            CAMERA_IMG_HEIGHT / RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE
+        )
+
+        camera_handle = gym.create_camera_sensor(
+            env,
+            camera_properties,
+        )
+        self.camera_handles.append(camera_handle)
+        self.camera_properties_list.append(camera_properties)
+
+        self.camera_envs.append(env)
+
+        cam_target = gymapi.Vec3(0, 0, 0)  # type: ignore  # where object s
+        cam_pos = cam_target + gymapi.Vec3(-0.25, 0.1, 0.1)  # Define offset
+
+        self.video_frames.append([])
+        gym.set_camera_location(camera_handle, env, cam_pos, cam_target)
+
+    def _save_video_if_needed(self) -> None:
+        if self.camera_handles:
+            for ii, _ in enumerate(self.camera_envs):
+                video_path = pathlib.Path(f"videos/{ISAAC_DATETIME_STR}_video_{ii}.mp4")
+                if not video_path.parent.exists():
+                    video_path.parent.mkdir(parents=True)
+                print(f"Rendering camera {ii} to video at path {video_path}.")
+                self._render_video(
+                    video_frames=self.video_frames[ii],
+                    video_path=video_path,
+                    fps=int(1 / self.sim_params.dt),
+                )
+                print(f"Done rendering camera {ii}.")
 
     def _render_video(
         self, video_frames: List[torch.Tensor], video_path: pathlib.Path, fps: int
     ):
         print(f"number of frames: {len(video_frames)}")
         imageio.mimsave(video_path, video_frames, fps=fps)
+    ########## VIDEO END ##########
 
+    ########## DOF TARGETS START ##########
     def _compute_virtual_joint_dof_pos_targets(
         self,
         frac_progress: float,
@@ -1211,6 +1163,22 @@ class IsaacValidator:
                 actor_dof_pos_targets[joint_idx] = dof_pos_target[i]
             gym.set_actor_dof_position_targets(env, hand_handle, actor_dof_pos_targets)
 
+    def _set_dof_pos_targets(
+        self,
+        env,
+        hand_actor_handle,
+        target_qpos: np.ndarray,
+    ) -> None:
+        dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_actor_handle)
+        for i, joint in enumerate(self.joint_names):
+            joint_idx = gym.find_actor_dof_index(
+                env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
+            )
+            dof_pos_targets[joint_idx] = target_qpos[i]
+        gym.set_actor_dof_position_targets(env, hand_actor_handle, dof_pos_targets)
+    ########## DOF TARGETS END ##########
+
+    ########## VISUALIZE START ##########
     def _visualize_virtual_joint_dof_pos_targets(
         self, dof_pos_targets: List[torch.Tensor]
     ) -> None:
@@ -1259,7 +1227,9 @@ class IsaacValidator:
         for pos, color in zip([x_pos, y_pos, z_pos], [red, green, blue]):
             for env in self.envs:
                 gymutil.draw_line(origin_pos, pos, color, gym, self.viewer, env)
+    ########## VISUALIZE END ##########
 
+    ########## RESET START ##########
     def reset_simulator(self) -> None:
         self.destroy()
 
@@ -1273,7 +1243,7 @@ class IsaacValidator:
             self.sim, self.hand_root, self.hand_file, self.hand_asset_options
         )
 
-        self._reset_state()
+        self._init_or_reset_state()
 
     def destroy(self) -> None:
         for env in self.envs:
@@ -1282,13 +1252,15 @@ class IsaacValidator:
         if self.has_viewer:
             gym.destroy_viewer(self.viewer)
 
-    def _reset_state(self) -> None:
+    def _init_or_reset_state(self) -> None:
         self.envs = []
         self.hand_handles = []
         self.obj_handles = []
+
         self.hand_link_idx_to_name_dicts = []
         self.obj_link_idx_to_name_dicts = []
         self.table_link_idx_to_name_dicts = []
+
         self.init_obj_poses = []
         self.init_hand_poses = []
         self.init_rel_obj_poses = []
@@ -1300,7 +1272,9 @@ class IsaacValidator:
         self.camera_properties_list = []
         self.video_frames = []
         self.obj_asset = None
+    ########## RESET END ##########
 
+    ########## KEYBOARD SUBSCRIPTIONS START ##########
     def subscribe_to_keyboard_events(self) -> None:
         if self.has_viewer:
             self.event_to_key = {
@@ -1320,7 +1294,6 @@ class IsaacValidator:
             for event, key in self.event_to_key.items():
                 gym.subscribe_viewer_keyboard_event(self.viewer, key, event)
 
-    ## KEYBOARD EVENT SUBSCRIPTIONS START ##
     def _step_mode_callback(self):
         self.is_step_mode = not self.is_step_mode
         print(f"Simulation is in {'step' if self.is_step_mode else 'continuous'} mode")
@@ -1330,9 +1303,9 @@ class IsaacValidator:
         self.is_paused = not self.is_paused
         print(f"Simulation is {'paused' if self.is_paused else 'unpaused'}")
 
-    ## KEYBOARD EVENT SUBSCRIPTIONS END ##
+    ########## KEYBOARD SUBSCRIPTIONS END ##########
 
-    ## NERF DATA COLLECTION START ##
+    ########## NERF DATA COLLECTION START ##########
     def add_env_nerf_data_collection(
         self,
         obj_scale: float,
@@ -1417,50 +1390,6 @@ class IsaacValidator:
                 camera_handle, env, gymapi.Vec3(xx, yy, zz), gymapi.Vec3(0.0, 0.0, 0.0)
             )
             self.camera_handles.append(camera_handle)
-
-        # # generates camera positions along rings around object
-        # heights = [0.1, 0.3, 0.25, 0.35, 0.0]
-        # distances = [0.05, 0.125, 0.3, 0.3, 0.2]
-        # counts = [56, 104, 96, 1, 60]
-        # target_ys = [0.0, 0.1, 0.0, 0.1, 0.0]
-
-        # # compute camera positions
-        # camera_positions = []
-        # for height, distance, count, target_y in zip(
-        #     heights, distances, counts, target_ys
-        # ):
-        #     for alpha in np.linspace(0, 2 * np.pi, count, endpoint=False):
-        #         pos = [distance * np.sin(alpha), height, distance * np.cos(alpha)]
-        #         camera_positions.append((pos, target_y))
-        # # repeat all from under since there is no ground plane
-        # for height, distance, count, target_y in zip(
-        #     heights, distances, counts, target_ys
-        # ):
-        #     if height == 0.0:
-        #         print(f"Continuing because height == 0.0")
-        #         continue
-        #     height = -height
-        #     target_y = -target_y
-        #     for alpha in np.linspace(0, 2 * np.pi, count, endpoint=False):
-        #         pos = [distance * np.sin(alpha), height, distance * np.cos(alpha)]
-        #         camera_positions.append((pos, target_y))
-
-        # self.camera_handles = []
-        # for pos, target_y in camera_positions:
-        #     camera_handle = gym.create_camera_sensor(env, camera_props)
-        #     gym.set_camera_location(
-        #         camera_handle, env, gymapi.Vec3(*pos), gymapi.Vec3(0, target_y, 0)
-        #     )
-
-        #     self.camera_handles.append(camera_handle)
-
-        # self.overhead_camera_handle = gym.create_camera_sensor(env, camera_props)
-        # gym.set_camera_location(
-        #     self.overhead_camera_handle,
-        #     env,
-        #     gymapi.Vec3(0, 0.5, 0.001),
-        #     gymapi.Vec3(0, 0.01, 0),
-        # )
 
     def _destroy_cameras(self, env):
         for camera_handle in self.camera_handles:
@@ -1748,4 +1677,4 @@ class IsaacValidator:
         with open(os.path.join(folder, "transforms.json"), "w") as outfile:
             outfile.write(json.dumps(json_dict))
 
-    ## NERF DATA COLLECTION END ##
+    ########## NERF DATA COLLECTION END ##########
