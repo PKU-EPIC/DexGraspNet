@@ -758,6 +758,12 @@ class IsaacValidator:
             #   Heard that first few steps may be less deterministic because of isaacgym state
             #   Eg. contact buffers, so not moving for the first few steps may resolve this by clearing buffers
             #   Move hand joints to target qpos linearly over a few steps
+            x = gym.get_actor_rigid_body_states(self.envs[0], self.hand_handles[0], gymapi.STATE_POS)
+            hand_link_idxs = [
+                idx
+                for idx, name in self.hand_link_idx_to_name_dicts[0].items()
+            ]
+            breakpoint()
 
             NUM_STEPS_TO_NOT_MOVE_HAND_JOINTS = 10
             NUM_STEPS_TO_CLOSE_HAND_JOINTS = 15
