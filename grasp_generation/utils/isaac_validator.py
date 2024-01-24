@@ -893,29 +893,31 @@ class IsaacValidator:
 
         # Currently: hand_pose = ARBITRARY_INIT_HAND_POS
         # Next: hand_pose = desired_hand_pose_in_world_frame = desired_hand_pose_in_object_frame + object_pose
-        desired_hand_pose_in_object_frame = 
+        # world_to_hand_transform = world_to_object_transform @ object_to_hand_transform
+        desired_hand_poses_in_object_frame = self._gymapi_transforms_to_poses(self.desired_hand_poses_object_frame)
 
-
-
-        # pseudocode:
-        # object_transform = pose_to_4x4(current_object_poses)
-        # hand_transform = pose_to_4x4(current_hand_poses)
-        # new_hand_transform = object_transform * hand_transform
-        current_hand_transforms = pose_to_T(current_hand_poses)
-        current_object_transforms = pose_to_T(current_object_poses)
-        assert_equals(current_hand_transforms.shape, (N, 4, 4))
-        assert_equals(current_object_transforms.shape, (N, 4, 4))
-        new_hand_transforms = torch.bmm(
-            current_object_transforms, current_hand_transforms
+        object_to_hand_transforms = pose_to_T(desired_hand_poses_in_object_frame)
+        world_to_object_transforms = pose_to_T(current_object_poses)
+        assert_equals(object_to_hand_transforms.shape, (N, 4, 4))
+        assert_equals(world_to_object_transforms.shape, (N, 4, 4))
+        world_to_hand_transforms = torch.bmm(
+            world_to_object_transforms,object_to_hand_transforms 
         )
-        assert_equals(new_hand_transforms.shape, (N, 4, 4))
-        new_hand_poses = T_to_pose(new_hand_transforms)
+        assert_equals(world_to_hand_transforms.shape, (N, 4, 4))
+        new_hand_poses = T_to_pose(world_to_hand_transforms)
         assert_equals(new_hand_poses.shape, (N, 7))
 
         self.root_state_tensor[hand_indices, :7] = new_hand_poses
         gym.set_actor_root_state_tensor(
             self.sim, gymtorch.unwrap_tensor(self.root_state_tensor)
         )
+
+    def _gymapi_transforms_to_poses(self, transforms: List[gymapi.Transform]) -> torch.Tensor:
+        poses = torch.zeros((len(transforms), 7)).float()
+        for i, transform in enumerate(transforms):
+            poses[i, :3] = torch.tensor([transform.p.x, transform.p.y, transform.p.z])
+            poses[i, 3:] = torch.tensor([transform.r.x, transform.r.y, transform.r.z, transform.r.w])
+        return poses
 
     def _run_sim_steps(self) -> List[bool]:
         sim_step_idx = 0
@@ -951,8 +953,6 @@ class IsaacValidator:
                 self._run_phase_4(step=sim_step_idx-PHASE_3_LAST_STEP, length=PHASE_4_LAST_STEP-PHASE_3_LAST_STEP)
             else:
                 raise ValueError(f"Unknown sim_step_idx: {sim_step_idx}")
-
-
 
             # Step physics if not paused
             if not self.is_paused:
