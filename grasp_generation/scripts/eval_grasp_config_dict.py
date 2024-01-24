@@ -208,6 +208,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         gpu=args.gpu,
         validation_type=args.validation_type,
         mode="gui" if args.use_gui else "headless",
+        start_with_step_mode=args.start_with_step_mode,
         use_cpu=args.use_cpu,
     )
     # Run validation on all grasps
