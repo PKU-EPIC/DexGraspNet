@@ -17,9 +17,163 @@ from utils.hand_model_type import (
 )
 from collections import defaultdict
 import torch
+import torch.nn.functional as F
 from enum import Enum, auto
 from typing import List, Optional, Tuple
 import transforms3d
+from datetime import datetime
+
+# collision_filter is a bit mask that lets you filter out collision between bodies. Two bodies will not collide if their collision filters have a common bit set.
+HAND_COLLISION_FILTER = 0  # 0 means turn off collisions
+OBJ_COLLISION_FILTER = 0  # 0 means don't turn off collisions
+TABLE_COLLISION_FILTER = 0  # 0 means don't turn off collisions
+RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE = 1
+ISAAC_DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+INIT_HAND_OFFSET = gymapi.Vec3(0, 1, 0)
+
+
+def assert_equals(a, b):
+    assert a == b, f"{a} != {b}"
+
+
+def quaternion_to_matrix(quaternions: torch.Tensor) -> torch.Tensor:
+    """
+    Convert rotations given as quaternions to rotation matrices.
+    Args:
+        quaternions: quaternions with real part first,
+            as tensor of shape (..., 4).
+    Returns:
+        Rotation matrices as tensor of shape (..., 3, 3).
+    """
+    r, i, j, k = torch.unbind(quaternions, -1)
+    two_s = 2.0 / (quaternions * quaternions).sum(-1)
+
+    mat = torch.stack(
+        (
+            1 - two_s * (j * j + k * k),
+            two_s * (i * j - k * r),
+            two_s * (i * k + j * r),
+            two_s * (i * j + k * r),
+            1 - two_s * (i * i + k * k),
+            two_s * (j * k - i * r),
+            two_s * (i * k - j * r),
+            two_s * (j * k + i * r),
+            1 - two_s * (i * i + j * j),
+        ),
+        -1,
+    )
+    return mat.reshape(quaternions.shape[:-1] + (3, 3))
+
+
+def pose_to_T(pose: torch.Tensor) -> torch.Tensor:
+    """
+    Convert a pose (position and quaternion) to a 4x4 transformation matrix.
+
+    Args:
+    pose (Tensor): A tensor of shape (N, 7) where N is the number of poses.
+
+    Returns:
+    Tensor: A tensor of shape (N, 4, 4) representing the transformation matrices.
+    """
+    N = pose.shape[0]
+    assert_equals(pose.shape, (N, 7))
+    position = pose[:, :3]
+    quaternion_xyzw = pose[:, 3:]
+    quaternion_wxyz = torch.cat(
+        [quaternion_xyzw[:, -1:], quaternion_xyzw[:, :-1]], dim=-1
+    )
+
+    rotation_matrix = quaternion_to_matrix(quaternion_wxyz)
+
+    transformation_matrix = torch.zeros((pose.shape[0], 4, 4), device=pose.device)
+    transformation_matrix[:, :3, :3] = rotation_matrix
+    transformation_matrix[:, :3, 3] = position
+    transformation_matrix[:, 3, 3] = 1.0
+
+    assert_equals(transformation_matrix.shape, (N, 4, 4))
+
+    return transformation_matrix
+
+
+def _sqrt_positive_part(x: torch.Tensor) -> torch.Tensor:
+    """
+    Returns torch.sqrt(torch.max(0, x))
+    subgradient is zero where x is 0.
+    """
+    ret = torch.zeros_like(x)
+    positive_mask = x > 0
+    ret[positive_mask] = torch.sqrt(x[positive_mask])
+    return ret
+
+
+def matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
+    """
+    Convert rotations given as rotation matrices to quaternions.
+    Args:
+        matrix: Rotation matrices as tensor of shape (..., 3, 3).
+    Returns:
+        quaternions with real part first, as tensor of shape (..., 4).
+    """
+    if matrix.size(-1) != 3 or matrix.size(-2) != 3:
+        raise ValueError(f"Invalid rotation matrix shape {matrix.shape}.")
+
+    batch_dim = matrix.shape[:-2]
+    m00, m01, m02, m10, m11, m12, m20, m21, m22 = torch.unbind(
+        matrix.reshape(batch_dim + (9,)), dim=-1
+    )
+
+    q_abs = _sqrt_positive_part(
+        torch.stack(
+            [
+                1.0 + m00 + m11 + m22,
+                1.0 + m00 - m11 - m22,
+                1.0 - m00 + m11 - m22,
+                1.0 - m00 - m11 + m22,
+            ],
+            dim=-1,
+        )
+    )
+
+    quat_by_rijk = torch.stack(
+        [
+            torch.stack([q_abs[..., 0] ** 2, m21 - m12, m02 - m20, m10 - m01], dim=-1),
+            torch.stack([m21 - m12, q_abs[..., 1] ** 2, m10 + m01, m02 + m20], dim=-1),
+            torch.stack([m02 - m20, m10 + m01, q_abs[..., 2] ** 2, m12 + m21], dim=-1),
+            torch.stack([m10 - m01, m20 + m02, m21 + m12, q_abs[..., 3] ** 2], dim=-1),
+        ],
+        dim=-2,
+    )
+
+    flr = torch.tensor(0.1).to(dtype=q_abs.dtype, device=q_abs.device)
+    quat_candidates = quat_by_rijk / (2.0 * q_abs[..., None].max(flr))
+
+    return quat_candidates[
+        F.one_hot(q_abs.argmax(dim=-1), num_classes=4) > 0.5, :
+    ].reshape(batch_dim + (4,))
+
+
+def T_to_pose(T: torch.Tensor) -> torch.Tensor:
+    """
+    Convert a 4x4 transformation matrix to a pose (position and quaternion).
+
+    Args:
+    T (Tensor): A tensor of shape (N, 4, 4) where N is the number of transformation matrices.
+
+    Returns:
+    Tensor: A tensor of shape (N, 7) representing the poses.
+    """
+    N = T.shape[0]
+    assert_equals(T.shape, (N, 4, 4))
+    pose = torch.zeros((N, 7), device=T.device)
+    pose[:, :3] = T[:, :3, 3]
+    quaternion_wxyz = matrix_to_quaternion(T[:, :3, :3])
+    quaternion_xyzw = torch.cat(
+        [quaternion_wxyz[:, 1:], quaternion_wxyz[:, :1]], dim=-1
+    )
+    pose[:, 3:] = quaternion_xyzw
+    assert_equals(pose.shape, (N, 7))
+    return pose
+
 
 ## NERF GRASPING START ##
 
@@ -42,14 +196,6 @@ CAMERA_VERTICAL_FOV_DEG = (
 ) * CAMERA_HORIZONTAL_FOV_DEG
 OBJ_SEGMENTATION_ID = 1
 TABLE_SEGMENTATION_ID = 2
-
-# collision_filter is a bit mask that lets you filter out collision between bodies. Two bodies will not collide if their collision filters have a common bit set.
-HAND_COLLISION_FILTER = 0  # 0 means turn off collisions
-OBJ_COLLISION_FILTER = 0  # 0 means don't turn off collisions
-TABLE_COLLISION_FILTER = 0  # 0 means don't turn off collisions
-RESOLUTION_REDUCTION_FACTOR_TO_SAVE_SPACE = 1
-ISAAC_DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-INIT_HAND_OFFSET = gymapi.Vec3(0, 1, 0)
 
 
 def get_fixed_camera_transform(
@@ -536,7 +682,7 @@ class IsaacValidator:
         add_random_pose_noise: bool = False,
     ) -> None:
         obj_pose = gymapi.Transform()
-        obj_pose.p = gymapi.Vec3(0.0, 0.0, 0.0)
+        obj_pose.p = gymapi.Vec3(0.3, 0.0, 0.0)
         obj_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
         if add_random_pose_noise:
@@ -585,9 +731,21 @@ class IsaacValidator:
         gym.set_actor_rigid_shape_properties(env, obj_actor_handle, obj_shape_props)
         return
 
+    def _get_actor_indices(self, envs, actors) -> torch.Tensor:
+        assert_equals(len(envs), len(actors))
+        actor_indices = torch_utils.to_torch(
+            [
+                gym.get_actor_index(env, actor, gymapi.DOMAIN_SIM)  # type: ignore
+                for env, actor in zip(envs, actors)
+            ],
+            dtype=torch.long,
+        )
+        return actor_indices
+
     def run_sim(self) -> Tuple[List[bool], List[bool]]:
         gym.prepare_sim(self.sim)  # TODO: Check if this is needed?
 
+        # Prepare tensors
         root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
         self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
 
@@ -773,13 +931,50 @@ class IsaacValidator:
         return is_hand_colliding_with_table
 
     def _move_hand_to_object(self) -> None:
-        if hasattr(self, "DONE"):
+        # Only run once
+        if hasattr(self, "ALREADY_MOVED"):
             return
+        self.ALREADY_MOVED = True
 
-        self.DONE = True
-        # self.root_state_tensor[::3, 1] -= 1
-        self.root_state_tensor[::3, 1] -= 1.0
-        gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_state_tensor))
+        # Pose = [x, y, z, qx, qy, qz, qw]
+        hand_indices = self._get_actor_indices(
+            envs=self.envs, actors=self.hand_handles
+        ).to(self.root_state_tensor.device)
+        object_indices = self._get_actor_indices(
+            envs=self.envs, actors=self.obj_handles
+        ).to(self.root_state_tensor.device)
+        current_hand_poses = self.root_state_tensor[hand_indices, :7].clone()
+        current_object_poses = self.root_state_tensor[object_indices, :7].clone()
+        N = current_hand_poses.shape[0]
+        assert_equals(current_hand_poses.shape, (N, 7))
+        assert_equals(current_object_poses.shape, (N, 7))
+
+        # Currently: hand_pose = desired_hand_pose_in_object_frame + INIT_HAND_OFFSET
+        # Next: hand_pose = desired_hand_pose_in_world_frame = desired_hand_pose_in_object_frame + object_pose
+        # Remove init offset
+        current_hand_poses[:, 0] -= INIT_HAND_OFFSET.x
+        current_hand_poses[:, 1] -= INIT_HAND_OFFSET.y
+        current_hand_poses[:, 2] -= INIT_HAND_OFFSET.z
+
+        # pseudocode:
+        # object_transform = pose_to_4x4(current_object_poses)
+        # hand_transform = pose_to_4x4(current_hand_poses)
+        # new_hand_transform = object_transform * hand_transform
+        current_hand_transforms = pose_to_T(current_hand_poses)
+        current_object_transforms = pose_to_T(current_object_poses)
+        assert_equals(current_hand_transforms.shape, (N, 4, 4))
+        assert_equals(current_object_transforms.shape, (N, 4, 4))
+        new_hand_transforms = torch.bmm(
+            current_object_transforms, current_hand_transforms
+        )
+        assert_equals(new_hand_transforms.shape, (N, 4, 4))
+        new_hand_poses = T_to_pose(new_hand_transforms)
+        assert_equals(new_hand_poses.shape, (N, 7))
+
+        self.root_state_tensor[hand_indices, :7] = new_hand_poses
+        gym.set_actor_root_state_tensor(
+            self.sim, gymtorch.unwrap_tensor(self.root_state_tensor)
+        )
 
     def _run_sim_steps(self) -> List[bool]:
         sim_step_idx = 0
