@@ -539,7 +539,9 @@ class IsaacValidator:
         hand_quaternion_xyzw = np.concatenate(
             [hand_quaternion_wxyz[1:], hand_quaternion_wxyz[:1]]
         )
-        desired_hand_pose_object_frame = gymapi.Transform(p=gymapi.Vec3(*hand_translation), r=gymapi.Quat(*hand_quaternion_xyzw))
+        desired_hand_pose_object_frame = gymapi.Transform(
+            p=gymapi.Vec3(*hand_translation), r=gymapi.Quat(*hand_quaternion_xyzw)
+        )
         self.desired_hand_poses_object_frame.append(desired_hand_pose_object_frame)
 
         # Set hand dof props
@@ -727,7 +729,9 @@ class IsaacValidator:
             )
             final_obj_pose = self._get_object_pose(env=env, obj_handle=obj_handle)
             final_rel_obj_pose = final_hand_pose.inverse() * final_obj_pose
-            init_rel_obj_pose = self.desired_hand_poses_object_frame[i].inverse()  # TODO: Check if this makes sense
+            init_rel_obj_pose = self.desired_hand_poses_object_frame[
+                i
+            ].inverse()  # TODO: Check if this makes sense
             pos_change, max_euler_change = self._get_pos_and_euler_change(
                 pose1=init_rel_obj_pose, pose2=final_rel_obj_pose
             )
@@ -894,14 +898,16 @@ class IsaacValidator:
         # Currently: hand_pose = ARBITRARY_INIT_HAND_POS
         # Next: hand_pose = desired_hand_pose_in_world_frame = desired_hand_pose_in_object_frame + object_pose
         # world_to_hand_transform = world_to_object_transform @ object_to_hand_transform
-        desired_hand_poses_in_object_frame = self._gymapi_transforms_to_poses(self.desired_hand_poses_object_frame)
+        desired_hand_poses_in_object_frame = self._gymapi_transforms_to_poses(
+            self.desired_hand_poses_object_frame
+        )
 
         object_to_hand_transforms = pose_to_T(desired_hand_poses_in_object_frame)
         world_to_object_transforms = pose_to_T(current_object_poses)
         assert_equals(object_to_hand_transforms.shape, (N, 4, 4))
         assert_equals(world_to_object_transforms.shape, (N, 4, 4))
         world_to_hand_transforms = torch.bmm(
-            world_to_object_transforms,object_to_hand_transforms 
+            world_to_object_transforms, object_to_hand_transforms
         )
         assert_equals(world_to_hand_transforms.shape, (N, 4, 4))
         new_hand_poses = T_to_pose(world_to_hand_transforms)
@@ -912,11 +918,15 @@ class IsaacValidator:
             self.sim, gymtorch.unwrap_tensor(self.root_state_tensor)
         )
 
-    def _gymapi_transforms_to_poses(self, transforms: List[gymapi.Transform]) -> torch.Tensor:
+    def _gymapi_transforms_to_poses(
+        self, transforms: List[gymapi.Transform]
+    ) -> torch.Tensor:
         poses = torch.zeros((len(transforms), 7)).float()
         for i, transform in enumerate(transforms):
             poses[i, :3] = torch.tensor([transform.p.x, transform.p.y, transform.p.z])
-            poses[i, 3:] = torch.tensor([transform.r.x, transform.r.y, transform.r.z, transform.r.w])
+            poses[i, 3:] = torch.tensor(
+                [transform.r.x, transform.r.y, transform.r.z, transform.r.w]
+            )
         return poses
 
     def _run_sim_steps(self) -> List[bool]:
@@ -947,11 +957,26 @@ class IsaacValidator:
             if sim_step_idx < PHASE_1_LAST_STEP:
                 self._run_phase_1(step=sim_step_idx, length=PHASE_1_LAST_STEP)
             elif sim_step_idx < PHASE_2_LAST_STEP:
-                self._run_phase_2(step=sim_step_idx-PHASE_1_LAST_STEP, length=PHASE_2_LAST_STEP-PHASE_1_LAST_STEP)
+                TEMP_hand_not_penetrate_obj_list = self._run_phase_2(
+                    step=sim_step_idx - PHASE_1_LAST_STEP,
+                    length=PHASE_2_LAST_STEP - PHASE_1_LAST_STEP,
+                )
+                hand_not_penetrate_obj_list = [
+                    hand_not_penetrate_obj and TEMP_hand_not_penetrate_obj
+                    for hand_not_penetrate_obj, TEMP_hand_not_penetrate_obj in zip(
+                        hand_not_penetrate_obj_list, TEMP_hand_not_penetrate_obj_list
+                    )
+                ]
             elif sim_step_idx < PHASE_3_LAST_STEP:
-                self._run_phase_3(step=sim_step_idx-PHASE_2_LAST_STEP, length=PHASE_3_LAST_STEP-PHASE_2_LAST_STEP)
+                self._run_phase_3(
+                    step=sim_step_idx - PHASE_2_LAST_STEP,
+                    length=PHASE_3_LAST_STEP - PHASE_2_LAST_STEP,
+                )
             elif sim_step_idx < PHASE_4_LAST_STEP:
-                virtual_joint_dof_pos_targets = self._run_phase_4(step=sim_step_idx-PHASE_3_LAST_STEP, length=PHASE_4_LAST_STEP-PHASE_3_LAST_STEP)
+                virtual_joint_dof_pos_targets = self._run_phase_4(
+                    step=sim_step_idx - PHASE_3_LAST_STEP,
+                    length=PHASE_4_LAST_STEP - PHASE_3_LAST_STEP,
+                )
             else:
                 raise ValueError(f"Unknown sim_step_idx: {sim_step_idx}")
 
@@ -1026,21 +1051,23 @@ class IsaacValidator:
         assert step < length, f"{step} >= {length}"
         return
 
-    def _run_phase_2(self, step: int, length: int) -> None:
+    def _run_phase_2(self, step: int, length: int) -> List[bool]:
         assert step < length, f"{step} >= {length}"
         if step == 0:
             self._move_hands_to_objects()
-
-        # TODO: Check if need to do this after sim only
-        hand_colliding_obj = self._is_hand_colliding_with_obj()
-        print(f"step = {step}")
-        print(f"hand_colliding_obj = {hand_colliding_obj}")
-        if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
-            hand_colliding_table = self._is_hand_colliding_with_table()
-            print(f"hand_colliding_table = {hand_colliding_table}")
-        print()
-        # TODO: return this
-        return
+            return [True for _ in range(len(self.envs))]
+        else:
+            # Can only check the collisions after taking a sim step
+            hand_colliding_obj = self._is_hand_colliding_with_obj()
+            if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+                hand_colliding_table = self._is_hand_colliding_with_table()
+                return [
+                    not colliding_obj and not colliding_table
+                    for colliding_obj, colliding_table in zip(
+                        hand_colliding_obj, hand_colliding_table
+                    )
+                ]
+            return [not colliding_obj for colliding_obj in hand_colliding_obj]
 
     def _run_phase_3(self, step: int, length: int) -> None:
         assert step < length, f"{step} >= {length}"
@@ -1064,10 +1091,8 @@ class IsaacValidator:
         assert step < length, f"{step} >= {length}"
         frac_progress = step / length
         if len(self.virtual_joint_names) > 0:
-            virtual_joint_dof_pos_targets = (
-                self._compute_virtual_joint_dof_pos_targets(
-                    frac_progress=frac_progress
-                )
+            virtual_joint_dof_pos_targets = self._compute_virtual_joint_dof_pos_targets(
+                frac_progress=frac_progress
             )
             self._set_virtual_joint_dof_pos_targets(virtual_joint_dof_pos_targets)
             return virtual_joint_dof_pos_targets
@@ -1083,7 +1108,10 @@ class IsaacValidator:
         ).to(self.root_state_tensor.device)
         hand_poses = self.root_state_tensor[hand_indices, :7].clone()
         assert_equals(hand_poses.shape, (len(self.envs), 7))
-        hand_poses = [gymapi.Transform(p=gymapi.Vec3(*pose[:3]), r=gymapi.Quat(*pose[3:])) for pose in hand_poses]
+        hand_poses = [
+            gymapi.Transform(p=gymapi.Vec3(*pose[:3]), r=gymapi.Quat(*pose[3:]))
+            for pose in hand_poses
+        ]
         return hand_poses
 
     def _get_actor_indices(self, envs, actors) -> torch.Tensor:
@@ -1265,9 +1293,7 @@ class IsaacValidator:
             dof_pos_target = gymapi.Vec3(
                 dof_pos_target[0], dof_pos_target[1], dof_pos_target[2]
             )
-            rotation_transform = gymapi.Transform(
-                gymapi.Vec3(0, 0, 0), hand_pose.r
-            )
+            rotation_transform = gymapi.Transform(gymapi.Vec3(0, 0, 0), hand_pose.r)
             direction = rotation_transform.transform_point(dof_pos_target)
 
             sphere_pose = gymapi.Transform(
