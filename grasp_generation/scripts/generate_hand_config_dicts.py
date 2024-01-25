@@ -95,6 +95,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     w_joints: float = 1.0
     w_ff: float = 3.0
     w_fp: float = 0.0
+    w_tpen: float = 100.0  # TODO: Tune
     use_penetration_energy: bool = False
     penetration_iters_frac: float = (
         0.0  # Fraction of iterations to perform penetration energy calculation
@@ -346,7 +347,7 @@ def generate(
                 "Joint Limits Violation": args.w_joints,
                 "Finger Finger Distance": args.w_ff,
                 "Finger Palm Distance": args.w_fp,
-                "Hand Table Penetration": 100.0,  # TODO: Set this
+                "Hand Table Penetration": args.w_tpen,
             }
             energy, unweighted_energy_matrix, weighted_energy_matrix = cal_energy(
                 hand_model,
