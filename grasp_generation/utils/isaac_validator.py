@@ -419,7 +419,7 @@ class IsaacValidator:
             joint_idx = gym.find_actor_dof_index(
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
-            hand_props["stiffness"][joint_idx] = 50.0
+            hand_props["stiffness"][joint_idx] = 10.0
             hand_props["damping"][joint_idx] = 0.0
 
         # Virtual joints
@@ -825,7 +825,7 @@ class IsaacValidator:
                 50  # From analysis, takes about 40 steps for ball to settle
             )
             PHASE_2_LAST_STEP = PHASE_1_LAST_STEP + 10
-            PHASE_3_LAST_STEP = PHASE_2_LAST_STEP + 30
+            PHASE_3_LAST_STEP = PHASE_2_LAST_STEP + 15
             PHASE_4_LAST_STEP = self.num_sim_steps
             assert_equals(PHASE_4_LAST_STEP, self.num_sim_steps)
 
@@ -947,7 +947,7 @@ class IsaacValidator:
 
     def _run_phase_3(self, step: int, length: int) -> None:
         assert step < length, f"{step} >= {length}"
-        frac_progress = step / length
+        frac_progress = step / (length - 1)
         for env, hand_actor_handle, target_qpos, init_qpos in zip(
             self.envs,
             self.hand_handles,
@@ -1098,9 +1098,9 @@ class IsaacValidator:
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
-                *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
-                *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
-                *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
+                # *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
+                # *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
+                # *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
             ]
             targets_sequence = [
                 [target[0], target[1] + Y_LIFT, target[2]]
