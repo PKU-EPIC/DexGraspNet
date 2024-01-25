@@ -40,7 +40,8 @@ import pathlib
 
 class EvalGraspConfigDictArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
-    validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
+    # validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
+    validation_type: ValidationType = ValidationType.GRAVITY_AND_TABLE
     gpu: int = 0
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     input_grasp_config_dicts_path: pathlib.Path = pathlib.Path(

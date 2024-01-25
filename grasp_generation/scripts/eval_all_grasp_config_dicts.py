@@ -19,7 +19,7 @@ import pathlib
 
 class EvalAllGraspConfigDictsArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
-    validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
+    validation_type: ValidationType = ValidationType.GRAVITY_AND_TABLE
     gpu: int = 0
     max_grasps_per_batch: int = 5000
     debug_index: Optional[int] = None

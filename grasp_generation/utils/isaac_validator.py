@@ -711,6 +711,8 @@ class IsaacValidator:
                     hand_table_contacts.append(contact)
 
             if len(hand_table_contacts) > 0:
+                print("HAND COLLIDES TABLE")
+                print(f"Collisions between hand and table: {[(c['body0'], c['body1']) for c in hand_table_contacts]}")
                 is_hand_colliding_with_table.append(True)
             else:
                 is_hand_colliding_with_table.append(False)
@@ -739,6 +741,8 @@ class IsaacValidator:
                     hand_obj_contacts.append(contact)
 
             if len(hand_obj_contacts) > 0:
+                print("HAND COLLIDES OBJECT")
+                print(f"Collisions between hand and object: {[(c['body0'], c['body1']) for c in hand_obj_contacts]}, {hand_link_idx_to_name}, {obj_link_idx_to_name}")
                 is_hand_colliding_with_obj.append(True)
             else:
                 is_hand_colliding_with_obj.append(False)
