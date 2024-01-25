@@ -188,7 +188,7 @@ def create_config_dict_fig(
     concise_title: bool = False,
 ) -> go.Figure:
     object_plotly = object_model.get_plotly_data(
-        i=0, color="lightgreen", opacity=0.5, with_surface_points=True
+        i=0, color="lightgreen", opacity=0.5, with_surface_points=True, with_table=True
     )
 
     # hand pose

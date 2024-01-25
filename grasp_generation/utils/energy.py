@@ -104,9 +104,9 @@ def _cal_hand_object_penetration(
     object_surface_points = (
         sampled_surface_points * object_scale
     )  # (n_objects * batch_size_each, num_samples, 3)
-    hand_to_object_surface_point_distances = hand_model.cal_distance(
-        object_surface_points
-    ) + thres_pen
+    hand_to_object_surface_point_distances = (
+        hand_model.cal_distance(object_surface_points) + thres_pen
+    )
     hand_to_object_surface_point_distances[
         hand_to_object_surface_point_distances <= 0
     ] = 0
@@ -118,29 +118,18 @@ def _cal_hand_object_penetration(
         raise ValueError(f"Unknown reduction {reduction}")
     return E_pen
 
+
 def _cal_hand_table_penetration(
     hand_model: HandModel,
     object_model: ObjectModel,
 ) -> torch.Tensor:
-    # (n_objects * batch_size_each,)
-    n_objects = len(object_model.object_mesh_list)
-    full_batch_size = n_objects * object_model.batch_size_each
-    object_bounds = object_model.get_bounds(scaled=True)
-    assert object_bounds.shape == (full_batch_size, 2, 3)
-
-    min_object_y = object_bounds[:, 0, 1]
-    table_y = min_object_y
-    assert table_y.shape == (full_batch_size,)
-
-    table_pos = torch.zeros([full_batch_size, 3], dtype=torch.float, device=hand_model.device)
-    table_pos[:, 1] = table_y
-
-    table_normal = torch.tensor([0, 1, 0], dtype=torch.float, device=hand_model.device).reshape(1, 3).expand(len(object_model.object_mesh_list) * object_model.batch_size_each, -1)
+    full_batch_size = hand_model.hand_pose.shape[0]
+    table_pos, table_normal, _ = object_model.get_hacky_table(scaled=True)
     assert table_normal.shape == (full_batch_size, 3)
 
-    assert hand_model.hand_pose.shape[0] == full_batch_size
-
-    return hand_model.cal_table_penetration(table_pos=table_pos, table_normal=table_normal)
+    return hand_model.cal_table_penetration(
+        table_pos=table_pos, table_normal=table_normal
+    )
 
 
 def cal_energy(
@@ -168,8 +157,10 @@ def cal_energy(
         contact_points=hand_model.contact_points,
         device=device,
     )
-    rel_distances = torch.nn.SmoothL1Loss(reduction="none", beta = 2 * thres_dis)(
-        object_to_hand_contact_point_distances, -thres_dis * torch.ones_like(object_to_hand_contact_point_distances))
+    rel_distances = torch.nn.SmoothL1Loss(reduction="none", beta=2 * thres_dis)(
+        object_to_hand_contact_point_distances,
+        -thres_dis * torch.ones_like(object_to_hand_contact_point_distances),
+    )
     energy_dict["Hand Contact Point to Object Distance"] = torch.sum(
         rel_distances, dim=-1, dtype=torch.float
     ).to(device)
@@ -193,7 +184,6 @@ def cal_energy(
         hand_model, object_model
     )
 
-
     assert set(energy_dict.keys()) == set(ENERGY_NAMES)
 
     # Compute weighted energy
@@ -209,6 +199,7 @@ def cal_energy(
     weighted_energy_matrix = unweighted_energy_matrix * energy_weights[None, ...]
     energy = weighted_energy_matrix.sum(dim=-1)
     return energy, unweighted_energy_matrix, weighted_energy_matrix
+
 
 def batch_cov(points):
     B, N, D = points.shape
