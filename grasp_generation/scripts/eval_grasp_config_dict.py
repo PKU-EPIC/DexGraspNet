@@ -327,6 +327,11 @@ def main(args: EvalGraspConfigDictArgumentParser):
     else:
         passed_penetration_threshold_array = E_pen_array < args.penetration_threshold
 
+    passed_eval = (
+        passed_simulation_array
+        * passed_penetration_threshold_array
+        * passed_new_penetration_test_array
+    )
     # TODO: Remove these prints
     DEBUG = True
     if DEBUG:
@@ -340,12 +345,8 @@ def main(args: EvalGraspConfigDictArgumentParser):
             f"passed_penetration_threshold_array = {passed_penetration_threshold_array} ({passed_penetration_threshold_array.mean() * 100:.2f}%)"
         )
         print(f"E_pen_array = {E_pen_array}")
+        print(f"passed_eval = {passed_eval}")
 
-    passed_eval = (
-        passed_simulation_array
-        * passed_penetration_threshold_array
-        * passed_new_penetration_test_array
-    )
     sim_frac = np.mean(passed_simulation_array)
     new_pen_frac = np.mean(passed_new_penetration_test_array)
     pen_frac = np.mean(passed_penetration_threshold_array)
