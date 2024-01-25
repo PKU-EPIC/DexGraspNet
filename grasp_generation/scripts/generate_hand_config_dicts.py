@@ -53,7 +53,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
         "../data/hand_config_dicts"
     )
     rand_object_scale: bool = False
-    object_scale: Optional[float] = 0.051
+    object_scale: Optional[float] = 0.075
     min_object_scale: float = 0.05
     max_object_scale: float = 0.125
     seed: Optional[int] = None

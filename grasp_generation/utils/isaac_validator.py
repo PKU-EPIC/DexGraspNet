@@ -427,7 +427,7 @@ class IsaacValidator:
             joint_idx = gym.find_actor_dof_index(
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
-            HARD_SHAKE_STIFFNESS = 500.0
+            HARD_SHAKE_STIFFNESS = 20000.0
             LIGHT_SHAKE_STIFFNESS = 200.0
             hand_props["stiffness"][joint_idx] = LIGHT_SHAKE_STIFFNESS
             hand_props["damping"][joint_idx] = 10.0
@@ -1083,6 +1083,9 @@ class IsaacValidator:
         elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
             Y_LIFT = 0.2
             directions_sequence = [
+                [0.0, -Y_LIFT, 0.0],
+                [0.0, -Y_LIFT, 0.0],
+                [0.0, -Y_LIFT, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
@@ -1094,9 +1097,13 @@ class IsaacValidator:
                 [direction[0], direction[1] + Y_LIFT, direction[2]]
                 for direction in directions_sequence
             ]
+        else:
+            raise ValueError(f"Unknown validation_type: {self.validation_type}")
 
         direction_idx = int(frac_progress * len(directions_sequence))
         direction = directions_sequence[direction_idx]
+        scale = frac_progress * len(directions_sequence) - direction_idx
+        direction_with_scale = np.array(direction) * scale
 
         # direction in global frame
         # dof_pos_targets in hand frame
@@ -1106,7 +1113,7 @@ class IsaacValidator:
             for hand_pose in self._get_hand_poses()
         ]
         dof_pos_targets = [
-            rotation_transform.inverse().transform_point(gymapi.Vec3(*direction))
+            rotation_transform.inverse().transform_point(gymapi.Vec3(*direction_with_scale))
             for rotation_transform in rotation_transforms
         ]
         dof_pos_targets = [
@@ -1160,15 +1167,20 @@ class IsaacValidator:
     ) -> None:
         if not self.has_viewer:
             return
+
+        dof_pos_list = self._get_dof_pos_list()
         visualization_sphere_green = gymutil.WireframeSphereGeometry(
-            radius=0.01, num_lats=10, num_lons=10, color=(0, 1, 0)
+            radius=0.05, num_lats=10, num_lons=10, color=(0, 1, 0)
+        )
+        visualization_sphere_blue = gymutil.WireframeSphereGeometry(
+            radius=0.05, num_lats=10, num_lons=10, color=(1, 0, 0)
         )
 
         # Get current pose of hand
         hand_poses = self._get_hand_poses()
 
-        for env, hand_pose, dof_pos_target in zip(
-            self.envs, hand_poses, dof_pos_targets
+        for env, hand_pose, dof_pos_target, dof_pos in zip(
+            self.envs, hand_poses, dof_pos_targets, dof_pos_list
         ):
             # dof_pos_targets in hand frame
             # direction in global frame
@@ -1177,14 +1189,37 @@ class IsaacValidator:
                 dof_pos_target[0], dof_pos_target[1], dof_pos_target[2]
             )
             rotation_transform = gymapi.Transform(gymapi.Vec3(0, 0, 0), hand_pose.r)
-            direction = rotation_transform.transform_point(dof_pos_target)
-            sphere_pose = gymapi.Transform(
+            direction_target = rotation_transform.transform_point(dof_pos_target)
+            green_sphere_pose = gymapi.Transform(
+                p=hand_pose.p + direction_target,
+                r=None,
+            )
+            gymutil.draw_lines(
+                visualization_sphere_green, gym, self.viewer, env, green_sphere_pose
+            )
+
+            dof_pos = gymapi.Vec3(dof_pos[0], dof_pos[1], dof_pos[2])
+            direction = rotation_transform.transform_point(dof_pos)
+            blue_sphere_pose = gymapi.Transform(
                 p=hand_pose.p + direction,
                 r=None,
             )
             gymutil.draw_lines(
-                visualization_sphere_green, gym, self.viewer, env, sphere_pose
+                visualization_sphere_blue, gym, self.viewer, env, blue_sphere_pose
             )
+
+    def _get_dof_pos_list(self) -> List[torch.Tensor]:
+        dof_pos_list = []
+        for env, hand_actor_handle in zip(self.envs, self.hand_handles):
+            dof_pos = []
+            dof_states = gym.get_actor_dof_states(env, hand_actor_handle, gymapi.STATE_ALL)
+            for i, joint in enumerate(self.virtual_joint_names):
+                joint_idx = gym.find_actor_dof_index(
+                    env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
+                )
+                dof_pos.append(dof_states["pos"][joint_idx])
+            dof_pos_list.append(torch.tensor(dof_pos))
+        return dof_pos_list
 
     def _visualize_origin_lines(self) -> None:
         if not self.has_viewer:
