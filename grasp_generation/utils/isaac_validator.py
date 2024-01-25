@@ -133,7 +133,7 @@ class IsaacValidator:
         mode: str = "direct",
         hand_friction: float = 0.6,
         obj_friction: float = 0.6,
-        num_sim_steps: int = 120,
+        num_sim_steps: int = 200,
         gpu: int = 0,
         debug_interval: float = 0.05,
         start_with_step_mode: bool = False,
@@ -712,7 +712,7 @@ class IsaacValidator:
 
             if len(hand_table_contacts) > 0:
                 print("HAND COLLIDES TABLE")
-                print(f"Collisions between hand and table: {[(c['body0'], c['body1']) for c in hand_table_contacts]}")
+                print(f"Collisions between hand and table: {[(c['body0'], c['body1']) for c in hand_table_contacts]}, {hand_link_idx_to_name}, {table_link_idx_to_name}")
                 is_hand_colliding_with_table.append(True)
             else:
                 is_hand_colliding_with_table.append(False)
@@ -815,7 +815,7 @@ class IsaacValidator:
             # Phase 4: Shake hand
             #   * For NO_GRAVITY_SHAKING: shake from this position
             #   * For GRAVITY_AND_TABLE: lift from table first, then shake
-            PHASE_1_LAST_STEP = 30
+            PHASE_1_LAST_STEP = 50
             PHASE_2_LAST_STEP = PHASE_1_LAST_STEP + 10
             PHASE_3_LAST_STEP = PHASE_2_LAST_STEP + 15
             PHASE_4_LAST_STEP = self.num_sim_steps
