@@ -1003,3 +1003,42 @@ class HandModel:
     @property
     def num_fingers(self) -> int:
         return len(handmodeltype_to_fingerkeywords[self.hand_model_type])
+
+    def cal_table_penetration(self, table_pos: torch.Tensor, table_normal: torch.Tensor) -> torch.Tensor:
+        """
+        Calculate table penetration energy
+
+        Args
+        ----
+        table_pos: (B, 3) torch.Tensor
+            position of table surface
+        table_normal: (B, 3) torch.Tensor
+            normal of table
+
+        Returns
+        -------
+        E_tpen: (B,) torch.Tensor
+            table penetration energy
+        """
+        # Two methods: use sampled points or meshes
+        B1, D1 = table_pos.shape
+        B2, D2 = table_normal.shape
+        assert B1 == B2
+        assert D1 == D2 == 3
+
+        sampled_points_world_frame = self.get_surface_points()
+        B, N, D = sampled_points_world_frame.shape
+        assert B == B1
+        assert D == 3
+
+        # Positive = above table, negative = below table
+        signed_distance_from_table = torch.sum(
+            (sampled_points_world_frame - table_pos.unsqueeze(1)) * table_normal.unsqueeze(1), dim=-1
+        )
+
+        penetration = torch.clamp(signed_distance_from_table, max=0.0)
+        penetration = -penetration
+        assert penetration.shape == (B, N)
+
+        return penetration.sum(-1)
+

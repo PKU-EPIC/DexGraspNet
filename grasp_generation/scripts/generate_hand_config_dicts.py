@@ -95,6 +95,7 @@ class GenerateHandConfigDictsArgumentParser(Tap):
     w_joints: float = 1.0
     w_ff: float = 3.0
     w_fp: float = 0.0
+    w_tpen: float = 100.0  # TODO: Tune
     use_penetration_energy: bool = False
     penetration_iters_frac: float = (
         0.0  # Fraction of iterations to perform penetration energy calculation
@@ -115,8 +116,9 @@ class GenerateHandConfigDictsArgumentParser(Tap):
 
     # verbose (grasps throughout)
     store_grasps_mid_optimization_freq: Optional[int] = None
+    store_grasps_mid_optimization_iters: Optional[List[int]] = []
     store_grasps_mid_optimization_iters: Optional[List[int]] = [25] + [
-        int(ff * 2500) for ff in [0.2, 0.5, 0.95]
+        # int(ff * 2500) for ff in [0.2, 0.5, 0.95]  # TODO: May add this back
     ]
 
     # Continue from previous run
@@ -294,6 +296,7 @@ def generate(
             hand_model = HandModel(
                 hand_model_type=args.hand_model_type,
                 device=device,
+                n_surface_points=1000,  # Need this for table penetration
             )
 
         with loop_timer.add_section_timer("create object model"):
@@ -344,6 +347,7 @@ def generate(
                 "Joint Limits Violation": args.w_joints,
                 "Finger Finger Distance": args.w_ff,
                 "Finger Palm Distance": args.w_fp,
+                "Hand Table Penetration": args.w_tpen,
             }
             energy, unweighted_energy_matrix, weighted_energy_matrix = cal_energy(
                 hand_model,

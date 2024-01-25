@@ -58,7 +58,7 @@ def main(args: VisualizeConfigDictArgumentParser):
     ).item()
 
     # hand model: be careful with this, as it is stateful
-    hand_model = HandModel(hand_model_type=args.hand_model_type, device=args.device)
+    hand_model = HandModel(hand_model_type=args.hand_model_type, device=args.device, n_surface_points=1000)
 
     # object model
     object_model = ObjectModel(

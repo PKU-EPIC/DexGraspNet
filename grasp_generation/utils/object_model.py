@@ -11,7 +11,7 @@ import torch
 import pytorch3d.structures
 import pytorch3d.ops
 import numpy as np
-from typing import Optional
+from typing import Optional, Tuple
 
 from torchsdf import index_vertices_by_faces, compute_sdf
 
@@ -125,6 +125,7 @@ class ObjectModel:
                 )[0][0]
                 surface_points.to(dtype=float, device=self.device)
                 self.surface_points_tensor.append(surface_points)
+
         if self.num_samples != 0:
             self.surface_points_tensor = (
                 torch.stack(self.surface_points_tensor, dim=0)
@@ -186,7 +187,7 @@ class ObjectModel:
         return distance, normals
 
     def get_plotly_data(
-        self, i, color="lightgreen", opacity=0.5, pose=None, with_surface_points=False
+        self, i, color="lightgreen", opacity=0.5, pose=None, with_surface_points=False, with_table=False
     ):
         """
         Get visualization data for plotly.graph_objects
@@ -253,5 +254,131 @@ class ObjectModel:
                     name=f"object surface points: {model_code}",
                 )
             )
+        if with_table:
+            table_mesh = self.get_hacky_table_mesh(i, scaled=True)
+            table_vertices = table_mesh.vertices
+            if pose is not None:
+                pose = np.array(pose, dtype=np.float32)
+                table_vertices = table_vertices @ pose[:3, :3].T + pose[:3, 3]
+            data.append(
+                go.Mesh3d(
+                    x=table_vertices[:, 0],
+                    y=table_vertices[:, 1],
+                    z=table_vertices[:, 2],
+                    i=table_mesh.faces[:, 0],
+                    j=table_mesh.faces[:, 1],
+                    k=table_mesh.faces[:, 2],
+                    color=color,
+                    opacity=opacity,
+                    name="table",
+                )
+            )
 
         return data
+
+    def get_bounds(self, scaled: bool = True) -> torch.Tensor:
+        """
+        Get bounds of object meshes
+
+        Args
+        ----
+        scaled: bool
+            whether to return scaled bounds
+
+        Returns
+        -------
+        bounds: (n_objects * batch_size_each, 2, 3) torch.Tensor
+            bounds of object meshes
+        """
+        n_objects = len(self.object_mesh_list)
+        bounds = []
+        for i in range(n_objects):
+            mesh = self.object_mesh_list[i]
+            bounds.append(
+                torch.from_numpy(mesh.bounds).float().to(self.device)
+            )
+        bounds = torch.stack(bounds)
+        assert bounds.shape == (n_objects, 2, 3)
+        bounds = bounds.unsqueeze(1).expand(-1, self.batch_size_each, -1, -1).reshape(-1, 2, 3)
+        assert bounds.shape == (n_objects * self.batch_size_each, 2, 3)
+
+        if scaled:
+            scale = self.object_scale_tensor.reshape(-1, 1, 1)
+            assert scale.shape == (n_objects * self.batch_size_each, 1, 1)
+            bounds = bounds * scale
+
+        return bounds
+
+    def get_hacky_table(self, scaled: bool = True) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Hacky way to get "table" position and normal (i.e. min object y)
+
+        Args:
+            scaled (bool, optional): whether to return scaled table position. Defaults to True.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: table position and normal and parallel
+        """
+        n_objects = len(self.object_mesh_list)
+
+        full_batch_size = n_objects * self.batch_size_each
+        object_bounds = self.get_bounds(scaled=scaled)
+        assert object_bounds.shape == (full_batch_size, 2, 3)
+
+        min_object_y = object_bounds[:, 0, 1]
+
+        Y_OFFSET = 0.025
+        table_y = min_object_y + Y_OFFSET
+        assert table_y.shape == (full_batch_size,)
+
+        table_pos = torch.zeros(
+            [full_batch_size, 3], dtype=torch.float, device=self.device
+        )
+        table_pos[:, 1] = table_y
+
+        table_normal = (
+            torch.tensor([0, 1, 0], dtype=torch.float, device=self.device)
+            .reshape(1, 3)
+            .expand(full_batch_size, -1)
+        )
+        table_parallel = (
+            torch.tensor([1, 0, 0], dtype=torch.float, device=self.device)
+            .reshape(1, 3)
+            .expand(full_batch_size, -1)
+        )
+        assert table_pos.shape == table_normal.shape == table_parallel.shape == (full_batch_size, 3)
+
+        return table_pos, table_normal, table_parallel
+
+    def get_hacky_table_mesh(self, idx: int, scaled: bool = True) -> tm.Trimesh:
+        table_pos, table_normal, table_parallel = self.get_hacky_table(scaled=scaled)
+        table_pos, table_normal, table_parallel = (
+            table_pos[idx].detach().cpu().numpy(),
+            table_normal[idx].detach().cpu().numpy(),
+            table_parallel[idx].detach().cpu().numpy(),
+        )
+        assert table_pos.shape == table_normal.shape == (3,)
+
+        bounds = self.get_bounds(scaled=True)
+        bounds = bounds[idx].detach().cpu().numpy()
+        assert bounds.shape == (2, 3)
+        SCALE_FACTOR = 2
+        W, H = bounds[1, 0] - bounds[0, 0], bounds[1, 2] - bounds[0, 2]
+        W, H = SCALE_FACTOR * W, SCALE_FACTOR * H
+
+        table_parallel_2 = np.cross(table_normal, table_parallel)
+        corner1 = table_pos + W / 2 * table_parallel + H / 2 * table_parallel_2
+        corner2 = table_pos + W / 2 * table_parallel - H / 2 * table_parallel_2
+        corner3 = table_pos - W / 2 * table_parallel + H / 2 * table_parallel_2
+        corner4 = table_pos - W / 2 * table_parallel - H / 2 * table_parallel_2
+
+        x = np.array([corner1[0], corner2[0], corner3[0], corner4[0]])
+        y = np.array([corner1[1], corner2[1], corner3[1], corner4[1]])
+        z = np.array([corner1[2], corner2[2], corner3[2], corner4[2]])
+
+        i = [0, 0, 1]
+        j = [1, 2, 2]
+        k = [2, 3, 3]
+
+        table_mesh = tm.Trimesh(vertices=np.stack([x, y, z], axis=1), faces=np.stack([i, j, k], axis=1))
+        return table_mesh
+

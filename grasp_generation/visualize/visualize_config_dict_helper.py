@@ -188,7 +188,7 @@ def create_config_dict_fig(
     concise_title: bool = False,
 ) -> go.Figure:
     object_plotly = object_model.get_plotly_data(
-        i=0, color="lightgreen", opacity=0.5, with_surface_points=True
+        i=0, color="lightgreen", opacity=0.5, with_surface_points=True, with_table=True
     )
 
     # hand pose
@@ -203,7 +203,7 @@ def create_config_dict_fig(
     )
 
     # hand pose start
-    if "qpos_start" in config_dict and not skip_visualize_qpos_start:
+    if "joint_angles_start" in config_dict and not skip_visualize_qpos_start:
         hand_pose_start = hand_config_to_pose(
             trans=config_dict["trans_start"],
             rot=config_dict["rot_start"],

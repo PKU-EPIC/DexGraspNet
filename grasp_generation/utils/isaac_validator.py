@@ -133,7 +133,7 @@ class IsaacValidator:
         mode: str = "direct",
         hand_friction: float = 0.6,
         obj_friction: float = 0.6,
-        num_sim_steps: int = 120,
+        num_sim_steps: int = 500,  # TODO: Try to make this smaller to save sim time, but not so short to not lift and shake well
         gpu: int = 0,
         debug_interval: float = 0.05,
         start_with_step_mode: bool = False,
@@ -427,9 +427,9 @@ class IsaacValidator:
             joint_idx = gym.find_actor_dof_index(
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
-            HARD_SHAKE_STIFFNESS = 500.0
+            HARD_SHAKE_STIFFNESS = 20000.0
             LIGHT_SHAKE_STIFFNESS = 200.0
-            hand_props["stiffness"][joint_idx] = LIGHT_SHAKE_STIFFNESS
+            hand_props["stiffness"][joint_idx] = HARD_SHAKE_STIFFNESS
             hand_props["damping"][joint_idx] = 10.0
 
         gym.set_actor_dof_properties(env, hand_actor_handle, hand_props)
@@ -711,6 +711,11 @@ class IsaacValidator:
                     hand_table_contacts.append(contact)
 
             if len(hand_table_contacts) > 0:
+                # TODO: Remove this debug print
+                print("HAND COLLIDES TABLE")
+                print(
+                    f"Collisions between hand and table: {[(c['body0'], c['body1']) for c in hand_table_contacts]}, {hand_link_idx_to_name}, {table_link_idx_to_name}"
+                )
                 is_hand_colliding_with_table.append(True)
             else:
                 is_hand_colliding_with_table.append(False)
@@ -739,6 +744,11 @@ class IsaacValidator:
                     hand_obj_contacts.append(contact)
 
             if len(hand_obj_contacts) > 0:
+                # TODO: Remove this debug print
+                print("HAND COLLIDES OBJECT")
+                print(
+                    f"Collisions between hand and object: {[(c['body0'], c['body1']) for c in hand_obj_contacts]}, {hand_link_idx_to_name}, {obj_link_idx_to_name}"
+                )
                 is_hand_colliding_with_obj.append(True)
             else:
                 is_hand_colliding_with_obj.append(False)
@@ -811,7 +821,9 @@ class IsaacValidator:
             # Phase 4: Shake hand
             #   * For NO_GRAVITY_SHAKING: shake from this position
             #   * For GRAVITY_AND_TABLE: lift from table first, then shake
-            PHASE_1_LAST_STEP = 30
+            PHASE_1_LAST_STEP = (
+                50  # From analysis, takes about 40 steps for ball to settle
+            )
             PHASE_2_LAST_STEP = PHASE_1_LAST_STEP + 10
             PHASE_3_LAST_STEP = PHASE_2_LAST_STEP + 15
             PHASE_4_LAST_STEP = self.num_sim_steps
@@ -894,7 +906,7 @@ class IsaacValidator:
                 # Visualize virtual joint targets
                 if virtual_joint_dof_pos_targets is not None:
                     self._visualize_virtual_joint_dof_pos_targets(
-                        virtual_joint_dof_pos_targets
+                        virtual_joint_dof_pos_targets=virtual_joint_dof_pos_targets
                     )
 
                 gym.step_graphics(self.sim)
@@ -1067,7 +1079,7 @@ class IsaacValidator:
         dist_to_move = 0.05
         N = 2
         if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
-            directions_sequence = [
+            targets_sequence = [
                 *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
                 [0.0, 0.0, 0.0],
                 *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
@@ -1077,10 +1089,12 @@ class IsaacValidator:
                 [0.0, 0.0, 0.0],
             ]
         elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
-            Y_LIFT = 0.5
-            directions_sequence = [
+            Y_LIFT = 0.2
+            targets_sequence = [
                 [0.0, -Y_LIFT, 0.0],
-                [0.0, -Y_LIFT, 0.0],
+                [0.0, -Y_LIFT * 3 / 4, 0.0],
+                [0.0, -Y_LIFT * 2 / 4, 0.0],
+                [0.0, -Y_LIFT * 1 / 4, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
@@ -1088,38 +1102,45 @@ class IsaacValidator:
                 *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
                 *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
             ]
-            directions_sequence = [
-                [direction[0], direction[1] + Y_LIFT, direction[2]]
-                for direction in directions_sequence
+            targets_sequence = [
+                [target[0], target[1] + Y_LIFT, target[2]]
+                for target in targets_sequence
             ]
+        else:
+            raise ValueError(f"Unknown validation_type: {self.validation_type}")
 
-        direction_idx = int(frac_progress * len(directions_sequence))
-        direction = directions_sequence[direction_idx]
+        target_idx = int(frac_progress * len(targets_sequence))
+        target = targets_sequence[target_idx]
+
+        # Smooth out target so that it doesn't jump around
+        prev_target = targets_sequence[target_idx - 1] if target_idx > 0 else target
+        alpha = frac_progress * len(targets_sequence) - target_idx
+        target_smoothed = np.array(target) * alpha + np.array(prev_target) * (1 - alpha)
 
         # direction in global frame
-        # dof_pos_targets in hand frame
+        # virtual_joint_dof_pos_targets in hand frame
         # so need to perform inverse hand frame rotation
         rotation_transforms = [
             gymapi.Transform(gymapi.Vec3(0, 0, 0), hand_pose.r)
             for hand_pose in self._get_hand_poses()
         ]
-        dof_pos_targets = [
-            rotation_transform.inverse().transform_point(gymapi.Vec3(*direction))
+        virtual_joint_dof_pos_targets = [
+            rotation_transform.inverse().transform_point(gymapi.Vec3(*target_smoothed))
             for rotation_transform in rotation_transforms
         ]
-        dof_pos_targets = [
+        virtual_joint_dof_pos_targets = [
             torch.tensor([dof_pos_target.x, dof_pos_target.y, dof_pos_target.z])
-            for dof_pos_target in dof_pos_targets
+            for dof_pos_target in virtual_joint_dof_pos_targets
         ]
 
         # Add target angles
         target_angles = torch.tensor([0.0, 0.0, 0.0])
-        dof_pos_targets = [
+        virtual_joint_dof_pos_targets = [
             torch.cat([dof_pos_target, target_angles])
-            for dof_pos_target in dof_pos_targets
+            for dof_pos_target in virtual_joint_dof_pos_targets
         ]
 
-        return dof_pos_targets
+        return virtual_joint_dof_pos_targets
 
     def _set_virtual_joint_dof_pos_targets(
         self, dof_pos_targets: List[torch.Tensor]
@@ -1154,35 +1175,84 @@ class IsaacValidator:
 
     ########## VISUALIZE START ##########
     def _visualize_virtual_joint_dof_pos_targets(
-        self, dof_pos_targets: List[torch.Tensor]
+        self, virtual_joint_dof_pos_targets: List[torch.Tensor]
     ) -> None:
         if not self.has_viewer:
             return
+
+        virtual_joint_dof_pos_list = self._get_virtual_joint_dof_pos_list()
         visualization_sphere_green = gymutil.WireframeSphereGeometry(
-            radius=0.01, num_lats=10, num_lons=10, color=(0, 1, 0)
+            radius=0.05, num_lats=10, num_lons=10, color=(0, 1, 0)
+        )
+        visualization_sphere_blue = gymutil.WireframeSphereGeometry(
+            radius=0.05, num_lats=10, num_lons=10, color=(1, 0, 0)
         )
 
         # Get current pose of hand
         hand_poses = self._get_hand_poses()
 
-        for env, hand_pose, dof_pos_target in zip(
-            self.envs, hand_poses, dof_pos_targets
+        for env, hand_pose, dof_pos_target, dof_pos in zip(
+            self.envs,
+            hand_poses,
+            virtual_joint_dof_pos_targets,
+            virtual_joint_dof_pos_list,
         ):
-            # dof_pos_targets in hand frame
+            rotation_transform = gymapi.Transform(gymapi.Vec3(0, 0, 0), hand_pose.r)
+
+            # virtual_joint_dof_pos_targets in hand frame
             # direction in global frame
             # so need to perform hand frame rotation
             dof_pos_target = gymapi.Vec3(
                 dof_pos_target[0], dof_pos_target[1], dof_pos_target[2]
             )
-            rotation_transform = gymapi.Transform(gymapi.Vec3(0, 0, 0), hand_pose.r)
-            direction = rotation_transform.transform_point(dof_pos_target)
-            sphere_pose = gymapi.Transform(
-                p=hand_pose.p + direction,
+            dof_pos_target_world = rotation_transform.transform_point(dof_pos_target)
+            green_sphere_pose = gymapi.Transform(
+                p=hand_pose.p + dof_pos_target_world,
                 r=None,
             )
             gymutil.draw_lines(
-                visualization_sphere_green, gym, self.viewer, env, sphere_pose
+                visualization_sphere_green, gym, self.viewer, env, green_sphere_pose
             )
+
+            dof_pos = gymapi.Vec3(dof_pos[0], dof_pos[1], dof_pos[2])
+            dof_pos_world = rotation_transform.transform_point(dof_pos)
+            blue_sphere_pose = gymapi.Transform(
+                p=hand_pose.p + dof_pos_world,
+                r=None,
+            )
+            gymutil.draw_lines(
+                visualization_sphere_blue, gym, self.viewer, env, blue_sphere_pose
+            )
+
+    def _get_joint_dof_pos_list(self) -> List[torch.Tensor]:
+        dof_pos_list = []
+        for env, hand_actor_handle in zip(self.envs, self.hand_handles):
+            dof_pos = []
+            dof_states = gym.get_actor_dof_states(
+                env, hand_actor_handle, gymapi.STATE_ALL
+            )
+            for i, joint in enumerate(self.joint_names):
+                joint_idx = gym.find_actor_dof_index(
+                    env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
+                )
+                dof_pos.append(dof_states["pos"][joint_idx])
+            dof_pos_list.append(torch.tensor(dof_pos))
+        return dof_pos_list
+
+    def _get_virtual_joint_dof_pos_list(self) -> List[torch.Tensor]:
+        dof_pos_list = []
+        for env, hand_actor_handle in zip(self.envs, self.hand_handles):
+            dof_pos = []
+            dof_states = gym.get_actor_dof_states(
+                env, hand_actor_handle, gymapi.STATE_ALL
+            )
+            for i, joint in enumerate(self.virtual_joint_names):
+                joint_idx = gym.find_actor_dof_index(
+                    env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
+                )
+                dof_pos.append(dof_states["pos"][joint_idx])
+            dof_pos_list.append(torch.tensor(dof_pos))
+        return dof_pos_list
 
     def _visualize_origin_lines(self) -> None:
         if not self.has_viewer:
