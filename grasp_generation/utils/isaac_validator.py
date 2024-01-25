@@ -133,7 +133,7 @@ class IsaacValidator:
         mode: str = "direct",
         hand_friction: float = 0.6,
         obj_friction: float = 0.6,
-        num_sim_steps: int = 200,
+        num_sim_steps: int = 500,
         gpu: int = 0,
         debug_interval: float = 0.05,
         start_with_step_mode: bool = False,
@@ -428,7 +428,7 @@ class IsaacValidator:
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
             HARD_SHAKE_STIFFNESS = 20000.0
-            LIGHT_SHAKE_STIFFNESS = 200.0
+            LIGHT_SHAKE_STIFFNESS = 20000.0
             hand_props["stiffness"][joint_idx] = LIGHT_SHAKE_STIFFNESS
             hand_props["damping"][joint_idx] = 10.0
 
@@ -1084,8 +1084,9 @@ class IsaacValidator:
             Y_LIFT = 0.2
             directions_sequence = [
                 [0.0, -Y_LIFT, 0.0],
-                [0.0, -Y_LIFT, 0.0],
-                [0.0, -Y_LIFT, 0.0],
+                [0.0, -Y_LIFT*3/4, 0.0],
+                [0.0, -Y_LIFT*2/4, 0.0],
+                [0.0, -Y_LIFT*1/4, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
@@ -1102,8 +1103,14 @@ class IsaacValidator:
 
         direction_idx = int(frac_progress * len(directions_sequence))
         direction = directions_sequence[direction_idx]
-        scale = frac_progress * len(directions_sequence) - direction_idx
-        direction_with_scale = np.array(direction) * scale
+        if direction_idx == 0:
+            prev_direction = direction
+        else:
+            prev_direction = directions_sequence[direction_idx - 1]
+        alpha = frac_progress * len(directions_sequence) - direction_idx
+        direction_with_scale = np.array(direction) * alpha + np.array(
+            prev_direction
+        ) * (1 - alpha)
 
         # direction in global frame
         # dof_pos_targets in hand frame
