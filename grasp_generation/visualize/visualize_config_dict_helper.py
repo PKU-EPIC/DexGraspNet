@@ -203,7 +203,7 @@ def create_config_dict_fig(
     )
 
     # hand pose start
-    if "qpos_start" in config_dict and not skip_visualize_qpos_start:
+    if "joint_angles_start" in config_dict and not skip_visualize_qpos_start:
         hand_pose_start = hand_config_to_pose(
             trans=config_dict["trans_start"],
             rot=config_dict["rot_start"],
@@ -213,6 +213,7 @@ def create_config_dict_fig(
         hand_pose_start = None
 
     # hand config dict
+    breakpoint()
     hand_config_dict_plotly_data_list = get_hand_config_dict_plotly_data_list(
         hand_model=hand_model,
         hand_pose=hand_pose,
