@@ -133,7 +133,7 @@ class IsaacValidator:
         mode: str = "direct",
         hand_friction: float = 0.6,
         obj_friction: float = 0.6,
-        num_sim_steps: int = 500,  # TODO: Try to make this smaller to save sim time, but not so short to not lift and shake well
+        num_sim_steps: int = 300,  # TODO: Try to make this smaller to save sim time, but not so short to not lift and shake well
         gpu: int = 0,
         debug_interval: float = 0.05,
         start_with_step_mode: bool = False,
@@ -825,7 +825,7 @@ class IsaacValidator:
                 50  # From analysis, takes about 40 steps for ball to settle
             )
             PHASE_2_LAST_STEP = PHASE_1_LAST_STEP + 10
-            PHASE_3_LAST_STEP = PHASE_2_LAST_STEP + 15
+            PHASE_3_LAST_STEP = PHASE_2_LAST_STEP + 30
             PHASE_4_LAST_STEP = self.num_sim_steps
             assert_equals(PHASE_4_LAST_STEP, self.num_sim_steps)
 
