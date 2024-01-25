@@ -748,6 +748,8 @@ class IsaacValidator:
                 is_hand_colliding_with_obj.append(False)
 
         assert_equals(len(is_hand_colliding_with_obj), len(self.envs))
+        if is_hand_colliding_with_obj[0]:
+            breakpoint()
         return is_hand_colliding_with_obj
 
     def _move_hands_to_objects(self) -> None:
@@ -898,7 +900,7 @@ class IsaacValidator:
                 # Visualize virtual joint targets
                 if virtual_joint_dof_pos_targets is not None:
                     self._visualize_virtual_joint_dof_pos_targets(
-                        virtual_joint_dof_pos_targets
+                        virtual_joint_dof_pos_targets=virtual_joint_dof_pos_targets
                     )
 
                 gym.step_graphics(self.sim)
@@ -1113,29 +1115,29 @@ class IsaacValidator:
         ) * (1 - alpha)
 
         # direction in global frame
-        # dof_pos_targets in hand frame
+        # virtual_joint_dof_pos_targets in hand frame
         # so need to perform inverse hand frame rotation
         rotation_transforms = [
             gymapi.Transform(gymapi.Vec3(0, 0, 0), hand_pose.r)
             for hand_pose in self._get_hand_poses()
         ]
-        dof_pos_targets = [
+        virtual_joint_dof_pos_targets = [
             rotation_transform.inverse().transform_point(gymapi.Vec3(*direction_with_scale))
             for rotation_transform in rotation_transforms
         ]
-        dof_pos_targets = [
+        virtual_joint_dof_pos_targets = [
             torch.tensor([dof_pos_target.x, dof_pos_target.y, dof_pos_target.z])
-            for dof_pos_target in dof_pos_targets
+            for dof_pos_target in virtual_joint_dof_pos_targets
         ]
 
         # Add target angles
         target_angles = torch.tensor([0.0, 0.0, 0.0])
-        dof_pos_targets = [
+        virtual_joint_dof_pos_targets = [
             torch.cat([dof_pos_target, target_angles])
-            for dof_pos_target in dof_pos_targets
+            for dof_pos_target in virtual_joint_dof_pos_targets
         ]
 
-        return dof_pos_targets
+        return virtual_joint_dof_pos_targets
 
     def _set_virtual_joint_dof_pos_targets(
         self, dof_pos_targets: List[torch.Tensor]
@@ -1170,12 +1172,12 @@ class IsaacValidator:
 
     ########## VISUALIZE START ##########
     def _visualize_virtual_joint_dof_pos_targets(
-        self, dof_pos_targets: List[torch.Tensor]
+        self, virtual_joint_dof_pos_targets: List[torch.Tensor]
     ) -> None:
         if not self.has_viewer:
             return
 
-        dof_pos_list = self._get_dof_pos_list()
+        virtual_joint_dof_pos_list = self._get_virtual_joint_dof_pos_list()
         visualization_sphere_green = gymutil.WireframeSphereGeometry(
             radius=0.05, num_lats=10, num_lons=10, color=(0, 1, 0)
         )
@@ -1187,9 +1189,9 @@ class IsaacValidator:
         hand_poses = self._get_hand_poses()
 
         for env, hand_pose, dof_pos_target, dof_pos in zip(
-            self.envs, hand_poses, dof_pos_targets, dof_pos_list
+            self.envs, hand_poses, virtual_joint_dof_pos_targets, virtual_joint_dof_pos_list
         ):
-            # dof_pos_targets in hand frame
+            # virtual_joint_dof_pos_targets in hand frame
             # direction in global frame
             # so need to perform hand frame rotation
             dof_pos_target = gymapi.Vec3(
@@ -1215,7 +1217,20 @@ class IsaacValidator:
                 visualization_sphere_blue, gym, self.viewer, env, blue_sphere_pose
             )
 
-    def _get_dof_pos_list(self) -> List[torch.Tensor]:
+    def _get_joint_dof_pos_list(self) -> List[torch.Tensor]:
+        dof_pos_list = []
+        for env, hand_actor_handle in zip(self.envs, self.hand_handles):
+            dof_pos = []
+            dof_states = gym.get_actor_dof_states(env, hand_actor_handle, gymapi.STATE_ALL)
+            for i, joint in enumerate(self.joint_names):
+                joint_idx = gym.find_actor_dof_index(
+                    env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
+                )
+                dof_pos.append(dof_states["pos"][joint_idx])
+            dof_pos_list.append(torch.tensor(dof_pos))
+        return dof_pos_list
+
+    def _get_virtual_joint_dof_pos_list(self) -> List[torch.Tensor]:
         dof_pos_list = []
         for env, hand_actor_handle in zip(self.envs, self.hand_handles):
             dof_pos = []
