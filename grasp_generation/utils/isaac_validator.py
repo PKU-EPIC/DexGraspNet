@@ -1081,10 +1081,8 @@ class IsaacValidator:
                 [0.0, 0.0, 0.0],
             ]
         elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
-            Y_LIFT = 0.5
+            Y_LIFT = 0.2
             directions_sequence = [
-                [0.0, -Y_LIFT, 0.0],
-                [0.0, -Y_LIFT, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
