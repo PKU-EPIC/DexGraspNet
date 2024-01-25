@@ -805,22 +805,6 @@ class IsaacValidator:
         hand_not_penetrate_list = [True for _ in range(len(self.envs))]
 
         while sim_step_idx < self.num_sim_steps:
-            print(f"sim_step_idx = {sim_step_idx}")
-            print(f"self.init_qpos_list = {self.init_qpos_list}")
-            print(f"self._get_joint_dof_pos_list() = {self._get_joint_dof_pos_list()}")
-            obj_pose = self._get_object_pose(env=self.envs[0], obj_handle=self.obj_handles[0])
-            print(f"obj_pose = {obj_pose.p.x}, {obj_pose.p.y}, {obj_pose.p.z}, {obj_pose.r.x}, {obj_pose.r.y}, {obj_pose.r.z}, {obj_pose.r.w}")
-            hand_pose = self._get_palm_pose(env=self.envs[0], hand_handle=self.hand_handles[0], hand_link_idx_to_name=self.hand_link_idx_to_name_dicts[0])
-            print(f"hand_pose = {hand_pose.p.x}, {hand_pose.p.y}, {hand_pose.p.z}, {hand_pose.r.x}, {hand_pose.r.y}, {hand_pose.r.z}, {hand_pose.r.w}")
-            desired_hand_pose = self.desired_hand_poses_object_frame[0]
-            print(f"desired_hand_pose = {desired_hand_pose.p.x}, {desired_hand_pose.p.y}, {desired_hand_pose.p.z}, {desired_hand_pose.r.x}, {desired_hand_pose.r.y}, {desired_hand_pose.r.z}, {desired_hand_pose.r.w}")
-            print(f"self._get_virtual_joint_dof_pos_list() = {self._get_virtual_joint_dof_pos_list()}")
-            obj_pose_tensor = self.root_state_tensor[self._get_actor_indices(envs=self.envs, actors=self.obj_handles), :7]
-            print(f"obj_pose_tensor = {obj_pose_tensor}")
-            hand_pose_tensor = self.root_state_tensor[self._get_actor_indices(envs=self.envs, actors=self.hand_handles), :7]
-            print(f"hand_pose_tensor = {hand_pose_tensor}")
-            print()
-
             # Phase 1: Do nothing, hand far away
             #   * For NO_GRAVITY_SHAKING: object should stay in place
             #   * For GRAVITY_AND_TABLE: object should fall to table and settle

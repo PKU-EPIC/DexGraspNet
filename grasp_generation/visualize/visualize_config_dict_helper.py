@@ -213,7 +213,6 @@ def create_config_dict_fig(
         hand_pose_start = None
 
     # hand config dict
-    breakpoint()
     hand_config_dict_plotly_data_list = get_hand_config_dict_plotly_data_list(
         hand_model=hand_model,
         hand_pose=hand_pose,
