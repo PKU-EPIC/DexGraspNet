@@ -419,7 +419,7 @@ class IsaacValidator:
             joint_idx = gym.find_actor_dof_index(
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
-            hand_props["stiffness"][joint_idx] = 1000.0
+            hand_props["stiffness"][joint_idx] = 50.0
             hand_props["damping"][joint_idx] = 1.0
 
         # Virtual joints
@@ -611,7 +611,7 @@ class IsaacValidator:
 
             successes.append(success)
 
-            DEBUG = True
+            DEBUG = False
             if DEBUG:
                 print(f"i = {i}")
                 print(f"success = {success}")
@@ -710,9 +710,9 @@ class IsaacValidator:
                 if is_hand_table_contact:
                     hand_table_contacts.append(contact)
 
-            if len(hand_table_contacts) > 0:
-                # TODO: Remove this debug print
-                print("HAND COLLIDES TABLE")
+            DEBUG = False
+            if len(hand_table_contacts) > 0 and DEBUG:
+                print(f"HAND COLLIDES TABLE for {env}")
                 print(
                     f"Collisions between hand and table: {[(c['body0'], c['body1']) for c in hand_table_contacts]}, {hand_link_idx_to_name}, {table_link_idx_to_name}"
                 )
@@ -743,9 +743,9 @@ class IsaacValidator:
                 if is_hand_obj_contact:
                     hand_obj_contacts.append(contact)
 
-            if len(hand_obj_contacts) > 0:
-                # TODO: Remove this debug print
-                print("HAND COLLIDES OBJECT")
+            DEBUG = False
+            if len(hand_obj_contacts) > 0 and DEBUG:
+                print(f"HAND COLLIDES OBJECT for {env}")
                 print(
                     f"Collisions between hand and object: {[(c['body0'], c['body1']) for c in hand_obj_contacts]}, {hand_link_idx_to_name}, {obj_link_idx_to_name}"
                 )
