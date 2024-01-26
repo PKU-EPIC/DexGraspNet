@@ -1109,8 +1109,7 @@ class IsaacValidator:
             raise ValueError(f"Unknown validation_type: {self.validation_type}")
 
         target_idx = int(frac_progress * len(targets_sequence))
-        if target_idx >= len(targets_sequence):
-            target_idx = len(targets_sequence) - 1
+        target_idx = np.clip(target_idx, 0, len(targets_sequence) - 1)
         target = targets_sequence[target_idx]
 
         # Smooth out target so that it doesn't jump around
