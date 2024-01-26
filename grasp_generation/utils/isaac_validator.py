@@ -133,7 +133,7 @@ class IsaacValidator:
         mode: str = "direct",
         hand_friction: float = 0.6,
         obj_friction: float = 0.6,
-        num_sim_steps: int = 300,  # TODO: Try to make this smaller to save sim time, but not so short to not lift and shake well
+        num_sim_steps: int = 500,  # TODO: Try to make this smaller to save sim time, but not so short to not lift and shake well
         gpu: int = 0,
         debug_interval: float = 0.05,
         start_with_step_mode: bool = False,
@@ -419,8 +419,8 @@ class IsaacValidator:
             joint_idx = gym.find_actor_dof_index(
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
-            hand_props["stiffness"][joint_idx] = 10.0
-            hand_props["damping"][joint_idx] = 0.0
+            hand_props["stiffness"][joint_idx] = 1000.0
+            hand_props["damping"][joint_idx] = 1.0
 
         # Virtual joints
         for joint in self.virtual_joint_names:
@@ -825,11 +825,10 @@ class IsaacValidator:
                 50  # From analysis, takes about 40 steps for ball to settle
             )
             PHASE_2_LAST_STEP = PHASE_1_LAST_STEP + 10
-            PHASE_3_LAST_STEP = PHASE_2_LAST_STEP + 15
+            PHASE_3_LAST_STEP = PHASE_2_LAST_STEP + 5
             PHASE_4_LAST_STEP = self.num_sim_steps
             assert_equals(PHASE_4_LAST_STEP, self.num_sim_steps)
 
-            virtual_joint_dof_pos_targets = None
             if sim_step_idx < PHASE_1_LAST_STEP:
                 self._run_phase_1(step=sim_step_idx, length=PHASE_1_LAST_STEP)
             elif sim_step_idx < PHASE_2_LAST_STEP:
@@ -849,7 +848,7 @@ class IsaacValidator:
                     length=PHASE_3_LAST_STEP - PHASE_2_LAST_STEP,
                 )
             elif sim_step_idx < PHASE_4_LAST_STEP:
-                virtual_joint_dof_pos_targets = self._run_phase_4(
+                self._run_phase_4(
                     step=sim_step_idx - PHASE_3_LAST_STEP,
                     length=PHASE_4_LAST_STEP - PHASE_3_LAST_STEP,
                 )
@@ -904,10 +903,7 @@ class IsaacValidator:
                 self._visualize_origin_lines()
 
                 # Visualize virtual joint targets
-                if virtual_joint_dof_pos_targets is not None:
-                    self._visualize_virtual_joint_dof_pos_targets(
-                        virtual_joint_dof_pos_targets=virtual_joint_dof_pos_targets
-                    )
+                self._visualize_virtual_joint_dof_pos_targets()
 
                 gym.step_graphics(self.sim)
                 gym.draw_viewer(self.viewer, self.sim, False)
@@ -947,7 +943,7 @@ class IsaacValidator:
 
     def _run_phase_3(self, step: int, length: int) -> None:
         assert step < length, f"{step} >= {length}"
-        frac_progress = step / (length - 1)
+        frac_progress = (step + 1) / length
         for env, hand_actor_handle, target_qpos, init_qpos in zip(
             self.envs,
             self.hand_handles,
@@ -963,16 +959,14 @@ class IsaacValidator:
                 target_qpos=current_target_qpos,
             )
 
-    def _run_phase_4(self, step: int, length: int) -> Optional[List[torch.Tensor]]:
+    def _run_phase_4(self, step: int, length: int) -> None:
         assert step < length, f"{step} >= {length}"
-        frac_progress = step / length
+        frac_progress = (step + 1) / length
         if len(self.virtual_joint_names) > 0:
             virtual_joint_dof_pos_targets = self._compute_virtual_joint_dof_pos_targets(
                 frac_progress=frac_progress
             )
             self._set_virtual_joint_dof_pos_targets(virtual_joint_dof_pos_targets)
-            return virtual_joint_dof_pos_targets
-        return None
 
     ########## RUN SIM END ##########
 
@@ -1098,9 +1092,9 @@ class IsaacValidator:
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
-                # *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
-                # *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
-                # *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
+                *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
+                *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
+                *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
             ]
             targets_sequence = [
                 [target[0], target[1] + Y_LIFT, target[2]]
@@ -1174,13 +1168,15 @@ class IsaacValidator:
     ########## DOF TARGETS END ##########
 
     ########## VISUALIZE START ##########
-    def _visualize_virtual_joint_dof_pos_targets(
-        self, virtual_joint_dof_pos_targets: List[torch.Tensor]
-    ) -> None:
+    def _visualize_virtual_joint_dof_pos_targets(self) -> None:
         if not self.has_viewer:
             return
 
+        if len(self.virtual_joint_names) == 0:
+            return
+
         virtual_joint_dof_pos_list = self._get_virtual_joint_dof_pos_list()
+        virtual_joint_dof_pos_targets = self._get_virtual_joint_dof_pos_targets_list()
         visualization_sphere_green = gymutil.WireframeSphereGeometry(
             radius=0.05, num_lats=10, num_lons=10, color=(0, 1, 0)
         )
@@ -1253,6 +1249,19 @@ class IsaacValidator:
                 dof_pos.append(dof_states["pos"][joint_idx])
             dof_pos_list.append(torch.tensor(dof_pos))
         return dof_pos_list
+
+    def _get_virtual_joint_dof_pos_targets_list(self) -> List[torch.Tensor]:
+        dof_pos_targets_list = []
+        for env, hand_actor_handle in zip(self.envs, self.hand_handles):
+            dof_pos_targets = []
+            all_dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_actor_handle)
+            for i, joint in enumerate(self.virtual_joint_names):
+                joint_idx = gym.find_actor_dof_index(
+                    env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
+                )
+                dof_pos_targets.append(all_dof_pos_targets[joint_idx])
+            dof_pos_targets_list.append(torch.tensor(dof_pos_targets))
+        return dof_pos_targets_list
 
     def _visualize_origin_lines(self) -> None:
         if not self.has_viewer:
