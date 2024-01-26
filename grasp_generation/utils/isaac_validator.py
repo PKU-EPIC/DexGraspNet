@@ -133,7 +133,7 @@ class IsaacValidator:
         mode: str = "direct",
         hand_friction: float = 0.6,
         obj_friction: float = 0.6,
-        num_sim_steps: int = 500,  # TODO: Try to make this smaller to save sim time, but not so short to not lift and shake well
+        num_sim_steps: int = 200,  # TODO: Try to make this smaller to save sim time, but not so short to not lift and shake well
         gpu: int = 0,
         debug_interval: float = 0.05,
         start_with_step_mode: bool = False,
@@ -1090,7 +1090,6 @@ class IsaacValidator:
                 [0.0, -Y_LIFT * 3 / 4, 0.0],
                 [0.0, -Y_LIFT * 2 / 4, 0.0],
                 [0.0, -Y_LIFT * 1 / 4, 0.0],
-                [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
             ]
