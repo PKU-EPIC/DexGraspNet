@@ -346,6 +346,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         )
         print(f"E_pen_array = {E_pen_array}")
         print(f"passed_eval = {passed_eval}")
+        print(f"idxs = {np.where(passed_eval > 0.5)[0]}")
 
     sim_frac = np.mean(passed_simulation_array)
     new_pen_frac = np.mean(passed_new_penetration_test_array)

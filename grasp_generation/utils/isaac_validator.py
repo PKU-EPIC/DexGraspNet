@@ -825,7 +825,7 @@ class IsaacValidator:
                 50  # From analysis, takes about 40 steps for ball to settle
             )
             PHASE_2_LAST_STEP = PHASE_1_LAST_STEP + 10
-            PHASE_3_LAST_STEP = PHASE_2_LAST_STEP + 5
+            PHASE_3_LAST_STEP = PHASE_2_LAST_STEP + 15
             PHASE_4_LAST_STEP = self.num_sim_steps
             assert_equals(PHASE_4_LAST_STEP, self.num_sim_steps)
 
