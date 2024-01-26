@@ -1084,6 +1084,7 @@ class IsaacValidator:
             ]
         elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
             Y_LIFT = 0.2
+            INCLUDE_SHAKE = False
             targets_sequence = [
                 [0.0, -Y_LIFT, 0.0],
                 [0.0, -Y_LIFT * 3 / 4, 0.0],
@@ -1092,10 +1093,14 @@ class IsaacValidator:
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
-                *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
-                *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
-                *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
             ]
+            if INCLUDE_SHAKE:
+                targets_sequence += [
+                    *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
+                    *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
+                    *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
+                ]
+
             targets_sequence = [
                 [target[0], target[1] + Y_LIFT, target[2]]
                 for target in targets_sequence
@@ -1104,6 +1109,8 @@ class IsaacValidator:
             raise ValueError(f"Unknown validation_type: {self.validation_type}")
 
         target_idx = int(frac_progress * len(targets_sequence))
+        if target_idx >= len(targets_sequence):
+            target_idx = len(targets_sequence) - 1
         target = targets_sequence[target_idx]
 
         # Smooth out target so that it doesn't jump around
