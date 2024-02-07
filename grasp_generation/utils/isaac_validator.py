@@ -213,8 +213,8 @@ class IsaacValidator:
         self.sim_params.physx.solver_type = 1
         self.sim_params.physx.num_position_iterations = 8
         self.sim_params.physx.num_velocity_iterations = 8
-        self.sim_params.physx.contact_offset = 0.005
-        self.sim_params.physx.rest_offset = 0.0
+        self.sim_params.physx.contact_offset = 0.001  # Want this to be very close to 0 so no unneeded collisions, but need some for sim stability
+        self.sim_params.physx.rest_offset = 0.0  # Want this to be 0 so that objects don't float when on table
 
         self.sim_params.use_gpu_pipeline = False
         self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
@@ -246,6 +246,7 @@ class IsaacValidator:
         self.obj_asset_options.override_com = True
         self.obj_asset_options.override_inertia = True
         self.obj_asset_options.density = 500
+        self.obj_asset_options.vhacd_enabled = True  # Convex decomposition is better than convex hull
 
         if self.validation_type == ValidationType.GRAVITY_IN_6_DIRS:
             self.obj_asset_options.disable_gravity = False
@@ -303,6 +304,7 @@ class IsaacValidator:
             transformation=transformation,
             target_qpos=target_qpos,
             collision_idx=collision_idx,
+            add_random_pose_noise=add_random_pose_noise,
         )
 
         self._setup_obj(
@@ -310,7 +312,6 @@ class IsaacValidator:
             obj_scale,
             transformation,
             collision_idx=collision_idx,
-            add_random_pose_noise=add_random_pose_noise,
         )
 
         if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
@@ -375,15 +376,13 @@ class IsaacValidator:
         transformation: gymapi.Transform,
         target_qpos: np.ndarray,
         collision_idx: int,
+        add_random_pose_noise: bool = False,
     ) -> None:
         # Set hand pose
         # For now, move hand to arbitrary offset from origin
         # Will move hand to object later
         hand_pose = gymapi.Transform()
         hand_pose.p = ARBITRARY_INIT_HAND_POS
-        # hand_pose.r = gymapi.Quat(*hand_quaternion_wxyz[1:], hand_quaternion_wxyz[0])
-        # hand_pose.p = gymapi.Vec3(*hand_translation)
-
         hand_pose = transformation * hand_pose
 
         # Create hand
@@ -403,9 +402,31 @@ class IsaacValidator:
         hand_quaternion_xyzw = np.concatenate(
             [hand_quaternion_wxyz[1:], hand_quaternion_wxyz[:1]]
         )
+
         desired_hand_pose_object_frame = gymapi.Transform(
             p=gymapi.Vec3(*hand_translation), r=gymapi.Quat(*hand_quaternion_xyzw)
         )
+        if add_random_pose_noise:
+            TRANSLATION_NOISE_CM = 0.5
+            TRANSLATION_NOISE_M = TRANSLATION_NOISE_CM / 100
+            ROTATION_NOISE_DEG = 5
+            xyz_noise = np.random.uniform(-TRANSLATION_NOISE_M, TRANSLATION_NOISE_M, 3)
+            rpy_noise = (
+                np.random.uniform(-ROTATION_NOISE_DEG, ROTATION_NOISE_DEG, 3)
+                * math.pi
+                / 180
+            )
+            quat_wxyz = transforms3d.euler.euler2quat(*rpy_noise)
+            assert xyz_noise.shape == (3,)
+            assert rpy_noise.shape == (3,)
+            assert quat_wxyz.shape == (4,)
+
+            pose_noise_transform = gymapi.Transform(
+                p=gymapi.Vec3(*xyz_noise),
+                r=gymapi.Quat(*quat_wxyz[1:], quat_wxyz[0]),
+            )
+            desired_hand_pose_object_frame = pose_noise_transform * desired_hand_pose_object_frame
+
         self.desired_hand_poses_object_frame.append(desired_hand_pose_object_frame)
 
         # Set hand dof props
@@ -468,29 +489,10 @@ class IsaacValidator:
         obj_scale: float,
         transformation: gymapi.Transform,
         collision_idx: int,
-        add_random_pose_noise: bool = False,
     ) -> None:
         obj_pose = gymapi.Transform()
         obj_pose.p = gymapi.Vec3(0.0, 0.0, 0.0)
         obj_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
-
-        if add_random_pose_noise:
-            TRANSLATION_NOISE_CM = 0.5
-            TRANSLATION_NOISE_M = TRANSLATION_NOISE_CM / 100
-            ROTATION_NOISE_DEG = 5
-            xyz_noise = np.random.uniform(-TRANSLATION_NOISE_M, TRANSLATION_NOISE_M, 3)
-            rpy_noise = (
-                np.random.uniform(-ROTATION_NOISE_DEG, ROTATION_NOISE_DEG, 3)
-                * math.pi
-                / 180
-            )
-            quat_wxyz = transforms3d.euler.euler2quat(*rpy_noise)
-            assert xyz_noise.shape == (3,)
-            assert rpy_noise.shape == (3,)
-            assert quat_wxyz.shape == (4,)
-
-            obj_pose.p = gymapi.Vec3(*xyz_noise)
-            obj_pose.r = gymapi.Quat(*quat_wxyz[1:], quat_wxyz[0])
 
         obj_pose = transformation * obj_pose
         self.init_obj_poses.append(obj_pose)
