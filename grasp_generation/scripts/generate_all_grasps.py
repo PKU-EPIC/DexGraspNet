@@ -48,6 +48,7 @@ def process_data(args: ArgParser):
         + " --use_penetration_energy"
         # + " --rand_object_scale" # Turning off so we don't have to regen nerfs every time.
         # + " --object_scale 0.03" # For cube only to get 200cm => 6cm
+        + " --object_scale 0.051" # For softball only to get 190cm => 9.7cm
         # + " --batch_size_each_object 1000 --n_objects_per_batch 5"  # For more grasps per object
         # + " --store_grasps_mid_optimization_freq 200"  # For more low-quality grasps
     )

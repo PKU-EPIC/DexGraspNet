@@ -323,13 +323,13 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
     if args.penetration_threshold is None:
         print("WARNING: penetration check skipped")
-        passed_penetration_threshold_array = np.ones(batch_size, dtype=np.bool8)
+        OLD_passed_penetration_threshold_array = np.ones(batch_size, dtype=np.bool8)
     else:
-        passed_penetration_threshold_array = E_pen_array < args.penetration_threshold
+        OLD_passed_penetration_threshold_array = E_pen_array < args.penetration_threshold
 
     passed_eval = (
         passed_simulation_array
-        * passed_penetration_threshold_array
+        * OLD_passed_penetration_threshold_array
         * passed_new_penetration_test_array
     )
     # TODO: Remove these prints
@@ -338,35 +338,39 @@ def main(args: EvalGraspConfigDictArgumentParser):
         print(
             f"passed_simulation_array = {passed_simulation_array} ({passed_simulation_array.mean() * 100:.2f}%)"
         )
+        print(f"passed_simulation_array_idxs = {np.where(passed_simulation_array > 0.5)[0]}")
         print(
             f"passed_new_penetration_test_array = {passed_new_penetration_test_array} ({passed_new_penetration_test_array.mean() * 100:.2f}%)"
         )
+        print(f"passed_new_penetration_test_array_idxs = {np.where(passed_new_penetration_test_array > 0.5)[0]}")
         print(
-            f"passed_penetration_threshold_array = {passed_penetration_threshold_array} ({passed_penetration_threshold_array.mean() * 100:.2f}%)"
+            f"OLD_passed_penetration_threshold_array = {OLD_passed_penetration_threshold_array} ({OLD_passed_penetration_threshold_array.mean() * 100:.2f}%)"
         )
+        print(f"OLD_passed_penetration_threshold_array_idxs = {np.where(OLD_passed_penetration_threshold_array > 0.5)[0]}")
         print(f"E_pen_array = {E_pen_array}")
         print(f"passed_eval = {passed_eval}")
+        print(f"passed_eval_idxs = {np.where(passed_eval > 0.5)[0]}")
 
     sim_frac = np.mean(passed_simulation_array)
     new_pen_frac = np.mean(passed_new_penetration_test_array)
-    pen_frac = np.mean(passed_penetration_threshold_array)
+    pen_frac = np.mean(OLD_passed_penetration_threshold_array)
     eval_frac = np.mean(passed_eval)
     print("=" * 80)
     print(
-        f"passed_penetration_threshold: {passed_penetration_threshold_array.sum().item()}/{batch_size} ({100*pen_frac:.2f}%),"
+        f"passed_penetration_threshold: {OLD_passed_penetration_threshold_array.sum().item()}/{batch_size} ({100*pen_frac:.2f}%),"
         f"passed_simulation: {passed_simulation_array.sum().item()}/{batch_size} ({100 * sim_frac:.2f}%),"
         f"passed_new_penetration_test: {passed_new_penetration_test_array.sum().item()}/{batch_size} ({100 * new_pen_frac:.2f}%),"
         f"passed_eval = passed_simulation * passed_penetration_threshold * passed_new_penetration_test: {passed_eval.sum().item()}/{batch_size} ({100 * eval_frac:.2f}%)"
     )
     print("=" * 80)
 
-    # TODO: passed_penetration_threshold_array, passed_new_penetration_test_array: decide if we want to:
+    # TODO: OLD_passed_penetration_threshold_array, passed_new_penetration_test_array: decide if we want to:
     #  1. Store it separately
     #  2. Replace it in the "passed_penetration_threshold" key
-    #  3. And it with passed_penetration_threshold_array
+    #  3. And it with OLD_passed_penetration_threshold_array
     evaled_grasp_config_dict = {
         **grasp_config_dict,
-        "passed_penetration_threshold": passed_penetration_threshold_array,
+        "OLD_passed_penetration_threshold": OLD_passed_penetration_threshold_array,
         "passed_new_penetration_test": passed_new_penetration_test_array,
         "passed_simulation": passed_simulation_array,
         "passed_eval": passed_eval,

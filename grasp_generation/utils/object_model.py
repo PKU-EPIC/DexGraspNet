@@ -294,8 +294,9 @@ class ObjectModel:
         bounds = []
         for i in range(n_objects):
             mesh = self.object_mesh_list[i]
+            mesh_bounds = np.copy(mesh.bounds)  # mesh.bounds is not-writable so we get a warning without copy
             bounds.append(
-                torch.from_numpy(mesh.bounds).float().to(self.device)
+                torch.from_numpy(mesh_bounds).float().to(self.device)
             )
         bounds = torch.stack(bounds)
         assert bounds.shape == (n_objects, 2, 3)

@@ -9,7 +9,7 @@ import sys
 
 sys.path.append(os.path.realpath("."))
 
-from utils.isaac_validator import IsaacValidator
+from utils.isaac_validator import IsaacValidator, ValidationType
 from utils.seed import set_seed
 from utils.parse_object_code_and_scale import object_code_and_scale_to_str
 from tap import Tap
@@ -45,6 +45,7 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
     with loop_timer.add_section_timer("create sim"):
         sim = IsaacValidator(
             gpu=args.gpu,
+            validation_type=ValidationType.NO_GRAVITY_SHAKING,  # Floating object, no table
         )
 
     # For each scale, create NeRF dataset
