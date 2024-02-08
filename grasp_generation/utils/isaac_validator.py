@@ -131,8 +131,8 @@ class IsaacValidator:
         self,
         hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
         mode: str = "direct",
-        hand_friction: float = 0.6,
-        obj_friction: float = 0.6,
+        hand_friction: float = 0.9,
+        obj_friction: float = 0.9,
         num_sim_steps: int = 200,  # TODO: Try to make this smaller to save sim time, but not so short to not lift and shake well
         gpu: int = 0,
         debug_interval: float = 0.05,
