@@ -155,6 +155,23 @@ The optimization process can be visualized with
 python visualize/visualize_config_dict_optimization.py --input_config_dicts_mid_optimization_path /juno/u/tylerlum/github_repos/nerf_grasping/data/2024-02-07_softball_0-051_5random/evaled_grasp_config_dicts_optimized_evaled/mid_optimization --object_code_and_scale_str ddg-ycb_054_softball_0_0510 --meshdata_root_path ../data/meshdata --idx_to_visualize 3
 ```
 
+Run an evaluation sim (with GUI) for an individual grasp with
+```
+CUDA_VISIBLE_DEVICES=0 python scripts/eval_grasp_config_dict.py --hand_model_type ALLEGRO_HAND --validation_type GRAVITY_AND_TABLE --gpu 0 --meshdata_root_path ../data/2024-01-22_softball_meshdata/ --input_grasp_config_dicts_path /juno/u/tylerlum/github_repos/nerf_grasping/data/2024-02-07_softball_0-051_5random/evaled_grasp_config_dicts_optimized_evaled --output_evaled_grasp_config_dicts_path DEBUG --object_code_and_scale_str ddg-ycb_054_softball_0_0510 --max_grasps_per_batch 5000 --use_gui --debug_index 8
+```
+
+Run an evaluation sim (with GUI) for all grasps and record some key grasps:
+```
+CUDA_VISIBLE_DEVICES=0 python scripts/eval_grasp_config_dict.py --hand_model_type ALLEGRO_HAND --validation_type GRAVITY_AND_TABLE --gpu 0 --meshdata_root_path ../data/2024-01-22_softball_meshdata/ --input_grasp_config_dicts_path /juno/u/tylerlum/github_repos/nerf_grasping/data/2024-02-07_softball_0-051_5random/evaled_grasp_config_dicts_optimized_evaled --output_evaled_grasp_config_dicts_path DEBUG --object_code_and_scale_str ddg-ycb_054_softball_0_0510 --max_grasps_per_batch 5000 --use_gui  --record_indices 0 1 2 3 4 5 6 7 8 9
+```
+
+Run an 
+
+Visualize an individual grasp with
+```
+python visualize/visualize_config_dict.py --input_config_dicts_path /juno/u/tylerlum/github_repos/nerf_grasping/data/2024-02-07_softball_0-051_5random/evaled_grasp_config_dicts_optimized_evaled --meshdata_root_path ../data/2024-01-22_softball_meshdata/ --object_code_and_scale_str ddg-ycb_054_softball_0_0510 --idx_to_visualize 8
+```
+
 ### Eval DGN Baseline
 
 Compare how well this pipeline works with a ground truth mesh vs nerf-generated mesh. Assume you have folder `../data/2023-11-17_meshdata_mugs` with some mug meshes and `../../nerf_grasping/data/2023-11-17_01-27-23/nerf_meshdata_mugs` with some mug meshes generated from nerf (done in nerf_grasping since needs nerfstudio). Note: it assumes that nerf meshes are of the same scale as the ground truth meshes (done by default). They should have the same file structure like so:
