@@ -2,7 +2,8 @@
 import numpy as np
 import pathlib
 
-data_path = pathlib.Path("../data/PROBE_0_2024-02-07_softball_0-051_5random/evaled_grasp_config_dicts/ddg-ycb_054_softball_0_0510.npy")
+data_path = pathlib.Path("../data/PROBE_2024-02-07_softball_0-051_5random/evaled_grasp_config_dicts/ddg-ycb_054_softball_0_0510.npy")
+# data_path = pathlib.Path(f"../data/PROBE_7_2024-02-07_50mugs_0-075_5random/evaled_grasp_config_dicts_train/core-mug-10f6e09036350e92b3f21f1137c3c347_0_0750.npy")
 assert data_path.exists()
 
 # %%
@@ -23,7 +24,7 @@ plt.hist(passed_sim)
 
 # %%
 # Color each point by whether it passed the simulation.
-plt.scatter(data_dict["trans"][:, 0], data_dict["trans"][:, 1], s=0.1, c=passed_sim)
+plt.scatter(data_dict["trans"][:, 0], data_dict["trans"][:, 1], s=1, c=passed_sim)
 plt.xlabel('x')
 plt.ylabel('y')
 plt.title('Passed simulation')
