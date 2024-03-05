@@ -19,8 +19,14 @@ passed_sim = data_dict["passed_simulation"]
 passed_penetration = data_dict["passed_new_penetration_test"]
 passed_eval = data_dict["passed_eval"]
 
+label_to_use = passed_eval
+label_name = "passed_eval"
+
+# label_to_use = passed_sim
+# label_name = "passed_sim"
+
 # %%
-plt.hist(passed_sim)
+plt.hist(label_to_use)
 
 # %%
 from scipy.spatial.transform import Rotation as R
@@ -34,18 +40,18 @@ rpy[rpy < 50] += 360
 
 # %%
 # Color each point by whether it passed the simulation.
-plt.scatter(rpy[:, 0], rpy[:, 1], s=1, c=passed_sim)
+plt.scatter(rpy[:, 0], rpy[:, 1], s=1, c=label_to_use)
 plt.xlabel('r')
 plt.ylabel('p')
-plt.title('Passed simulation')
+plt.title(label_name)
 # Add a colorbar.
 plt.colorbar()
 
 # %%
 import plotly.graph_objects as go
 fig = go.Figure()
-# fig.add_trace(go.Scatter(x=data_dict["trans"][:, 0], y=data_dict["trans"][:, 1], mode="markers", marker=dict(size=1, color=passed_sim)))
-fig.add_trace(go.Scatter3d(x=rpy[:, 0], y=rpy[:, 1], z=passed_sim, mode="markers", marker=dict(size=1, color=passed_sim)))
+# fig.add_trace(go.Scatter(x=data_dict["trans"][:, 0], y=data_dict["trans"][:, 1], mode="markers", marker=dict(size=1, color=label_to_use)))
+fig.add_trace(go.Scatter3d(x=rpy[:, 0], y=rpy[:, 1], z=label_to_use, mode="markers", marker=dict(size=1, color=label_to_use)))
 
 fig.show()
 

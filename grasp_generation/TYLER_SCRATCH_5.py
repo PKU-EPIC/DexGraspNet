@@ -26,9 +26,9 @@ data = {k: v[IDX] for k, v in data_dict.items()}
 assert data["passed_eval"] == 1
 
 # %%
-N = 1000
-trans_max_noise = 0.075
-rot_deg_max_noise = 30
+N = 10000
+trans_max_noise = 0.02
+rot_deg_max_noise = 8
 xyz_noise = np.random.uniform(low=-trans_max_noise, high=trans_max_noise, size=(N, 3))
 rpy_noise = np.random.uniform(low=-rot_deg_max_noise, high=rot_deg_max_noise, size=(N, 3))
 
