@@ -543,7 +543,8 @@ def main(args: GenerateHandConfigDictsArgumentParser) -> None:
     else:
         assert args.object_scale is not None
         # object_scales = np.ones(len(object_codes)) * args.object_scale
-        object_scales = np.ones(len(object_codes)) * np.random.uniform(low=0.5, high=1.5) * args.object_scale  # HACK
+        rng = np.random.default_rng(seed=None)
+        object_scales = np.ones(len(object_codes)) * rng.uniform(low=0.5, high=1.5) * args.object_scale  # HACK
     print(f"First 10 in object_scales: {object_scales[:10]}")
     print(f"len(object_scales): {len(object_scales)}")
 
