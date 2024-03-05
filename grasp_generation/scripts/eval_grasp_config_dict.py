@@ -234,7 +234,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         else args.max_grasps_per_batch
         // (args.num_random_pose_noise_samples_per_grasp + 1)
     )
-    pbar = tqdm(range(math.ceil(batch_size / max_grasps_per_batch)))
+    pbar = tqdm(range(math.ceil(batch_size / max_grasps_per_batch)), desc="evaling batches of grasps")
     for i in pbar:
         start_index = i * max_grasps_per_batch
         end_index = min((i + 1) * max_grasps_per_batch, batch_size)
@@ -269,7 +269,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         passed_simulation_array.extend(passed_simulation)
         passed_new_penetration_test_array.extend(passed_new_penetration_test)
         sim.reset_simulator()
-        pbar.set_description(f"mean_success = {np.mean(passed_simulation_array)}")
+        pbar.set_description(f"evaling batches of grasps: mean_success = {np.mean(passed_simulation_array)}")
 
         hand_model.set_parameters(hand_pose[start_index:end_index])
 
