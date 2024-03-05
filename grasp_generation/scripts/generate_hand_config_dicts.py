@@ -489,7 +489,10 @@ def generate(
                     wandb.log(wandb_log_dict)
 
                 pbar.set_description(f"optimizing, mean energy: {energy.mean().item():.4f}")
-            loop_timer.pretty_print_section_times()
+
+            PRINT_LOOP_TIMER_EVERY_LOOP = False
+            if PRINT_LOOP_TIMER_EVERY_LOOP:
+                loop_timer.pretty_print_section_times()
 
         with loop_timer.add_section_timer("save final grasps"):
             save_hand_config_dicts(
