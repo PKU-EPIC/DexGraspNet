@@ -93,7 +93,7 @@ def process_data(args: ArgParser):
             if args.num_random_pose_noise_samples_per_grasp is not None
             else ""
         )
-        + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
+        + (f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}" if len(hand_configs_mid_opt_steps) > 0 else "")
     )
     print_and_run(init_eval_grasp_command)
 
