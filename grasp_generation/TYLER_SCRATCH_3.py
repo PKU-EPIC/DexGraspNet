@@ -20,11 +20,11 @@ passed_sim = data_dict["passed_simulation"]
 passed_penetration = data_dict["passed_new_penetration_test"]
 passed_eval = data_dict["passed_eval"]
 
-# label_to_use = passed_eval
-# label_name = "passed_eval"
+label_to_use = passed_eval
+label_name = "passed_eval"
 
-label_to_use = passed_sim
-label_name = "passed_sim"
+# label_to_use = passed_sim
+# label_name = "passed_sim"
 
 # %%
 plt.hist(label_to_use)

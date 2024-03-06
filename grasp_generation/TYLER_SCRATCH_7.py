@@ -3,7 +3,8 @@ import numpy as np
 import pathlib
 
 # data_path = pathlib.Path("../data/2024-03-05_softballs_idx11_augmented_pose/evaled_grasp_config_dicts/ddg-ycb_054_softball_0_0350.npy")
-data_path = pathlib.Path("../data/2024-03-05_softballs_idx11_augmented_pose_HALTON/evaled_grasp_config_dicts/ddg-ycb_054_softball_0_0350.npy")
+# data_path = pathlib.Path("../data/2024-03-05_softballs_idx11_augmented_pose_HALTON/evaled_grasp_config_dicts/ddg-ycb_054_softball_0_0350.npy")
+data_path = pathlib.Path("../data/PROBE_1_2024-02-07_softball_0-051_5random/evaled_grasp_config_dicts/ddg-ycb_054_softball_0_0510.npy")
 assert data_path.exists()
 
 # %%
@@ -22,8 +23,16 @@ passed_eval = data_dict["passed_eval"]
 trans = data_dict["trans"]
 rot = data_dict["rot"]
 
-N = passed_sim.shape[0]
+# N = passed_sim.shape[0]
+N = 10000
+inds = np.random.choice(np.arange(passed_sim.shape[0]), size=N, replace=False)
 print(f"N = {N}")
+passed_sim = passed_sim[inds]
+passed_penetration = passed_penetration[inds]
+passed_eval = passed_eval[inds]
+trans = trans[inds]
+rot = rot[inds]
+
 assert passed_sim.shape == (N,)
 assert passed_penetration.shape == (N,)
 assert passed_eval.shape == (N,)
@@ -33,6 +42,14 @@ assert rot.shape == (N, 3, 3)
 # %%
 plt.hist(passed_eval)
 plt.title("passed_eval")
+
+# %%
+plt.hist(passed_sim)
+plt.title("passed_sim")
+
+# %%
+plt.scatter(trans[:, 0], trans[:, 1], s=1, c=passed_sim)
+plt.title("Passed Sim")
 
 # %%
 import torch
@@ -65,8 +82,12 @@ class GraspDataset(Dataset):
         ],
         dim=0)
         assert inputs.shape == (12,)
-        labels = torch.tensor(self.passed_eval[idx]).float().reshape(1)
-        assert labels.shape == (1,)
+        # labels = torch.tensor(self.passed_eval[idx]).float().reshape(1)
+        labels = torch.tensor(self.passed_sim[idx]).float().reshape(1)
+        labels = torch.concat(
+            [1 - labels, labels], dim=-1
+        )
+        assert labels.shape == (2,)
         return inputs, labels
 
 # %%
@@ -77,8 +98,8 @@ class BasicMLP(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         input_size = 12
-        output_size = 1
-        hidden_layers = [1024] * 5
+        output_size = 2
+        hidden_layers = [2048] * 6
         self.fcs = nn.ModuleList()
 
         sizes = [input_size] + hidden_layers + [output_size]
@@ -90,6 +111,55 @@ class BasicMLP(nn.Module):
             x = F.relu(fc(x))
         x = self.fcs[-1](x)
         return x
+
+# %%
+
+def assert_equals(a, b):
+    assert a == b, f"{a} != {b}"
+
+class WeightedSoftmaxL1(nn.Module):
+    def __init__(
+        self,
+        unique_label_weights: torch.Tensor,
+        unique_labels: torch.Tensor,
+        *args,
+        **kwargs,
+    ) -> None:
+        super().__init__()
+        self.unique_label_weights = unique_label_weights
+        self.unique_labels = unique_labels
+
+        (N,) = self.unique_labels.shape
+        (N2,) = self.unique_label_weights.shape
+        assert_equals(N, N2)
+
+        self.l1_loss = nn.L1Loss(*args, **kwargs)
+
+    def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        batch_size = input.shape[0]
+        assert_equals(input.shape, (batch_size, 2))
+        assert_equals(target.shape, (batch_size, 2))
+
+        # Compute the raw L1 losses
+        input = torch.softmax(input, dim=-1)
+        l1_losses = self.l1_loss(input, target).mean(dim=-1)
+
+        assert_equals(l1_losses.shape, (batch_size,))
+
+        # Find the closest label for each target and its index
+        target_indices = (
+            (self.unique_labels.unsqueeze(0) - target[:, 1:2]).abs().argmin(dim=1)
+        )
+
+        # Gather the weights for each sample
+        weights = self.unique_label_weights[target_indices]
+
+        # Weight the L1 losses
+        weighted_losses = weights * l1_losses
+
+        assert len(weighted_losses.shape) == 1
+        return weighted_losses
+
 
 
 # %%
@@ -107,11 +177,52 @@ dataset = GraspDataset(
 train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
+all_loader = DataLoader(dataset, batch_size=64, shuffle=False)
+
+# %%
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = BasicMLP().to(device)
 optimizer = Adam(model.parameters())
-loss_fn = nn.L1Loss(reduction="none")
+# loss_fn = nn.L1Loss(reduction="none")
+loss_fn = nn.MSELoss(reduction="none")
+def get_class_from_success_rate(
+    success_rates: np.ndarray, unique_classes: np.ndarray
+) -> int:
+    # [0.5, 0.2, 0.1, 0.5, 0.0, 0.0, ...], [0, 0.1, 0.2, ...] => [5, 2, 1, 5, 0, 0, ...]
+    assert unique_classes.ndim == 1
+    errors = np.absolute(unique_classes[None, :] - success_rates[:, None])
+    return errors.argmin(axis=-1)
+from sklearn.utils.class_weight import compute_class_weight
+def _compute_class_weight(
+    success_rates: np.ndarray, unique_classes: np.ndarray
+) -> np.ndarray:
+    classes = np.arange(len(unique_classes))
+    y_classes = get_class_from_success_rate(
+        success_rates=success_rates, unique_classes=unique_classes
+    )
+    return compute_class_weight(
+        class_weight="balanced",
+        classes=classes,
+        y=y_classes,
+    )
+def get_unique_classes(success_rates: np.ndarray) -> np.ndarray:
+    # [0.5, 0.2, 0.1, 0.5, 0.0, 0.0, ...] => [0, 0.1, 0.2, ...]
+    assert success_rates.ndim == 1
+    unique_classes = np.unique(success_rates)
+    return np.sort(unique_classes)
+unique_labels = get_unique_classes(passed_sim)
+# argmax required to make binary classes
+class_weights_np = _compute_class_weight(
+    success_rates=passed_sim, unique_classes=unique_labels
+)
+# loss_fn = WeightedSoftmaxL1(
+#     unique_label_weights=torch.tensor(class_weights_np).float().to(device),
+#     unique_labels=torch.tensor(unique_labels).float().to(device),
+#     reduction="none",
+# )
+
+
 
 def train_epoch(model: BasicMLP, dataloader: DataLoader, loss_fn: nn.Module, optimizer: Adam) -> float:
     model.train()
@@ -182,5 +293,30 @@ plot_predictions_vs_actual(train_loader, model, "Training Set Predictions vs Act
 
 print("Validation Set Predictions vs Actual")
 plot_predictions_vs_actual(val_loader, model, "Validation Set Predictions vs Actual")
+
+# %%
+
+plt.scatter(trans[:, 0], trans[:, 1], s=1, c=passed_sim)
+plt.title("Passed Sim")
+
+# %%
+preds = []
+for inputs, labels in all_loader:
+    inputs, labels = inputs.to(device), labels.to(device)
+    outputs = model(inputs)
+    preds.extend(outputs[:, 1].tolist())
+
+# %%
+plt.scatter(trans[:, 0], trans[:, 1], s=1, c=preds)
+plt.title("Predictions")
+
+# %%
+diffs = np.abs(passed_sim - preds)
+
+# %%
+plt.scatter(trans[:, 0], trans[:, 1], s=1, c=diffs)
+plt.title("Diffs")
+plt.colorbar()
+
 
 # %%
