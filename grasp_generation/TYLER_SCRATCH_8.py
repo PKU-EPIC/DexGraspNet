@@ -164,7 +164,7 @@ from torch.optim import Adam
 
 N = N_data
 
-train_size = int(0.8 * N)
+train_size = int(0.05 * N)
 val_size = N - train_size
 all_dataset = GraspDataset(
     trans=trans,
@@ -177,6 +177,33 @@ train_dataset, val_dataset = torch.utils.data.random_split(all_dataset, [train_s
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
 all_loader = DataLoader(all_dataset, batch_size=64, shuffle=False)
+
+# %%
+train_trans, train_labels = [], []
+for i in range(len(train_dataset)):
+    train_input, train_label = train_dataset[i]
+    train_trans.append(train_input[:2])
+    train_labels.append(train_label)
+train_trans = torch.stack(train_trans, dim=0).numpy()
+train_labels = torch.stack(train_labels, dim=0).numpy()
+
+# %%
+plt.scatter(train_trans[:, 0], train_trans[:, 1], s=1, c=train_labels[:, 1])
+plt.title("Train")
+
+# %%
+val_trans, val_labels = [], []
+for i in range(len(val_dataset)):
+    val_input, val_label = val_dataset[i]
+    val_trans.append(val_input[:2])
+    val_labels.append(val_label)
+
+val_trans = torch.stack(val_trans, dim=0).numpy()
+val_labels = torch.stack(val_labels, dim=0).numpy()
+
+# %%
+plt.scatter(val_trans[:, 0], val_trans[:, 1], s=1, c=val_labels[:, 1])
+plt.title("Val")
 
 # %%
 
@@ -362,7 +389,7 @@ print([i for i in range(len(preds)) if 0.4 > preds[i] > 0.2])
 
 # %%
 model.eval()
-start_idx = 7124
+start_idx = 7779
 start_point = np.concatenate([trans[start_idx], rot[start_idx].flatten()])
 start_point_torch = torch.tensor(start_point).float().to(device)
 start_point_torch = start_point_torch.requires_grad_(True)
@@ -383,7 +410,7 @@ point_torch = start_point_torch.detach().clone()
 pred_list = []
 point_list = []
 grad_list = []
-for i in range(100):
+for i in range(1000):
     point_torch.requires_grad_(True)
     point_torch.grad = None
     pred = model(point_torch)[1]
@@ -412,7 +439,7 @@ for i in range(len(point_list) - 1):
     grad_scaled = grad_arr[i] * 0.0001
     plt.scatter(point_arr[i, 0], point_arr[i, 1], s=10, c="red")
     plt.quiver(point_arr[i, 0], point_arr[i, 1], grad_scaled[0], grad_scaled[1], scale=0.3)
-plt.title(f"Predictions, pred = {pred.item()}, actual = {passed_sim[start_idx]}")
+plt.title(f"Predictions, pred = {pred_list[-1]}")
 
 # %%
 plt.plot(np.linalg.norm(grad_arr[:, 0:2], axis=1))
