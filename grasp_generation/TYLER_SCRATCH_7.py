@@ -320,8 +320,11 @@ plt.colorbar()
 
 
 # %%
+print([i for i in range(len(preds)) if 0.2 > preds[i] > 0.0])
+
+# %%
 model.eval()
-start_idx = 0
+start_idx = 64
 start_point = np.concatenate([trans[start_idx], rot[start_idx].flatten()])
 start_point_torch = torch.tensor(start_point).float().to(device)
 start_point_torch = start_point_torch.requires_grad_(True)
@@ -339,18 +342,19 @@ plt.title(f"Predictions, pred = {pred.item()}, actual = {passed_sim[start_idx]}"
 # %%
 point_torch = start_point_torch.detach().clone()
 # best_point_optimizer = Adam([point_torch], lr=0.01)
+pred_list = []
 point_list = []
 grad_list = []
-for i in range(10):
+for i in range(100):
     point_torch.requires_grad_(True)
     point_torch.grad = None
     pred = model(point_torch)[1]
     pred.backward()
+    pred_list.append(pred.item())
     point_list.append(point_torch.tolist()[:2])
     grad_list.append(point_torch.grad.tolist()[:2])
     with torch.no_grad():
         point_torch = point_torch + point_torch.grad * 0.0001
-    print(f"i = {i}, pred = {pred.item()}")
 
 point_list.append(point_torch.tolist()[:2])
 
@@ -364,9 +368,17 @@ print(f"grad_arr.shape = {grad_arr.shape}")
 # %%
 plt.scatter(trans[:, 0], trans[:, 1], s=1, c=preds)
 plt.scatter(start_point[0], start_point[1], s=100, c="red")
+end_point = point_list[-1]
+plt.scatter(end_point[0], end_point[1], s=100, c="green")
 for i in range(len(point_list) - 1):
     grad_scaled = grad_arr[i] * 0.0001
     plt.scatter(point_arr[i, 0], point_arr[i, 1], s=10, c="red")
-    plt.quiver(point_arr[i, 0], point_arr[i, 1], grad_scaled[0], grad_scaled[1], scale=0.1)
+    plt.quiver(point_arr[i, 0], point_arr[i, 1], grad_scaled[0], grad_scaled[1], scale=0.3)
+
+# %%
+plt.plot(np.linalg.norm(grad_arr[:, 0:2], axis=1))
+
+# %%
+plt.plot(pred_list)
 
 # %%
