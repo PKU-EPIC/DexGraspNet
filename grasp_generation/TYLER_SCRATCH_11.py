@@ -21,17 +21,17 @@ passed_eval = data_dict["passed_eval"]
 trans = data_dict["trans"]
 rot = data_dict["rot"]
 
-# HACK: Remove many of the 0 labels
-zero_indices = np.where(passed_eval == 0)[0]
-num_to_keep = int(0.2 * len(zero_indices))
-indices_to_keep = np.random.choice(zero_indices, size=num_to_keep, replace=False)
-indices_to_remove = np.setdiff1d(zero_indices, indices_to_keep)
-
-passed_sim = np.delete(passed_sim, indices_to_remove)
-passed_penetration = np.delete(passed_penetration, indices_to_remove)
-passed_eval = np.delete(passed_eval, indices_to_remove)
-trans = np.delete(trans, indices_to_remove, axis=0)
-rot = np.delete(rot, indices_to_remove, axis=0)
+# # HACK: Remove many of the 0 labels
+# zero_indices = np.where(passed_eval == 0)[0]
+# num_to_keep = int(0.2 * len(zero_indices))
+# indices_to_keep = np.random.choice(zero_indices, size=num_to_keep, replace=False)
+# indices_to_remove = np.setdiff1d(zero_indices, indices_to_keep)
+# 
+# passed_sim = np.delete(passed_sim, indices_to_remove)
+# passed_penetration = np.delete(passed_penetration, indices_to_remove)
+# passed_eval = np.delete(passed_eval, indices_to_remove)
+# trans = np.delete(trans, indices_to_remove, axis=0)
+# rot = np.delete(rot, indices_to_remove, axis=0)
 
 N_data = passed_sim.shape[0]
 print(f"N_data = {N_data}")
@@ -52,8 +52,9 @@ plt.title("passed_sim")
 
 # %%
 from localscope import localscope
+from typing import Tuple
 @localscope.mfc
-def plot_labels(trans: np.ndarray, labels: np.ndarray, title: str) -> plt.Figure:
+def plot_labels(trans: np.ndarray, labels: np.ndarray, title: str) -> Tuple[plt.Figure, np.ndarray]:
     N = trans.shape[0]
     assert trans.shape == (N, 3)
     assert labels.shape == (N,)
@@ -73,13 +74,13 @@ def plot_labels(trans: np.ndarray, labels: np.ndarray, title: str) -> plt.Figure
         axes[i].set_title(f"z in [{z_low:.2f}, {z_high:.2f}]")
     fig.suptitle(title)
     fig.tight_layout()
-    return fig
+    return fig, axes
 
 # %%
-fig = plot_labels(trans=trans, labels=passed_eval, title="passed_eval")
+fig, axes = plot_labels(trans=trans, labels=passed_eval, title="passed_eval")
 
 # %%
-fig = plot_labels(trans=trans, labels=passed_sim, title="passed_sim")
+fig, axes = plot_labels(trans=trans, labels=passed_sim, title="passed_sim")
 
 
 # %%
@@ -171,7 +172,7 @@ train_trans = torch.stack(train_trans, dim=0).numpy()
 train_labels = torch.stack(train_labels, dim=0).numpy()
 
 # %%
-fig = plot_labels(trans=train_trans, labels=train_labels[:, 1], title="Train")
+fig, axes = plot_labels(trans=train_trans, labels=train_labels[:, 1], title="Train")
 
 # %%
 val_trans, val_labels = [], []
@@ -184,7 +185,7 @@ val_trans = torch.stack(val_trans, dim=0).numpy()
 val_labels = torch.stack(val_labels, dim=0).numpy()
 
 # %%
-fig = plot_labels(trans=val_trans, labels=val_labels[:, 1], title="Val")
+fig, axes = plot_labels(trans=val_trans, labels=val_labels[:, 1], title="Val")
 
 # %%
 
@@ -266,7 +267,7 @@ print("Validation Set Predictions vs Actual")
 plot_predictions_vs_actual(val_loader, model, "Validation Set Predictions vs Actual")
 
 # %%
-fig = plot_labels(trans=trans, labels=passed_eval, title="passed_eval")
+fig, axes = plot_labels(trans=trans, labels=passed_eval, title="passed_eval")
 
 # %%
 preds = []
@@ -277,12 +278,12 @@ for inputs, labels in all_loader:
 
 
 # %%
-fig = plot_labels(trans=trans, labels=np.array(preds), title="preds")
+fig, axes = plot_labels(trans=trans, labels=np.array(preds), title="preds")
 
 
 # %%
 diffs = np.abs(passed_eval - preds)
-fig = plot_labels(trans=trans, labels=np.array(diffs), title="diffs")
+fig, axes = plot_labels(trans=trans, labels=np.array(diffs), title="diffs")
 
 # %%
 grad_norms = []
@@ -296,7 +297,7 @@ for inputs, labels in all_loader:
     grad_norms.extend(grad_norm.tolist())
 
 # %%
-fig = plot_labels(trans=trans, labels=np.array(grad_norms), title="grad_norms")
+fig, axes = plot_labels(trans=trans, labels=np.array(grad_norms), title="grad_norms")
 
 # %%
 print([i for i in range(len(preds)) if 1.0 > preds[i] > 0.5])
@@ -307,7 +308,7 @@ model.eval()
 # start_idx = 9402
 # start_idx = 1213
 # start_idx = 1234
-start_idx = 54
+start_idx = 535
 start_point = np.concatenate([trans[start_idx], rot[start_idx].flatten()])
 start_point_torch = torch.tensor(start_point).float().to(device)
 start_point_torch = start_point_torch.requires_grad_(True)
@@ -339,8 +340,8 @@ for i in tqdm(range(10000)):
     point_list.append(point_torch.tolist()[:3])
     grad_list.append(point_torch.grad.tolist()[:3])
     with torch.no_grad():
-        # step_size = 0.000001
-        step_size = 0.1
+        step_size = 0.0001
+        # step_size = 0.1
         # if point_torch.grad[:3].norm() <= 1e-1:
         #     print("SMALL")
         #     print(f"point_torch.grad[:3].norm() = {point_torch.grad[:3].norm()}")
@@ -385,6 +386,44 @@ for i in tqdm(range(len(point_list) - 1)):
     plt.scatter(point_arr[i, 0], point_arr[i, 1], s=10, c="red")
     plt.quiver(point_arr[i, 0], point_arr[i, 1], grad_scaled[0], grad_scaled[1], scale=1.0)
 plt.title(f"Predictions, pred = {pred_list[-1]}")
+
+# %%
+def plot_labels_and_points(trans: np.ndarray, labels: np.ndarray, title: str, points: np.ndarray) -> Tuple[plt.Figure, np.ndarray]:
+    N2 = points.shape[0]
+    alphas = np.linspace(0.0, 1.0, N2)
+    assert points.shape == (N2, 3)
+    cmap = plt.get_cmap('rainbow')  # Choosing a colormap
+
+    N = trans.shape[0]
+    assert trans.shape == (N, 3)
+    assert labels.shape == (N,)
+    z_min, z_max = np.min(trans[:, 2]), np.max(trans[:, 2])
+    n_plots = 10
+    z_list = np.linspace(z_min, z_max, n_plots + 1)
+    nrows = int(np.ceil(np.sqrt(n_plots)))
+    ncols = int(np.ceil(n_plots / nrows))
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols)
+    axes = axes.flatten()
+    for i, (z_low, z_high) in enumerate(zip(z_list[:-1], z_list[1:])):
+        points_to_plot = np.logical_and(
+            trans[:, 2] > z_low,
+            trans[:, 2] < z_high,
+        )
+        axes[i].scatter(trans[points_to_plot, 0], trans[points_to_plot, 1], s=1, c=labels[points_to_plot])
+        axes[i].set_title(f"z in [{z_low:.2f}, {z_high:.2f}]")
+        points2_to_plot = np.logical_and(
+            points[:, 2] > z_low,
+            points[:, 2] < z_high,
+        )
+        if points2_to_plot.sum() > 0:
+            colors = cmap(alphas[points2_to_plot])
+            axes[i].scatter(points[points2_to_plot, 0], points[points2_to_plot, 1], s=10, c=colors)
+    fig.suptitle(title)
+    fig.tight_layout()
+    return fig, axes
+
+
+fig, axes = plot_labels_and_points(trans=trans, labels=np.array(preds), title="preds", points=point_arr)
 
 # %%
 plt.plot(np.linalg.norm(grad_arr[:, 0:3], axis=1))

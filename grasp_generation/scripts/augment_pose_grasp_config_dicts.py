@@ -22,9 +22,9 @@ class ArgParser(Tap):
     output_grasp_config_dicts_path: Optional[pathlib.Path] = None
     mid_optimization_steps: List[int] = []
 
-    num_augmentations_per_grasp: int = 1000
-    trans_noise_max: float = 0.1
-    rot_deg_noise_max: float = 30.0
+    num_augmentations_per_grasp: int = 10000
+    trans_noise_max: float = 0.03
+    rot_deg_noise_max: float = 0.0
     augment_only_successes: bool = False
     no_continue: bool = False
 

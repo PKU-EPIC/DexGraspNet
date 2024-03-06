@@ -96,6 +96,7 @@ def process_data(args: ArgParser):
         + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
     )
     print_and_run(init_eval_grasp_command)
+    breakpoint()
 
     if args.results_path is not None:
         print_and_run(sync_command)
