@@ -389,7 +389,11 @@ print([i for i in range(len(preds)) if 0.4 > preds[i] > 0.2])
 
 # %%
 model.eval()
-start_idx = 7779
+# start_idx = 9000
+# start_idx = 9402
+start_idx = 3453
+# start_idx = 1234
+# start_idx = 7779
 start_point = np.concatenate([trans[start_idx], rot[start_idx].flatten()])
 start_point_torch = torch.tensor(start_point).float().to(device)
 start_point_torch = start_point_torch.requires_grad_(True)
@@ -410,7 +414,9 @@ point_torch = start_point_torch.detach().clone()
 pred_list = []
 point_list = []
 grad_list = []
-for i in range(1000):
+from tqdm import tqdm
+consecutive_high = 0
+for i in tqdm(range(10000)):
     point_torch.requires_grad_(True)
     point_torch.grad = None
     pred = model(point_torch)[1]
@@ -419,7 +425,24 @@ for i in range(1000):
     point_list.append(point_torch.tolist()[:2])
     grad_list.append(point_torch.grad.tolist()[:2])
     with torch.no_grad():
-        point_torch = point_torch + point_torch.grad * 0.0001
+        step_size = 0.0001
+        if point_torch.grad[:2].norm() <= 1e-1:
+            print("SMALL")
+            print(f"point_torch.grad[:2].norm() = {point_torch.grad[:2].norm()}")
+            step_size = 0.1 / point_torch.grad[:2].norm()
+        else:
+            print(f"point_torch.grad[:2].norm() = {point_torch.grad[:2].norm()}")
+        # print(f"point_torch.grad[:2].norm() = {point_torch.grad[:2].norm()}")
+        point_torch[:2] = point_torch[:2] + point_torch.grad[:2] * step_size
+    if pred.item() > 0.9:
+        consecutive_high += 1
+    else:
+        consecutive_high = 0
+    if consecutive_high > 100:
+        break
+    if i % 1000 == 0:
+        print(f"i = {i}, pred = {pred.item()}")
+        # point_torch = point_torch + point_torch.grad * 0.001
 
 point_list.append(point_torch.tolist()[:2])
 
@@ -436,10 +459,16 @@ plt.scatter(start_point[0], start_point[1], s=100, c="red")
 end_point = point_list[-1]
 plt.scatter(end_point[0], end_point[1], s=100, c="green")
 for i in range(len(point_list) - 1):
+    if i % 1000 != 0:
+        continue
     grad_scaled = grad_arr[i] * 0.0001
     plt.scatter(point_arr[i, 0], point_arr[i, 1], s=10, c="red")
-    plt.quiver(point_arr[i, 0], point_arr[i, 1], grad_scaled[0], grad_scaled[1], scale=0.3)
+    plt.quiver(point_arr[i, 0], point_arr[i, 1], grad_scaled[0], grad_scaled[1], scale=1.0)
 plt.title(f"Predictions, pred = {pred_list[-1]}")
+
+# %%
+plt.plot(np.linalg.norm(grad_arr[:, 0:2], axis=1))
+plt.title("grad norm")
 
 # %%
 plt.plot(np.linalg.norm(grad_arr[:, 0:2], axis=1))
