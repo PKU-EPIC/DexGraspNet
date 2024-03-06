@@ -29,12 +29,26 @@ assert data["passed_eval"] == 1
 N = 10000
 trans_max_noise = 0.02
 rot_deg_max_noise = 8
-xyz_noise = np.random.uniform(low=-trans_max_noise, high=trans_max_noise, size=(N, 3))
-rpy_noise = np.random.uniform(low=-rot_deg_max_noise, high=rot_deg_max_noise, size=(N, 3))
+
+# %%
+from scipy.stats.qmc import Halton
+USE_HALTON = True
+if USE_HALTON:
+    xyz_noise = (Halton(d=3, scramble=True).random(n=N) * 2 - 1) * trans_max_noise
+    rpy_noise = (Halton(d=3, scramble=True).random(n=N) * 2 - 1) * rot_deg_max_noise
+else:
+    xyz_noise = np.random.uniform(low=-trans_max_noise, high=trans_max_noise, size=(N, 3))
+    rpy_noise = np.random.uniform(low=-rot_deg_max_noise, high=rot_deg_max_noise, size=(N, 3))
 
 # No noise for the first element.
 xyz_noise[0, :] = 0
 rpy_noise[0, :] = 0
+
+# %%
+import plotly.graph_objects as go
+fig = go.Figure()
+fig.add_trace(go.Scatter3d(x=xyz_noise[:, 0], y=xyz_noise[:, 1], z=xyz_noise[:, 2], mode="markers", marker=dict(size=1)))
+
 
 # %%
 new_data_dict = {k: v[None, ...].repeat(N, axis=0) for k, v in data.items()}
@@ -48,7 +62,7 @@ new_data_dict["trans"][:] = new_xyz
 new_data_dict["rot"][:] = R.from_euler('xyz', new_rpy, degrees=True).as_matrix()
 
 # %%
-new_data_path = pathlib.Path(f"../data/2024-03-05_softballs_idx{IDX}_augmented_pose/grasp_config_dicts/ddg-ycb_054_softball_0_0350.npy")
+new_data_path = pathlib.Path(f"../data/2024-03-05_softballs_idx{IDX}_augmented_pose_HALTON/grasp_config_dicts/ddg-ycb_054_softball_0_0350.npy")
 print(f"new_data_path = {new_data_path}")
 new_data_path.parent.mkdir(parents=True, exist_ok=True)
 np.save(new_data_path, new_data_dict)
