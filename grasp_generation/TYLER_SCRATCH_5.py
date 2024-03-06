@@ -26,7 +26,7 @@ data = {k: v[IDX] for k, v in data_dict.items()}
 assert data["passed_eval"] == 1
 
 # %%
-N = 100000
+N = 30000
 trans_max_noise = 0.03
 rot_deg_max_noise = 0
 
@@ -62,7 +62,7 @@ new_data_dict["trans"][:] = new_xyz
 new_data_dict["rot"][:] = R.from_euler('xyz', new_rpy, degrees=True).as_matrix()
 
 # %%
-new_data_path = pathlib.Path(f"../data/2024-03-05_softballs_idx{IDX}_augmented_pose_HALTON_no-rot_100k/grasp_config_dicts/ddg-ycb_054_softball_0_0350.npy")
+new_data_path = pathlib.Path(f"../data/2024-03-05_softballs_idx{IDX}_augmented_pose_HALTON_no-rot_30k/grasp_config_dicts/ddg-ycb_054_softball_0_0350.npy")
 print(f"new_data_path = {new_data_path}")
 new_data_path.parent.mkdir(parents=True, exist_ok=True)
 np.save(new_data_path, new_data_dict)
