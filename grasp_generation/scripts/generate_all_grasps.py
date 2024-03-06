@@ -46,12 +46,12 @@ def process_data(args: ArgParser):
         f"python scripts/generate_hand_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
         + f" --output_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'hand_config_dicts'}"
         + " --use_penetration_energy"
-        + " --rand_object_scale" # Turning off so we don't have to regen nerfs every time.
+        + " --rand_object_scale" # May turning off so we don't have to regen nerfs every time.
         # + " --object_scale 0.03" # For cube only to get 200cm => 6cm
         # + " --object_scale 0.051" # For softball only to get 190cm => 9.7cm
         + " --min_object_scale 0.05"
         + " --max_object_scale 0.1"
-        + " --batch_size_each_object 10 --n_objects_per_batch 5"  # For less grasps per object
+        # + " --batch_size_each_object 10 --n_objects_per_batch 5"  # For less grasps per object
         # + " --batch_size_each_object 1000 --n_objects_per_batch 5"  # For more grasps per object
         # + " --store_grasps_mid_optimization_freq 200"  # For more low-quality grasps
     )
@@ -71,14 +71,14 @@ def process_data(args: ArgParser):
     )
     hand_configs_mid_opt_steps = [
         int(str(x.stem)) for x in hand_configs_mid_opt_path.iterdir()
-    ]
+    ] if hand_configs_mid_opt_path.exists() else []
 
     # Generate raw grasp configs.
     init_grasp_gen_command = (
         f"python scripts/generate_grasp_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
         + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'hand_config_dicts'}"
         + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
-        + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
+        + (f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}" if len(hand_configs_mid_opt_steps) > 0 else "")
     )
     print_and_run(init_grasp_gen_command)
 
