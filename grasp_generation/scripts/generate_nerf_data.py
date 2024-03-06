@@ -38,6 +38,12 @@ def get_object_code_and_scale_strs_from_folder(
     object_code_and_scale_strs = []
     for file_path in folder_path.iterdir():
         object_code_and_scale_str = file_path.stem
+        try:
+            parse_object_code_and_scale(object_code_and_scale_str)
+        except Exception as e:
+            print(f"Exception: {e}")
+            print(f"Skipping {object_code_and_scale_str} and continuing")
+            continue
         object_code_and_scale_strs.append(object_code_and_scale_str)
     return object_code_and_scale_strs
 
