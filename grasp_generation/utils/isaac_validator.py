@@ -215,6 +215,8 @@ class IsaacValidator:
         self.sim_params.physx.num_velocity_iterations = 8
         self.sim_params.physx.contact_offset = 0.001  # Want this to be very close to 0 so no unneeded collisions, but need some for sim stability
         self.sim_params.physx.rest_offset = 0.0  # Want this to be 0 so that objects don't float when on table
+        self.sim_params.physx.max_gpu_contact_pairs = 8 * 1024 * 1024  # Default is 1024 * 1024
+        self.sim_params.physx.default_buffer_size_multiplier = 20.0  # Default is 2.0
 
         self.sim_params.use_gpu_pipeline = False
         self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
