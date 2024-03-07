@@ -106,7 +106,7 @@ def process_data(args: ArgParser):
     #     + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_evaled_grasp_config_dicts'}"
     #     + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_hand_config_dicts'}"
     #     + f" --augment_only_successes"
-    #     + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
+    #     + (f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}" if len(hand_configs_mid_opt_steps) > 0 else "")
     # )
     # print_and_run(augment_grasp_command)
 
@@ -115,7 +115,7 @@ def process_data(args: ArgParser):
     #     f"python scripts/generate_grasp_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
     #     + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_hand_config_dicts_opened_hand'}"
     #     + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_grasp_config_dicts_opened_hand'}"
-    #     + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
+    #     + (f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}" if len(hand_configs_mid_opt_steps) > 0 else "")
     # )
     # print_and_run(opened_update_augmented_grasp_command)
 
@@ -124,7 +124,7 @@ def process_data(args: ArgParser):
     #     f"python scripts/generate_grasp_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
     #     + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_hand_config_dicts_closed_hand'}"
     #     + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_raw_grasp_config_dicts_closed_hand'}"
-    #     + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
+    #     + (f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}" if len(hand_configs_mid_opt_steps) > 0 else "")
     # )
     # print_and_run(closed_update_augmented_grasp_command)
 
@@ -139,7 +139,7 @@ def process_data(args: ArgParser):
     #         if args.num_random_pose_noise_samples_per_grasp is not None
     #         else ""
     #     )
-    #     + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
+    #     + (f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}" if len(hand_configs_mid_opt_steps) > 0 else "")
     # )
     # print_and_run(opened_eval_grasp_command)
     # closed_eval_grasp_command = (
@@ -152,7 +152,7 @@ def process_data(args: ArgParser):
     #         if args.num_random_pose_noise_samples_per_grasp is not None
     #         else ""
     #     )
-    #     + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
+    #     + (f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}" if len(hand_configs_mid_opt_steps) > 0 else "")
     # )
     # print_and_run(closed_eval_grasp_command)
 
@@ -170,7 +170,7 @@ def process_data(args: ArgParser):
     #     + f" --input_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_evaled_grasp_config_dicts'}"
     #     + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_pose_raw_hand_config_dicts'}"
     #     # + f" --augment_only_successes"
-    #     + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
+    #     + (f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}" if len(hand_configs_mid_opt_steps) > 0 else "")
     # )
     # print_and_run(augment_pose_grasp_command)
 
@@ -179,7 +179,7 @@ def process_data(args: ArgParser):
     #     f"python scripts/generate_grasp_config_dicts.py --meshdata_root_path {args.input_meshdata_path}"
     #     + f" --input_hand_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_pose_raw_hand_config_dicts'}"
     #     + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'augmented_pose_raw_grasp_config_dicts'}"
-    #     + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
+    #     + (f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}" if len(hand_configs_mid_opt_steps) > 0 else "")
     # )
     # print_and_run(update_augmented_pose_grasp_commmand)
 
@@ -194,7 +194,7 @@ def process_data(args: ArgParser):
     #         if args.num_random_pose_noise_samples_per_grasp is not None
     #         else ""
     #     )
-    #     + f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}"
+    #     + (f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}" if len(hand_configs_mid_opt_steps) > 0 else "")
     # )
     # print_and_run(eval_augmented_pose_grasp_command)
 
