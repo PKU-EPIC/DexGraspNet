@@ -334,10 +334,11 @@ class IsaacValidator:
         collision_idx: int,
         obj_scale: float,
     ) -> None:
+        OBJ_MAX_EXTENT_FROM_ORIGIN = 0.2
+
         BUFFER = 1.2
-        OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0 * obj_scale * BUFFER
         TABLE_THICKNESS = 0.1
-        y_offset = OBJ_MAX_EXTENT_FROM_ORIGIN + TABLE_THICKNESS / 2
+        y_offset = OBJ_MAX_EXTENT_FROM_ORIGIN * BUFFER + TABLE_THICKNESS / 2
         table_pose = gymapi.Transform()
         table_pose.p = gymapi.Vec3(0, -y_offset, 0)
         table_pose.r = gymapi.Quat(0, 0, 0, 1)
@@ -516,6 +517,13 @@ class IsaacValidator:
         self.obj_link_idx_to_name_dicts.append(
             get_link_idx_to_name_dict(env=env, actor_handle=obj_actor_handle)
         )
+
+        # Print
+        PRINT_MASS = False
+        if PRINT_MASS:
+            obj_rb_props = gym.get_actor_rigid_body_properties(env, obj_actor_handle)
+            masses = [rb_prop.mass for rb_prop in obj_rb_props]
+            print(f"total_mass = {sum(masses)}")
 
         # Set obj shape props
         obj_shape_props = gym.get_actor_rigid_shape_properties(env, obj_actor_handle)

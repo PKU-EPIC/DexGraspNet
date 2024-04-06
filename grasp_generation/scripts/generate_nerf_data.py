@@ -56,7 +56,7 @@ def get_object_codes_and_scales_to_process(
         input_object_codes = [
             object_code for object_code in os.listdir(args.meshdata_root_path)
         ]
-        HARDCODED_OBJECT_SCALE = 0.1
+        HARDCODED_OBJECT_SCALE = 0.06
         input_object_scales = [HARDCODED_OBJECT_SCALE] * len(input_object_codes)
         print(
             f"Found {len(input_object_codes)} object codes in args.mesh_path ({args.meshdata_root_path})"
