@@ -193,7 +193,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             add_random_pose_noise=add_random_pose_noise,
             record=index in args.record_indices,
         )
-        passed_simulation, passed_new_penetration_test = sim.run_sim()
+        passed_simulation, passed_new_penetration_test, object_states_before_grasp = sim.run_sim()
         sim.reset_simulator()
         print(
             f"passed_simulation = {passed_simulation} ({np.mean(passed_simulation) * 100:.2f}%)"
@@ -201,6 +201,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         print(
             f"passed_new_penetration_test = {passed_new_penetration_test} ({np.mean(passed_new_penetration_test) * 100:.2f}%)"
         )
+        print(f"object_states_before_grasp = {object_states_before_grasp}")
         print("Ending...")
         return
 
@@ -227,6 +228,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
     # Run for loop over minibatches of grasps.
     passed_simulation_array = []
     passed_new_penetration_test_array = []
+    object_states_before_grasp_array = []
     E_pen_array = []
     max_grasps_per_batch = (
         args.max_grasps_per_batch
@@ -265,9 +267,10 @@ def main(args: EvalGraspConfigDictArgumentParser):
                         record=index in args.record_indices,
                     )
 
-        passed_simulation, passed_new_penetration_test = sim.run_sim()
+        passed_simulation, passed_new_penetration_test, object_states_before_grasp = sim.run_sim()
         passed_simulation_array.extend(passed_simulation)
         passed_new_penetration_test_array.extend(passed_new_penetration_test)
+        object_states_before_grasp_array.append(object_states_before_grasp)
         sim.reset_simulator()
         pbar.set_description(f"evaling batches of grasps: mean_success = {np.mean(passed_simulation_array)}")
 
@@ -290,6 +293,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
     # Aggregate results
     passed_simulation_array = np.array(passed_simulation_array)
     passed_new_penetration_test_array = np.array(passed_new_penetration_test_array)
+    object_states_before_grasp_array = np.array(object_states_before_grasp_array)
     E_pen_array = np.array(E_pen_array)
 
     if args.num_random_pose_noise_samples_per_grasp is not None:
@@ -320,6 +324,13 @@ def main(args: EvalGraspConfigDictArgumentParser):
     assert passed_simulation_array.shape == (batch_size,)
     assert passed_new_penetration_test_array.shape == (batch_size,)
     assert E_pen_array.shape == (batch_size,)
+
+    object_states_before_grasp_array = object_states_before_grasp_array.transpose((1, 0, 2))
+    assert object_states_before_grasp_array.shape == (
+        batch_size,
+        args.num_random_pose_noise_samples_per_grasp + 1 if args.num_random_pose_noise_samples_per_grasp else 1,
+        13,
+    )
 
     if args.penetration_threshold is None:
         print("WARNING: penetration check skipped")
@@ -375,6 +386,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         "passed_simulation": passed_simulation_array,
         "passed_eval": passed_eval,
         "penetration": E_pen_array,
+        "object_states_before_grasp": object_states_before_grasp_array,
     }
 
     args.output_evaled_grasp_config_dicts_path.mkdir(parents=True, exist_ok=True)
