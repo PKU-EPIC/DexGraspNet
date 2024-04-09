@@ -339,7 +339,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
     passed_eval = (
         passed_simulation_array
-        * OLD_passed_penetration_threshold_array
+        # * OLD_passed_penetration_threshold_array
         * passed_new_penetration_test_array
     )
     # TODO: Remove these prints
@@ -367,10 +367,10 @@ def main(args: EvalGraspConfigDictArgumentParser):
     eval_frac = np.mean(passed_eval)
     print("=" * 80)
     print(
-        f"passed_penetration_threshold: {OLD_passed_penetration_threshold_array.sum().item()}/{batch_size} ({100*pen_frac:.2f}%),"
+        # f"passed_penetration_threshold: {OLD_passed_penetration_threshold_array.sum().item()}/{batch_size} ({100*pen_frac:.2f}%),"
         f"passed_simulation: {passed_simulation_array.sum().item()}/{batch_size} ({100 * sim_frac:.2f}%),"
         f"passed_new_penetration_test: {passed_new_penetration_test_array.sum().item()}/{batch_size} ({100 * new_pen_frac:.2f}%),"
-        f"passed_eval = passed_simulation * passed_penetration_threshold * passed_new_penetration_test: {passed_eval.sum().item()}/{batch_size} ({100 * eval_frac:.2f}%)"
+        f"passed_eval = passed_simulation * passed_new_penetration_test: {passed_eval.sum().item()}/{batch_size} ({100 * eval_frac:.2f}%)"
     )
     print("=" * 80)
 
