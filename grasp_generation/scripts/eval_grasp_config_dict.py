@@ -270,7 +270,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         passed_simulation, passed_new_penetration_test, object_states_before_grasp = sim.run_sim()
         passed_simulation_array.extend(passed_simulation)
         passed_new_penetration_test_array.extend(passed_new_penetration_test)
-        object_states_before_grasp_array.append(object_states_before_grasp)
+        object_states_before_grasp_array.append(object_states_before_grasp.reshape(-1, 13))
         sim.reset_simulator()
         pbar.set_description(f"evaling batches of grasps: mean_success = {np.mean(passed_simulation_array)}")
 
@@ -325,8 +325,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
     assert passed_new_penetration_test_array.shape == (batch_size,)
     assert E_pen_array.shape == (batch_size,)
 
-    object_states_before_grasp_array = object_states_before_grasp_array.transpose((1, 0, 2))
-    assert object_states_before_grasp_array.shape == (
+    object_states_before_grasp_array = object_states_before_grasp_array.reshape(
         batch_size,
         args.num_random_pose_noise_samples_per_grasp + 1 if args.num_random_pose_noise_samples_per_grasp else 1,
         13,

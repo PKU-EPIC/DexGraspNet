@@ -327,13 +327,7 @@ class IsaacValidator:
         if record:
             self._setup_camera(env)
 
-    def _setup_table(
-        self,
-        env,
-        transformation: gymapi.Transform,
-        collision_idx: int,
-        obj_scale: float,
-    ) -> None:
+    def get_table_surface_height(self, obj_scale: float) -> float:
         # OBJ_MAX_EXTENT_FROM_ORIGIN = 0.2
         # BUFFER = 1
         # TABLE_THICKNESS = 0.1
@@ -343,9 +337,19 @@ class IsaacValidator:
         OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0 * obj_scale * BUFFER
         TABLE_THICKNESS = 0.1
         y_offset = OBJ_MAX_EXTENT_FROM_ORIGIN + TABLE_THICKNESS / 2
+        return -y_offset
+
+    def _setup_table(
+        self,
+        env,
+        transformation: gymapi.Transform,
+        collision_idx: int,
+        obj_scale: float,
+    ) -> None:
+        table_surface_height = self.get_table_surface_height(obj_scale=obj_scale)
 
         table_pose = gymapi.Transform()
-        table_pose.p = gymapi.Vec3(0, -y_offset, 0)
+        table_pose.p = gymapi.Vec3(0, table_surface_height, 0)
         table_pose.r = gymapi.Quat(0, 0, 0, 1)
 
         table_pose = transformation * table_pose
