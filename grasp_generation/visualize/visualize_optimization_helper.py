@@ -236,6 +236,7 @@ def create_figure_with_buttons_and_slider(
                 ),
             ],
             sliders=[sliders_dict],
+            scene_camera=input_figs[FIG_TO_SHOW_FIRST].layout.scene.camera,
         ),
         frames=[
             go.Frame(
@@ -246,6 +247,7 @@ def create_figure_with_buttons_and_slider(
                         fig=fig, idx=fig_idx, visualization_freq=visualization_freq
                     ),
                     showlegend=True,
+                    scene_camera=fig.layout.scene.camera,
                 ),
                 name=get_fig_name(fig_idx),  # Important to match with slider label
             )
