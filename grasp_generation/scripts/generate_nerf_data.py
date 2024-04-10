@@ -22,6 +22,7 @@ class GenerateNerfDataArgumentParser(Tap):
     gpu: int = 0
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     output_nerfdata_path: pathlib.Path = pathlib.Path("../data/nerfdata")
+    num_cameras: int = 250
     randomize_order_seed: Optional[int] = None
     only_objects_in_this_path: Optional[pathlib.Path] = None
     use_multiprocess: bool = True
@@ -120,6 +121,7 @@ def run_command(
             f"--output_nerfdata_path {args.output_nerfdata_path}",
             f"--object_code {object_code}",
             f"--object_scale {object_scale}",
+            f"--num_cameras {args.num_cameras}",
         ]
     )
     print(f"Running command: {command}")

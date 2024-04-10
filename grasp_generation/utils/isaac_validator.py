@@ -1064,7 +1064,8 @@ class IsaacValidator:
         self.camera_envs.append(env)
 
         cam_target = gymapi.Vec3(0, 0, 0)  # type: ignore  # where object s
-        cam_pos = cam_target + gymapi.Vec3(-0.25, 0.1, 0.1)  # Define offset
+
+        cam_pos = cam_target + gymapi.Vec3(0.25, 0.1, -0.1)  # Define offset
 
         self.video_frames.append([])
         gym.set_camera_location(camera_handle, env, cam_pos, cam_target)
@@ -1414,9 +1415,9 @@ class IsaacValidator:
 
         self._setup_obj(env, obj_scale, identity_transform, collision_idx=0)
 
-    def save_images(self, folder: str, overwrite: bool = False) -> None:
+    def save_images(self, folder: str, overwrite: bool = False, num_cameras: int = 250) -> None:
         assert len(self.envs) == 1
-        self._setup_cameras(self.envs[0])
+        self._setup_cameras(self.envs[0], num_cameras=num_cameras)
 
         gym.step_graphics(self.sim)
         gym.render_all_camera_sensors(self.sim)
@@ -1435,10 +1436,11 @@ class IsaacValidator:
         overwrite: bool = False,
         generate_seg: bool = False,
         generate_depth: bool = False,
+        num_cameras: int = 250,
     ) -> None:
         assert len(self.envs) == 1
         camera_radius = 3 * obj_scale
-        self._setup_cameras(self.envs[0], radius=camera_radius)
+        self._setup_cameras(self.envs[0], radius=camera_radius, num_cameras=num_cameras)
 
         gym.step_graphics(self.sim)
         gym.render_all_camera_sensors(self.sim)

@@ -24,6 +24,7 @@ class GenerateNerfDataOneObjectOneScaleArgumentParser(Tap):
     object_scale: float = 0.1
     generate_seg: bool = False
     generate_depth: bool = False
+    num_cameras: int = 250
 
 
 def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
@@ -69,6 +70,7 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
             obj_scale=args.object_scale,
             generate_seg=args.generate_seg,
             generate_depth=args.generate_depth,
+            num_cameras=args.num_cameras,
         )
     with loop_timer.add_section_timer("create no split data"):
         sim.create_no_split_data(folder=str(output_nerf_object_path))
