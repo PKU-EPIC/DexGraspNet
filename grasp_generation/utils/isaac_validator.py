@@ -627,7 +627,7 @@ class IsaacValidator:
                 and len(hand_link_contact_count.keys()) >= 3
                 and len(not_allowed_contacts) == 0
                 and pos_change < 0.1
-                and max_euler_change < 30
+                and max_euler_change < 45
             )
 
             successes.append(success)

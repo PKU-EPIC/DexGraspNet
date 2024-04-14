@@ -19,6 +19,8 @@ class ArgParser(Tap):
     results_path: Optional[pathlib.Path] = None
     gcloud_results_path: Optional[pathlib.Path] = None
     num_random_pose_noise_samples_per_grasp: Optional[int] = None
+    min_object_scale: float = 0.05
+    max_object_scale: float = 0.1
 
 
 def print_and_run(command: str) -> None:
@@ -49,14 +51,15 @@ def process_data(args: ArgParser):
         + " --rand_object_scale" # May turning off so we don't have to regen nerfs every time.
         # + " --object_scale 0.03" # For cube only to get 200cm => 6cm
         # + " --object_scale 0.051" # For softball only to get 190cm => 9.7cm
-        + " --min_object_scale 0.05"
-        + " --max_object_scale 0.1"
+        + f" --min_object_scale {args.min_object_scale}"
+        + f" --max_object_scale {args.max_object_scale}"
         # + " --batch_size_each_object 10 --n_objects_per_batch 5"  # For less grasps per object
         # + " --batch_size_each_object 1000 --n_objects_per_batch 5"  # For more grasps per object
         # + " --store_grasps_mid_optimization_freq 200"  # For more low-quality grasps
     )
     if args.use_multiprocess:
         hand_gen_command += " --use_multiprocess"
+    # HACK
     print_and_run(hand_gen_command)
 
     if args.results_path is not None:
@@ -80,6 +83,7 @@ def process_data(args: ArgParser):
         + f" --output_grasp_config_dicts_path {args.base_data_path / args.experiment_name / 'raw_grasp_config_dicts'}"
         + (f" --mid_optimization_steps {' '.join([str(x) for x in hand_configs_mid_opt_steps])}" if len(hand_configs_mid_opt_steps) > 0 else "")
     )
+    # HACK
     print_and_run(init_grasp_gen_command)
 
     # Eval raw grasp configs.
@@ -99,6 +103,9 @@ def process_data(args: ArgParser):
 
     if args.results_path is not None:
         print_and_run(sync_command)
+
+    # HACK
+    # return
 
     # # Augment successful grasp configs.
     # augment_grasp_command = (
