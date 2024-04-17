@@ -47,6 +47,7 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
         sim = IsaacValidator(
             gpu=args.gpu,
             validation_type=ValidationType.NO_GRAVITY_SHAKING,  # Floating object, no table
+            # validation_type=ValidationType.GRAVITY_AND_TABLE,  # Object on table
         )
 
     # For each scale, create NeRF dataset

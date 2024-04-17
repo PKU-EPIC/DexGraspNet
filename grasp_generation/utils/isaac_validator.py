@@ -1414,6 +1414,8 @@ class IsaacValidator:
         self.envs.append(env)
 
         self._setup_obj(env, obj_scale, identity_transform, collision_idx=0)
+        if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+            self._setup_table(env, identity_transform, collision_idx=0, obj_scale=obj_scale)
 
     def save_images(self, folder: str, overwrite: bool = False, num_cameras: int = 250) -> None:
         assert len(self.envs) == 1
