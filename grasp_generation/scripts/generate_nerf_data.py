@@ -22,6 +22,7 @@ class GenerateNerfDataArgumentParser(Tap):
     gpu: int = 0
     meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
     output_nerfdata_path: pathlib.Path = pathlib.Path("../data/nerfdata")
+    num_cameras: int = 250
     randomize_order_seed: Optional[int] = None
     only_objects_in_this_path: Optional[pathlib.Path] = None
     use_multiprocess: bool = True
@@ -38,6 +39,12 @@ def get_object_code_and_scale_strs_from_folder(
     object_code_and_scale_strs = []
     for file_path in folder_path.iterdir():
         object_code_and_scale_str = file_path.stem
+        try:
+            parse_object_code_and_scale(object_code_and_scale_str)
+        except Exception as e:
+            print(f"Exception: {e}")
+            print(f"Skipping {object_code_and_scale_str} and continuing")
+            continue
         object_code_and_scale_strs.append(object_code_and_scale_str)
     return object_code_and_scale_strs
 
@@ -50,7 +57,7 @@ def get_object_codes_and_scales_to_process(
         input_object_codes = [
             object_code for object_code in os.listdir(args.meshdata_root_path)
         ]
-        HARDCODED_OBJECT_SCALE = 0.1
+        HARDCODED_OBJECT_SCALE = 0.06
         input_object_scales = [HARDCODED_OBJECT_SCALE] * len(input_object_codes)
         print(
             f"Found {len(input_object_codes)} object codes in args.mesh_path ({args.meshdata_root_path})"
@@ -114,6 +121,7 @@ def run_command(
             f"--output_nerfdata_path {args.output_nerfdata_path}",
             f"--object_code {object_code}",
             f"--object_scale {object_scale}",
+            f"--num_cameras {args.num_cameras}",
         ]
     )
     print(f"Running command: {command}")

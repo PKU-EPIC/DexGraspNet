@@ -215,6 +215,8 @@ class IsaacValidator:
         self.sim_params.physx.num_velocity_iterations = 8
         self.sim_params.physx.contact_offset = 0.001  # Want this to be very close to 0 so no unneeded collisions, but need some for sim stability
         self.sim_params.physx.rest_offset = 0.0  # Want this to be 0 so that objects don't float when on table
+        self.sim_params.physx.max_gpu_contact_pairs = 8 * 1024 * 1024  # Default is 1024 * 1024
+        self.sim_params.physx.default_buffer_size_multiplier = 20.0  # Default is 2.0
 
         self.sim_params.use_gpu_pipeline = False
         self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
@@ -325,6 +327,18 @@ class IsaacValidator:
         if record:
             self._setup_camera(env)
 
+    def get_table_surface_height(self, obj_scale: float) -> float:
+        # OBJ_MAX_EXTENT_FROM_ORIGIN = 0.2
+        # BUFFER = 1
+        # TABLE_THICKNESS = 0.1
+        # y_offset = OBJ_MAX_EXTENT_FROM_ORIGIN * BUFFER + TABLE_THICKNESS / 2
+
+        BUFFER = 1.2
+        OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0 * obj_scale * BUFFER
+        TABLE_THICKNESS = 0.1
+        y_offset = OBJ_MAX_EXTENT_FROM_ORIGIN + TABLE_THICKNESS / 2
+        return -y_offset
+
     def _setup_table(
         self,
         env,
@@ -332,12 +346,10 @@ class IsaacValidator:
         collision_idx: int,
         obj_scale: float,
     ) -> None:
-        BUFFER = 1.2
-        OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0 * obj_scale * BUFFER
-        TABLE_THICKNESS = 0.1
-        y_offset = OBJ_MAX_EXTENT_FROM_ORIGIN + TABLE_THICKNESS / 2
+        table_surface_height = self.get_table_surface_height(obj_scale=obj_scale)
+
         table_pose = gymapi.Transform()
-        table_pose.p = gymapi.Vec3(0, -y_offset, 0)
+        table_pose.p = gymapi.Vec3(0, table_surface_height, 0)
         table_pose.r = gymapi.Quat(0, 0, 0, 1)
 
         table_pose = transformation * table_pose
@@ -515,6 +527,13 @@ class IsaacValidator:
             get_link_idx_to_name_dict(env=env, actor_handle=obj_actor_handle)
         )
 
+        # Print
+        PRINT_MASS = False
+        if PRINT_MASS:
+            obj_rb_props = gym.get_actor_rigid_body_properties(env, obj_actor_handle)
+            masses = [rb_prop.mass for rb_prop in obj_rb_props]
+            print(f"total_mass = {sum(masses)}")
+
         # Set obj shape props
         obj_shape_props = gym.get_actor_rigid_shape_properties(env, obj_actor_handle)
         for i in range(len(obj_shape_props)):
@@ -525,20 +544,20 @@ class IsaacValidator:
     ########## ENV SETUP START ##########
 
     ########## RUN SIM END ##########
-    def run_sim(self) -> Tuple[List[bool], List[bool]]:
+    def run_sim(self) -> Tuple[List[bool], List[bool], np.ndarray]:
         gym.prepare_sim(self.sim)  # TODO: Check if this is needed?
 
         # Prepare tensors
         root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
         self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
 
-        hand_not_penetrate_list = self._run_sim_steps()
+        hand_not_penetrate_list, object_states_before_grasp = self._run_sim_steps()
 
         # Render out all videos.
         self._save_video_if_needed()
 
         successes = self._check_successes()
-        return successes, hand_not_penetrate_list
+        return successes, hand_not_penetrate_list, object_states_before_grasp
 
     def _check_successes(self) -> List[bool]:
         successes = []
@@ -608,7 +627,7 @@ class IsaacValidator:
                 and len(hand_link_contact_count.keys()) >= 3
                 and len(not_allowed_contacts) == 0
                 and pos_change < 0.1
-                and max_euler_change < 30
+                and max_euler_change < 45
             )
 
             successes.append(success)
@@ -807,12 +826,13 @@ class IsaacValidator:
             )
         return poses
 
-    def _run_sim_steps(self) -> List[bool]:
+    def _run_sim_steps(self) -> Tuple[List[bool], np.ndarray]:
         sim_step_idx = 0
         default_desc = "Simulating"
         pbar = tqdm(total=self.num_sim_steps, desc=default_desc, dynamic_ncols=True)
 
         hand_not_penetrate_list = [True for _ in range(len(self.envs))]
+        object_states_before_grasp = None
 
         while sim_step_idx < self.num_sim_steps:
             # Phase 1: Do nothing, hand far away
@@ -836,6 +856,13 @@ class IsaacValidator:
             if sim_step_idx < PHASE_1_LAST_STEP:
                 self._run_phase_1(step=sim_step_idx, length=PHASE_1_LAST_STEP)
             elif sim_step_idx < PHASE_2_LAST_STEP:
+                if sim_step_idx == PHASE_1_LAST_STEP:
+                    # Get current object poses
+                    object_indices = self._get_actor_indices(
+                        envs=self.envs, actors=self.obj_handles
+                    ).to(self.root_state_tensor.device)
+                    object_states_before_grasp = self.root_state_tensor[object_indices, :13].clone()
+
                 TEMP_hand_not_penetrate_obj_list = self._run_phase_2(
                     step=sim_step_idx - PHASE_1_LAST_STEP,
                     length=PHASE_2_LAST_STEP - PHASE_1_LAST_STEP,
@@ -921,7 +948,7 @@ class IsaacValidator:
                     desc += ". Step mode on"
                 pbar.set_description(desc)
 
-        return hand_not_penetrate_list
+        return hand_not_penetrate_list, object_states_before_grasp.cpu().numpy()
 
     def _run_phase_1(self, step: int, length: int) -> None:
         assert step < length, f"{step} >= {length}"
@@ -1037,7 +1064,8 @@ class IsaacValidator:
         self.camera_envs.append(env)
 
         cam_target = gymapi.Vec3(0, 0, 0)  # type: ignore  # where object s
-        cam_pos = cam_target + gymapi.Vec3(-0.25, 0.1, 0.1)  # Define offset
+
+        cam_pos = cam_target + gymapi.Vec3(0.25, 0.1, -0.1)  # Define offset
 
         self.video_frames.append([])
         gym.set_camera_location(camera_handle, env, cam_pos, cam_target)
@@ -1387,9 +1415,9 @@ class IsaacValidator:
 
         self._setup_obj(env, obj_scale, identity_transform, collision_idx=0)
 
-    def save_images(self, folder: str, overwrite: bool = False) -> None:
+    def save_images(self, folder: str, overwrite: bool = False, num_cameras: int = 250) -> None:
         assert len(self.envs) == 1
-        self._setup_cameras(self.envs[0])
+        self._setup_cameras(self.envs[0], num_cameras=num_cameras)
 
         gym.step_graphics(self.sim)
         gym.render_all_camera_sensors(self.sim)
@@ -1408,10 +1436,11 @@ class IsaacValidator:
         overwrite: bool = False,
         generate_seg: bool = False,
         generate_depth: bool = False,
+        num_cameras: int = 250,
     ) -> None:
         assert len(self.envs) == 1
         camera_radius = 3 * obj_scale
-        self._setup_cameras(self.envs[0], radius=camera_radius)
+        self._setup_cameras(self.envs[0], radius=camera_radius, num_cameras=num_cameras)
 
         gym.step_graphics(self.sim)
         gym.render_all_camera_sensors(self.sim)

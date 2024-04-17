@@ -319,6 +319,13 @@ def create_config_dict_fig(
         fig.add_annotation(text=predicted_score_str, x=0.5, y=0.25, xref="paper", yref="paper")
         title += f" | {predicted_score_str}"
 
+    # yup
+    yup_camera = dict(
+        up=dict(x=0, y=1, z=0),
+        center=dict(x=0, y=0, z=0),
+        eye=dict(x=1.25, y=1.25, z=1.25)
+    )
+
     fig.update_layout(
         title=title,
         scene=dict(
@@ -327,5 +334,6 @@ def create_config_dict_fig(
             zaxis=dict(title="Z"),
             aspectmode="data",
         ),
+        scene_camera=yup_camera,
     )
     return fig
