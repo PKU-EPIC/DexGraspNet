@@ -57,9 +57,13 @@ class EvalGraspConfigDictArgumentParser(Tap):
 
     # if debug_index is received, then the debug mode is on
     debug_index: Optional[int] = None
-    start_with_step_mode: bool = False  # with use_gui, starts sim paused in step mode, press S to step 1 sim step, press space to toggle pause
+    start_with_step_mode: bool = (
+        False  # with use_gui, starts sim paused in step mode, press S to step 1 sim step, press space to toggle pause
+    )
     use_gui: bool = False
-    use_cpu: bool = False  # NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer
+    use_cpu: bool = (
+        False  # NOTE: Tyler has had big discrepancy between using GPU vs CPU, hypothesize that CPU is safer
+    )
     penetration_threshold: Optional[float] = 5e-3  # From original DGN
     record_indices: List[int] = []
 
@@ -193,13 +197,21 @@ def main(args: EvalGraspConfigDictArgumentParser):
             add_random_pose_noise=add_random_pose_noise,
             record=index in args.record_indices,
         )
-        passed_simulation, passed_new_penetration_test, object_states_before_grasp = sim.run_sim()
+        (
+            passed_simulation,
+            passed_penetration_object_test,
+            passed_penetration_table_test,
+            object_states_before_grasp,
+        ) = sim.run_sim()
         sim.reset_simulator()
         print(
             f"passed_simulation = {passed_simulation} ({np.mean(passed_simulation) * 100:.2f}%)"
         )
         print(
-            f"passed_new_penetration_test = {passed_new_penetration_test} ({np.mean(passed_new_penetration_test) * 100:.2f}%)"
+            f"passed_penetration_object_test = {passed_penetration_object_test} ({np.mean(passed_penetration_object_test) * 100:.2f}%)"
+        )
+        print(
+            f"passed_penetration_table_test = {passed_penetration_table_test} ({np.mean(passed_penetration_table_test) * 100:.2f}%)"
         )
         print(f"object_states_before_grasp = {object_states_before_grasp}")
         print("Ending...")
@@ -227,7 +239,8 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
     # Run for loop over minibatches of grasps.
     passed_simulation_array = []
-    passed_new_penetration_test_array = []
+    passed_penetration_object_test_array = []
+    passed_penetration_table_test_array = []
     object_states_before_grasp_array = []
     E_pen_array = []
     max_grasps_per_batch = (
@@ -236,7 +249,10 @@ def main(args: EvalGraspConfigDictArgumentParser):
         else args.max_grasps_per_batch
         // (args.num_random_pose_noise_samples_per_grasp + 1)
     )
-    pbar = tqdm(range(math.ceil(batch_size / max_grasps_per_batch)), desc="evaling batches of grasps")
+    pbar = tqdm(
+        range(math.ceil(batch_size / max_grasps_per_batch)),
+        desc="evaling batches of grasps",
+    )
     for i in pbar:
         start_index = i * max_grasps_per_batch
         end_index = min((i + 1) * max_grasps_per_batch, batch_size)
@@ -267,12 +283,22 @@ def main(args: EvalGraspConfigDictArgumentParser):
                         record=index in args.record_indices,
                     )
 
-        passed_simulation, passed_new_penetration_test, object_states_before_grasp = sim.run_sim()
+        (
+            passed_simulation,
+            passed_penetration_object_test,
+            passed_penetration_table_test,
+            object_states_before_grasp,
+        ) = sim.run_sim()
         passed_simulation_array.extend(passed_simulation)
-        passed_new_penetration_test_array.extend(passed_new_penetration_test)
-        object_states_before_grasp_array.append(object_states_before_grasp.reshape(-1, 13))
+        passed_penetration_object_test_array.extend(passed_penetration_object_test)
+        passed_penetration_table_test_array.extend(passed_penetration_table_test)
+        object_states_before_grasp_array.append(
+            object_states_before_grasp.reshape(-1, 13)
+        )
         sim.reset_simulator()
-        pbar.set_description(f"evaling batches of grasps: mean_success = {np.mean(passed_simulation_array)}")
+        pbar.set_description(
+            f"evaling batches of grasps: mean_success = {np.mean(passed_simulation_array)}"
+        )
 
         hand_model.set_parameters(hand_pose[start_index:end_index])
 
@@ -292,7 +318,10 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
     # Aggregate results
     passed_simulation_array = np.array(passed_simulation_array)
-    passed_new_penetration_test_array = np.array(passed_new_penetration_test_array)
+    passed_penetration_object_test_array = np.array(
+        passed_penetration_object_test_array
+    )
+    passed_penetration_table_test_array = np.array(passed_penetration_table_test_array)
     object_states_before_grasp_array = np.array(object_states_before_grasp_array)
     E_pen_array = np.array(E_pen_array)
 
@@ -306,28 +335,56 @@ def main(args: EvalGraspConfigDictArgumentParser):
         mean_passed_simulation_with_noise = passed_simulation_with_noise.mean(axis=1)
         passed_simulation_array = mean_passed_simulation_with_noise
 
-        passed_new_penetration_test_array = passed_new_penetration_test_array.reshape(
-            batch_size, args.num_random_pose_noise_samples_per_grasp + 1
+        passed_penetration_object_test_array = (
+            passed_penetration_object_test_array.reshape(
+                batch_size, args.num_random_pose_noise_samples_per_grasp + 1
+            )
         )
-        passed_new_penetration_test_without_noise = passed_new_penetration_test_array[
-            :, 0
-        ]
-        passed_new_penetration_test_with_noise = passed_new_penetration_test_array[
+        passed_penetration_object_test_without_noise = (
+            passed_penetration_object_test_array[:, 0]
+        )
+        passed_penetration_object_test_with_noise = (
+            passed_penetration_object_test_array[:, 1:]
+        )
+        # Use mean of all noise samples
+        mean_passed_penetration_object_test_with_noise = (
+            passed_penetration_object_test_with_noise.mean(axis=1)
+        )
+        passed_penetration_object_test_array = (
+            mean_passed_penetration_object_test_with_noise
+        )
+
+        passed_penetration_table_test_array = (
+            passed_penetration_table_test_array.reshape(
+                batch_size, args.num_random_pose_noise_samples_per_grasp + 1
+            )
+        )
+        passed_penetration_table_test_without_noise = (
+            passed_penetration_table_test_array[:, 0]
+        )
+        passed_penetration_table_test_with_noise = passed_penetration_table_test_array[
             :, 1:
         ]
         # Use mean of all noise samples
-        mean_passed_new_penetration_test_with_noise = (
-            passed_new_penetration_test_with_noise.mean(axis=1)
+        mean_passed_penetration_table_test_with_noise = (
+            passed_penetration_table_test_with_noise.mean(axis=1)
         )
-        passed_new_penetration_test_array = mean_passed_new_penetration_test_with_noise
+        passed_penetration_table_test_array = (
+            mean_passed_penetration_table_test_with_noise
+        )
 
     assert passed_simulation_array.shape == (batch_size,)
-    assert passed_new_penetration_test_array.shape == (batch_size,)
+    assert passed_penetration_object_test_array.shape == (batch_size,)
+    assert passed_penetration_table_test_array.shape == (batch_size,)
     assert E_pen_array.shape == (batch_size,)
 
     object_states_before_grasp_array = object_states_before_grasp_array.reshape(
         batch_size,
-        args.num_random_pose_noise_samples_per_grasp + 1 if args.num_random_pose_noise_samples_per_grasp else 1,
+        (
+            args.num_random_pose_noise_samples_per_grasp + 1
+            if args.num_random_pose_noise_samples_per_grasp
+            else 1
+        ),
         13,
     )
 
@@ -335,7 +392,13 @@ def main(args: EvalGraspConfigDictArgumentParser):
         print("WARNING: penetration check skipped")
         OLD_passed_penetration_threshold_array = np.ones(batch_size, dtype=np.bool8)
     else:
-        OLD_passed_penetration_threshold_array = E_pen_array < args.penetration_threshold
+        OLD_passed_penetration_threshold_array = (
+            E_pen_array < args.penetration_threshold
+        )
+
+    passed_new_penetration_test_array = (
+        passed_penetration_object_test_array * passed_penetration_table_test_array
+    )
 
     passed_eval = (
         passed_simulation_array
@@ -348,15 +411,33 @@ def main(args: EvalGraspConfigDictArgumentParser):
         print(
             f"passed_simulation_array = {passed_simulation_array} ({passed_simulation_array.mean() * 100:.2f}%)"
         )
-        print(f"passed_simulation_array_idxs = {np.where(passed_simulation_array > 0.5)[0]}")
+        print(
+            f"passed_simulation_array_idxs = {np.where(passed_simulation_array > 0.5)[0]}"
+        )
+        print(
+            f"passed_penetration_object_test_array = {passed_penetration_object_test_array} ({passed_penetration_object_test_array.mean() * 100:.2f}%)"
+        )
+        print(
+            f"passed_penetration_object_test_array_idxs = {np.where(passed_penetration_object_test_array > 0.5)[0]}"
+        )
+        print(
+            f"passed_penetration_table_test_array = {passed_penetration_table_test_array} ({passed_penetration_table_test_array.mean() * 100:.2f}%)"
+        )
+        print(
+            f"passed_penetration_table_test_array_idxs = {np.where(passed_penetration_table_test_array > 0.5)[0]}"
+        )
         print(
             f"passed_new_penetration_test_array = {passed_new_penetration_test_array} ({passed_new_penetration_test_array.mean() * 100:.2f}%)"
         )
-        print(f"passed_new_penetration_test_array_idxs = {np.where(passed_new_penetration_test_array > 0.5)[0]}")
+        print(
+            f"passed_new_penetration_test_array_idxs = {np.where(passed_new_penetration_test_array > 0.5)[0]}"
+        )
         print(
             f"OLD_passed_penetration_threshold_array = {OLD_passed_penetration_threshold_array} ({OLD_passed_penetration_threshold_array.mean() * 100:.2f}%)"
         )
-        print(f"OLD_passed_penetration_threshold_array_idxs = {np.where(OLD_passed_penetration_threshold_array > 0.5)[0]}")
+        print(
+            f"OLD_passed_penetration_threshold_array_idxs = {np.where(OLD_passed_penetration_threshold_array > 0.5)[0]}"
+        )
         print(f"E_pen_array = {E_pen_array}")
         print(f"passed_eval = {passed_eval}")
         print(f"passed_eval_idxs = {np.where(passed_eval > 0.5)[0]}")

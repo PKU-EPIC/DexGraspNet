@@ -214,8 +214,12 @@ class IsaacValidator:
         self.sim_params.physx.num_position_iterations = 8
         self.sim_params.physx.num_velocity_iterations = 8
         self.sim_params.physx.contact_offset = 0.001  # Want this to be very close to 0 so no unneeded collisions, but need some for sim stability
-        self.sim_params.physx.rest_offset = 0.0  # Want this to be 0 so that objects don't float when on table
-        self.sim_params.physx.max_gpu_contact_pairs = 8 * 1024 * 1024  # Default is 1024 * 1024
+        self.sim_params.physx.rest_offset = (
+            0.0  # Want this to be 0 so that objects don't float when on table
+        )
+        self.sim_params.physx.max_gpu_contact_pairs = (
+            8 * 1024 * 1024
+        )  # Default is 1024 * 1024
         self.sim_params.physx.default_buffer_size_multiplier = 20.0  # Default is 2.0
 
         self.sim_params.use_gpu_pipeline = False
@@ -248,7 +252,9 @@ class IsaacValidator:
         self.obj_asset_options.override_com = True
         self.obj_asset_options.override_inertia = True
         self.obj_asset_options.density = 500
-        self.obj_asset_options.vhacd_enabled = True  # Convex decomposition is better than convex hull
+        self.obj_asset_options.vhacd_enabled = (
+            True  # Convex decomposition is better than convex hull
+        )
 
         if self.validation_type == ValidationType.GRAVITY_IN_6_DIRS:
             self.obj_asset_options.disable_gravity = False
@@ -437,7 +443,9 @@ class IsaacValidator:
                 p=gymapi.Vec3(*xyz_noise),
                 r=gymapi.Quat(*quat_wxyz[1:], quat_wxyz[0]),
             )
-            desired_hand_pose_object_frame = pose_noise_transform * desired_hand_pose_object_frame
+            desired_hand_pose_object_frame = (
+                pose_noise_transform * desired_hand_pose_object_frame
+            )
 
         self.desired_hand_poses_object_frame.append(desired_hand_pose_object_frame)
 
@@ -544,20 +552,29 @@ class IsaacValidator:
     ########## ENV SETUP START ##########
 
     ########## RUN SIM END ##########
-    def run_sim(self) -> Tuple[List[bool], List[bool], np.ndarray]:
+    def run_sim(self) -> Tuple[List[bool], List[bool], List[bool], np.ndarray]:
         gym.prepare_sim(self.sim)  # TODO: Check if this is needed?
 
         # Prepare tensors
         root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
         self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
 
-        hand_not_penetrate_list, object_states_before_grasp = self._run_sim_steps()
+        (
+            hand_not_penetrate_object_list,
+            hand_not_penetrate_table_list,
+            object_states_before_grasp,
+        ) = self._run_sim_steps()
 
         # Render out all videos.
         self._save_video_if_needed()
 
         successes = self._check_successes()
-        return successes, hand_not_penetrate_list, object_states_before_grasp
+        return (
+            successes,
+            hand_not_penetrate_object_list,
+            hand_not_penetrate_table_list,
+            object_states_before_grasp,
+        )
 
     def _check_successes(self) -> List[bool]:
         successes = []
@@ -826,12 +843,13 @@ class IsaacValidator:
             )
         return poses
 
-    def _run_sim_steps(self) -> Tuple[List[bool], np.ndarray]:
+    def _run_sim_steps(self) -> Tuple[List[bool], List[bool], np.ndarray]:
         sim_step_idx = 0
         default_desc = "Simulating"
         pbar = tqdm(total=self.num_sim_steps, desc=default_desc, dynamic_ncols=True)
 
-        hand_not_penetrate_list = [True for _ in range(len(self.envs))]
+        hand_not_penetrate_object_list = [True for _ in range(len(self.envs))]
+        hand_not_penetrate_table_list = [True for _ in range(len(self.envs))]
         object_states_before_grasp = None
 
         while sim_step_idx < self.num_sim_steps:
@@ -861,16 +879,29 @@ class IsaacValidator:
                     object_indices = self._get_actor_indices(
                         envs=self.envs, actors=self.obj_handles
                     ).to(self.root_state_tensor.device)
-                    object_states_before_grasp = self.root_state_tensor[object_indices, :13].clone()
+                    object_states_before_grasp = self.root_state_tensor[
+                        object_indices, :13
+                    ].clone()
 
-                TEMP_hand_not_penetrate_obj_list = self._run_phase_2(
+                (
+                    TEMP_hand_not_penetrate_object_list,
+                    TEMP_hand_not_penetrate_table_list,
+                ) = self._run_phase_2(
                     step=sim_step_idx - PHASE_1_LAST_STEP,
                     length=PHASE_2_LAST_STEP - PHASE_1_LAST_STEP,
                 )
-                hand_not_penetrate_list = [
+                hand_not_penetrate_object_list = [
                     hand_not_penetrate_obj and TEMP_hand_not_penetrate_obj
                     for hand_not_penetrate_obj, TEMP_hand_not_penetrate_obj in zip(
-                        hand_not_penetrate_list, TEMP_hand_not_penetrate_obj_list
+                        hand_not_penetrate_object_list,
+                        TEMP_hand_not_penetrate_object_list,
+                    )
+                ]
+                hand_not_penetrate_table_list = [
+                    hand_not_penetrate_table and TEMP_hand_not_penetrate_table
+                    for hand_not_penetrate_table, TEMP_hand_not_penetrate_table in zip(
+                        hand_not_penetrate_table_list,
+                        TEMP_hand_not_penetrate_table_list,
                     )
                 ]
             elif sim_step_idx < PHASE_3_LAST_STEP:
@@ -948,29 +979,36 @@ class IsaacValidator:
                     desc += ". Step mode on"
                 pbar.set_description(desc)
 
-        return hand_not_penetrate_list, object_states_before_grasp.cpu().numpy()
+        return (
+            hand_not_penetrate_object_list,
+            hand_not_penetrate_table_list,
+            object_states_before_grasp.cpu().numpy(),
+        )
 
     def _run_phase_1(self, step: int, length: int) -> None:
         assert step < length, f"{step} >= {length}"
         return
 
-    def _run_phase_2(self, step: int, length: int) -> List[bool]:
+    def _run_phase_2(self, step: int, length: int) -> Tuple[List[bool], List[bool]]:
         assert step < length, f"{step} >= {length}"
         if step == 0:
             self._move_hands_to_objects()
-            return [True for _ in range(len(self.envs))]
+            return [True for _ in range(len(self.envs))], [True for _ in range(len(self.envs))]
         else:
             # Can only check the collisions after taking a sim step
             hand_colliding_obj = self._is_hand_colliding_with_obj()
+            hand_not_colliding_object_list = [
+                not colliding_obj for colliding_obj in hand_colliding_obj
+            ]
+
             if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
                 hand_colliding_table = self._is_hand_colliding_with_table()
-                return [
-                    not colliding_obj and not colliding_table
-                    for colliding_obj, colliding_table in zip(
-                        hand_colliding_obj, hand_colliding_table
-                    )
+                hand_not_colliding_table_list = [
+                    not colliding_table for colliding_table in hand_colliding_table
                 ]
-            return [not colliding_obj for colliding_obj in hand_colliding_obj]
+            else:
+                hand_not_colliding_table_list = [True for _ in range(len(self.envs))]
+            return hand_not_colliding_object_list, hand_not_colliding_table_list
 
     def _run_phase_3(self, step: int, length: int) -> None:
         assert step < length, f"{step} >= {length}"
@@ -1291,7 +1329,9 @@ class IsaacValidator:
         dof_pos_targets_list = []
         for env, hand_actor_handle in zip(self.envs, self.hand_handles):
             dof_pos_targets = []
-            all_dof_pos_targets = gym.get_actor_dof_position_targets(env, hand_actor_handle)
+            all_dof_pos_targets = gym.get_actor_dof_position_targets(
+                env, hand_actor_handle
+            )
             for i, joint in enumerate(self.virtual_joint_names):
                 joint_idx = gym.find_actor_dof_index(
                     env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
@@ -1415,9 +1455,13 @@ class IsaacValidator:
 
         self._setup_obj(env, obj_scale, identity_transform, collision_idx=0)
         if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
-            self._setup_table(env, identity_transform, collision_idx=0, obj_scale=obj_scale)
+            self._setup_table(
+                env, identity_transform, collision_idx=0, obj_scale=obj_scale
+            )
 
-    def save_images(self, folder: str, overwrite: bool = False, num_cameras: int = 250) -> None:
+    def save_images(
+        self, folder: str, overwrite: bool = False, num_cameras: int = 250
+    ) -> None:
         assert len(self.envs) == 1
         self._setup_cameras(self.envs[0], num_cameras=num_cameras)
 
