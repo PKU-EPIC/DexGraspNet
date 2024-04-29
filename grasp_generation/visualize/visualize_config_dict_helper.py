@@ -180,16 +180,19 @@ def get_grasp_config_dict_plotly_data_list(
 def create_config_dict_fig(
     config_dict: Dict[str, Any],
     hand_model: HandModel,
-    object_model: ObjectModel,
+    object_model: Optional[ObjectModel],
     skip_visualize_qpos_start: bool,
     skip_visualize_grasp_config_dict: bool,
     title: str,
     idx_to_visualize: int,
     concise_title: bool = False,
 ) -> go.Figure:
-    object_plotly = object_model.get_plotly_data(
-        i=0, color="lightgreen", opacity=0.5, with_surface_points=True, with_table=True
-    )
+    if object_model is not None:
+        object_plotly = object_model.get_plotly_data(
+            i=0, color="lightgreen", opacity=0.5, with_surface_points=True, with_table=True
+        )
+    else:
+        object_plotly = []
 
     # hand pose
     hand_pose = (

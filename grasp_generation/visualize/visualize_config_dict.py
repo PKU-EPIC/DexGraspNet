@@ -47,10 +47,6 @@ class VisualizeConfigDictArgumentParser(Tap):
 
 
 def main(args: VisualizeConfigDictArgumentParser):
-    object_code, object_scale = parse_object_code_and_scale(
-        args.object_code_and_scale_str
-    )
-
     # load results
     config_dict: Dict[str, np.ndarray] = np.load(
         args.input_config_dicts_path / f"{args.object_code_and_scale_str}.npy",
@@ -61,13 +57,23 @@ def main(args: VisualizeConfigDictArgumentParser):
     hand_model = HandModel(hand_model_type=args.hand_model_type, device=args.device, n_surface_points=1000)
 
     # object model
-    object_model = ObjectModel(
-        meshdata_root_path=str(args.meshdata_root_path),
-        batch_size_each=1,
-        num_samples=args.object_model_num_sampled_pts,
-        device=args.device,
-    )
-    object_model.initialize(object_code, object_scale)
+    try:
+        object_code, object_scale = parse_object_code_and_scale(
+            args.object_code_and_scale_str
+        )
+        object_model = ObjectModel(
+            meshdata_root_path=str(args.meshdata_root_path),
+            batch_size_each=1,
+            num_samples=args.object_model_num_sampled_pts,
+            device=args.device,
+        )
+        object_model.initialize(object_code, object_scale)
+    except Exception as e:
+        print("=" * 80)
+        print(f"Exception: {e}")
+        print("=" * 80)
+        print(f"Skipping {args.object_code_and_scale_str} and continuing")
+        object_model = None
 
     if args.visualize_all:
         MAX_TO_VISUALIZE = 9
