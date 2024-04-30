@@ -460,8 +460,8 @@ class IsaacValidator:
             joint_idx = gym.find_actor_dof_index(
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
-            hand_props["stiffness"][joint_idx] = 50.0
-            hand_props["damping"][joint_idx] = 1.0
+            hand_props["stiffness"][joint_idx] = 5.0
+            hand_props["damping"][joint_idx] = 0.1
 
         # Virtual joints
         for joint in self.virtual_joint_names:
@@ -1103,7 +1103,7 @@ class IsaacValidator:
 
         cam_target = gymapi.Vec3(0, 0, 0)  # type: ignore  # where object s
 
-        cam_pos = cam_target + gymapi.Vec3(0.25, 0.1, -0.1)  # Define offset
+        cam_pos = cam_target + gymapi.Vec3(0.25, 0.1, 0.0)  # Define offset
 
         self.video_frames.append([])
         gym.set_camera_location(camera_handle, env, cam_pos, cam_target)
