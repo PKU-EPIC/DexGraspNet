@@ -326,7 +326,7 @@ def create_config_dict_fig(
     yup_camera = dict(
         up=dict(x=0, y=1, z=0),
         center=dict(x=0, y=0, z=0),
-        eye=dict(x=1.25, y=1.25, z=1.25)
+        eye=dict(x=1.0, y=1.0, z=0.0)
     )
 
     fig.update_layout(

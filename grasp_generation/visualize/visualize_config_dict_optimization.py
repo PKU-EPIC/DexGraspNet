@@ -11,7 +11,7 @@ from tqdm import tqdm
 sys.path.append(os.path.realpath("."))
 
 import plotly.graph_objects as go
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
 from tap import Tap
 import numpy as np
 from visualize_optimization_helper import (
@@ -81,17 +81,24 @@ def get_object_model(
     meshdata_root_path: pathlib.Path,
     object_code_and_scale_str: str,
     device: str,
-) -> ObjectModel:
-    object_code, object_scale = parse_object_code_and_scale(object_code_and_scale_str)
+) -> Optional[ObjectModel]:
+    try:
+        object_code, object_scale = parse_object_code_and_scale(
+            object_code_and_scale_str
+        )
 
-    # object model
-    object_model = ObjectModel(
-        meshdata_root_path=str(meshdata_root_path),
-        batch_size_each=1,
-        num_samples=0,
-        device=device,
-    )
-    object_model.initialize(object_code, object_scale)
+        object_model = ObjectModel(
+            meshdata_root_path=str(meshdata_root_path),
+            batch_size_each=1,
+            device=device,
+        )
+        object_model.initialize(object_code, object_scale)
+    except Exception as e:
+        print("=" * 80)
+        print(f"Exception: {e}")
+        print("=" * 80)
+        print(f"Skipping {object_code_and_scale_str} and continuing")
+        object_model = None
     return object_model
 
 
