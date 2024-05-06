@@ -18,7 +18,7 @@ import pathlib
 
 class GenerateNerfDataOneObjectOneScaleArgumentParser(Tap):
     gpu: int = 0
-    meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_stable")
     output_nerfdata_path: pathlib.Path = pathlib.Path("../data/nerfdata")
     object_code: str = "sem-Camera-7bff4fd4dc53de7496dece3f86cb5dd5"
     object_scale: float = 0.1

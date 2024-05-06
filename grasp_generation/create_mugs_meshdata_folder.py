@@ -1,7 +1,7 @@
 import subprocess
 import pathlib
 
-input_meshdata_folder = pathlib.Path("../data/meshdata").absolute()
+input_meshdata_folder = pathlib.Path("../data/rotated_meshdata_stable").absolute()
 output_meshdata_folder = pathlib.Path("../data/2023-11-17_meshdata_mugs").absolute()
 mug_folder_names = [
     "core-mug-1038e4eac0e18dcce02ae6d2a21d494a",

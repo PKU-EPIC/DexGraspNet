@@ -33,7 +33,7 @@ class VisualizeConfigDictArgumentParser(Tap):
     input_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/config_dicts"
     )  # SHOULD be able to hand most types of config dicts
-    meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_stable")
     object_code_and_scale_str: str = "sem-Ipod-4b6c6248d5c01b3e4eee8d1cb32988b_0_10"
     idx_to_visualize: int = 0
     visualize_all: bool = False

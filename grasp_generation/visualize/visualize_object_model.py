@@ -24,7 +24,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "True"
 
 
 class VisualizeObjectModelArgumentParser(Tap):
-    meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_stable")
     object_code: str = "sem-Mug-10f6e09036350e92b3f21f1137c3c347"
     object_scale: float = 0.1
 
