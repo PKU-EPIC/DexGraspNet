@@ -46,8 +46,8 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
     with loop_timer.add_section_timer("create sim"):
         sim = IsaacValidator(
             gpu=args.gpu,
-            validation_type=ValidationType.NO_GRAVITY_SHAKING,  # Floating object, no table
-            # validation_type=ValidationType.GRAVITY_AND_TABLE,  # Object on table
+            # validation_type=ValidationType.NO_GRAVITY_SHAKING,  # Floating object, no table
+            validation_type=ValidationType.GRAVITY_AND_TABLE,  # Object on table
         )
 
     # For each scale, create NeRF dataset
@@ -62,9 +62,6 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
             obj_scale=args.object_scale,
         )
 
-    # ORIGINAL SCALING STRATEGY:
-    # object scale = 0.1
-    # camera radius = 0.3
     with loop_timer.add_section_timer("save images light"):
         sim.save_images_lightweight(
             folder=str(output_nerf_object_path),

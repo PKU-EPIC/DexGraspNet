@@ -1433,11 +1433,6 @@ class IsaacValidator:
         self,
         obj_scale: float,
     ) -> None:
-        # Set test rotation
-        identity_transform = gymapi.Transform(
-            gymapi.Vec3(0, 0, 0), gymapi.Quat(0, 0, 0, 1)
-        )
-
         # Create env
         spacing = 1.0
         env = gym.create_env(
@@ -1471,15 +1466,13 @@ class IsaacValidator:
     def save_images_lightweight(
         self,
         folder: str,
-        obj_scale: float,
         overwrite: bool = False,
         generate_seg: bool = False,
         generate_depth: bool = False,
         num_cameras: int = 250,
     ) -> None:
         assert len(self.envs) == 1
-        camera_radius = 3 * obj_scale
-        self._setup_cameras(self.envs[0], radius=camera_radius, num_cameras=num_cameras)
+        self._setup_cameras(self.envs[0], num_cameras=num_cameras)
 
         gym.step_graphics(self.sim)
         gym.render_all_camera_sensors(self.sim)
@@ -1498,24 +1491,23 @@ class IsaacValidator:
         # Avoid segfault if run multiple times by destroying camera sensors
         self._destroy_cameras(self.envs[0])
 
-    def _setup_cameras(self, env, num_cameras=250, radius=0.3):
+    def _setup_cameras(self, env, num_cameras: int):
         camera_props = gymapi.CameraProperties()
         camera_props.horizontal_fov = CAMERA_HORIZONTAL_FOV_DEG
         camera_props.width = CAMERA_IMG_WIDTH
         camera_props.height = CAMERA_IMG_HEIGHT
 
-        # Generates camera positions uniformly sampled from sphere around object.
-        u_vals = np.random.uniform(-1.0, 1.0, num_cameras)
-        th_vals = np.random.uniform(0.0, 2 * np.pi, num_cameras)
+        # Sample num_cameras points on sphere with points away from table surface using phi_degrees
+        # May 2024: Radius is approximately 0.45, phi_degrees is 45 in real world
+        xyz_vals = sample_points_on_sphere(N=num_cameras, radius=0.45, phi_degrees=45)
+        x_vals, y_vals, z_vals = xyz_vals[:, 0], xyz_vals[:, 1], xyz_vals[:, 2]
 
-        x_vals = radius * np.sqrt(1 - np.square(u_vals)) * np.cos(th_vals)
-        y_vals = radius * np.sqrt(1 - np.square(u_vals)) * np.sin(th_vals)
-        z_vals = radius * u_vals
+        camera_target = gymapi.Vec3(0, 0, 0)
 
         for xx, yy, zz in zip(x_vals, y_vals, z_vals):
             camera_handle = gym.create_camera_sensor(env, camera_props)
             gym.set_camera_location(
-                camera_handle, env, gymapi.Vec3(xx, yy, zz), gymapi.Vec3(0.0, 0.0, 0.0)
+                camera_handle, env, gymapi.Vec3(xx, yy, zz), camera_target
             )
             self.camera_handles.append(camera_handle)
 
@@ -1804,5 +1796,41 @@ class IsaacValidator:
 
         with open(os.path.join(folder, "transforms.json"), "w") as outfile:
             outfile.write(json.dumps(json_dict))
+
+
+def sample_points_on_sphere(N: int, radius: float, phi_degrees: float) -> np.ndarray:
+    """
+    Generate N random points on the surface of a sphere of given radius.
+    Points are sampled in a region where the polar angle phi (from the y-axis)
+    is in the range [0, phi_degrees].
+
+    Parameters:
+    N (int): Number of points to sample.
+    radius (float): Radius of the sphere.
+    phi_degrees (float): Maximum angle in degrees from the y-axis.
+
+    Returns:
+    np.ndarray: Array of shape (N, 3) containing the xyz coordinates of the sampled points.
+    """
+    # Convert maximum phi from degrees to radians
+    phi_max = np.radians(phi_degrees)
+
+    # Sample phi and theta values
+    # phi is sampled uniformly in cosine space to maintain uniformity on the sphere's surface
+    cos_phi = np.random.uniform(np.cos(phi_max), 1, size=N)
+    phi = np.arccos(cos_phi)  # Invert cosine to get angles
+    theta = np.random.uniform(
+        0, 2 * np.pi, size=N
+    )  # Uniformly sample theta around the sphere
+
+    # Convert spherical coordinates to Cartesian coordinates
+    x = radius * np.sin(phi) * np.cos(theta)
+    y = radius * np.cos(phi)  # y is up, so it's linked to the cos(phi)
+    z = radius * np.sin(phi) * np.sin(theta)
+
+    # Stack into a (N, 3) array
+    points = np.vstack((x, y, z)).T
+
+    return points
 
     ########## NERF DATA COLLECTION END ##########
