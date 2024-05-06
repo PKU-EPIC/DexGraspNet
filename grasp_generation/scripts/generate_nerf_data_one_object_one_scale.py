@@ -50,22 +50,24 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
             validation_type=ValidationType.GRAVITY_AND_TABLE,  # Object on table
         )
 
-    # For each scale, create NeRF dataset
     with loop_timer.add_section_timer("set obj asset"):
         args.output_nerfdata_path.mkdir(parents=True, exist_ok=True)
         sim.set_obj_asset(
             obj_root=str(args.meshdata_root_path / args.object_code / "coacd"),
             obj_file="coacd.urdf",
         )
+
     with loop_timer.add_section_timer("add env"):
         sim.add_env_nerf_data_collection(
             obj_scale=args.object_scale,
         )
 
+    with loop_timer.add_section_timer("run sim till object settles"):
+        sim.run_sim_till_object_settles()
+
     with loop_timer.add_section_timer("save images light"):
         sim.save_images_lightweight(
             folder=str(output_nerf_object_path),
-            obj_scale=args.object_scale,
             generate_seg=args.generate_seg,
             generate_depth=args.generate_depth,
             num_cameras=args.num_cameras,

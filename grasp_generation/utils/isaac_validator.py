@@ -306,8 +306,6 @@ class IsaacValidator:
 
         if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
             obj_pose = gymapi.Transform()
-            obj_pose.p = gymapi.Vec3(0.0, 0.0, 0.0)
-            obj_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
             self._setup_obj(
                 env,
@@ -546,7 +544,7 @@ class IsaacValidator:
 
     ########## RUN SIM END ##########
     def run_sim(self) -> Tuple[List[bool], List[bool], List[bool], np.ndarray]:
-        gym.prepare_sim(self.sim)  # TODO: Check if this is needed?
+        gym.prepare_sim(self.sim)
 
         # Prepare tensors
         root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
@@ -626,7 +624,7 @@ class IsaacValidator:
             final_rel_obj_pose = final_hand_pose.inverse() * final_obj_pose
             init_rel_obj_pose = self.desired_hand_poses_object_frame[
                 i
-            ].inverse()  # TODO: Check if this makes sense
+            ].inverse()
             pos_change, max_euler_change = self._get_pos_and_euler_change(
                 pose1=init_rel_obj_pose, pose2=final_rel_obj_pose
             )
@@ -911,29 +909,13 @@ class IsaacValidator:
                 raise ValueError(f"Unknown sim_step_idx: {sim_step_idx}")
 
             # Step physics if not paused
+            self.is_paused = False  # No pausing
             if not self.is_paused:
                 gym.simulate(self.sim)
                 gym.fetch_results(
                     self.sim, True
-                )  # TODO: Check if this slows things down
+                )
                 gym.refresh_actor_root_state_tensor(self.sim)
-
-                if self.camera_handles and sim_step_idx > 0:
-                    gym.step_graphics(self.sim)
-                    gym.render_all_camera_sensors(self.sim)
-                    for ii, env in enumerate(self.camera_envs):
-                        self.video_frames[ii].append(
-                            gym.get_camera_image(
-                                self.sim,
-                                env,
-                                self.camera_handles[ii],
-                                gymapi.IMAGE_COLOR,
-                            ).reshape(
-                                self.camera_properties_list[ii].height,
-                                self.camera_properties_list[ii].width,
-                                4,  # RGBA
-                            )
-                        )
                 sim_step_idx += 1
                 pbar.update(1)
 
@@ -1443,9 +1425,64 @@ class IsaacValidator:
         )
         self.envs.append(env)
 
-        self._setup_obj(env, obj_scale, collision_idx=0)
-        if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
-            self._setup_table(env, collision_idx=0)
+        if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
+            obj_pose = gymapi.Transform()
+
+            self._setup_obj(
+                env,
+                obj_pose=obj_pose,
+                obj_scale=obj_scale,
+                collision_idx=0,
+            )
+        elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+            obj_pose = self._compute_init_obj_pose_above_table(obj_scale)
+
+            self._setup_obj(
+                env,
+                obj_pose=obj_pose,
+                obj_scale=obj_scale,
+                collision_idx=0,
+            )
+            self._setup_table(
+                env=env,
+                collision_idx=0,
+            )
+        else:
+            raise ValueError(f"Unknown validation type: {self.validation_type}")
+
+    def run_sim_till_object_settles(self) -> None:
+        gym.prepare_sim(self.sim)
+
+        # Prepare tensors
+        root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
+        self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
+
+        MAX_SIM_STEPS = 100
+        sim_step_idx = 0
+        while sim_step_idx < MAX_SIM_STEPS:
+            object_indices = self._get_actor_indices(
+                envs=self.envs, actors=self.obj_handles
+            ).to(self.root_state_tensor.device)
+            object_states = self.root_state_tensor[
+                object_indices, :13
+            ].clone()
+            object_speed = object_states[:, 7:10].squeeze(dim=0).norm(dim=-1)
+            object_angspeed = object_states[:, 10:13].squeeze(dim=0).norm(dim=-1)
+            is_object_settled = object_speed < 5e-3 and object_angspeed < 1e-2
+
+            MIN_NUM_STEPS = 5
+            if sim_step_idx > MIN_NUM_STEPS and is_object_settled:
+                print(f"Object settled at step {sim_step_idx}")
+                break
+
+            # Step physics
+            gym.simulate(self.sim)
+            gym.fetch_results(
+                self.sim, True
+            )
+            gym.refresh_actor_root_state_tensor(self.sim)
+            # gym.step_graphics(self.sim)  # No need to step graphics until we need to render
+            sim_step_idx += 1
 
     def save_images(
         self, folder: str, overwrite: bool = False, num_cameras: int = 250
