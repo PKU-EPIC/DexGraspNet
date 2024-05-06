@@ -381,6 +381,12 @@ class IsaacValidator:
         for i in range(len(table_shape_props)):
             table_shape_props[i].friction = 1.0
         gym.set_actor_rigid_shape_properties(env, table_actor_handle, table_shape_props)
+
+        # Set table texture
+        if not hasattr(self, "table_texture"):
+            self.table_texture = gym.create_texture_from_file(self.sim, "table/wood.png")
+        RB_IDX = 0
+        gym.set_rigid_body_texture(env, table_actor_handle, RB_IDX, gymapi.MESH_VISUAL_AND_COLLISION, self.table_texture)
         return
 
     def _setup_hand(
