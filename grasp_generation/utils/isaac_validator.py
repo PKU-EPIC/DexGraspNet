@@ -121,7 +121,6 @@ class AutoName(Enum):
 
 
 class ValidationType(AutoName):
-    GRAVITY_IN_6_DIRS = auto()
     NO_GRAVITY_SHAKING = auto()
     GRAVITY_AND_TABLE = auto()
 
@@ -155,12 +154,7 @@ class IsaacValidator:
         self._init_or_reset_state()
 
         # Need virtual joints to control hand position
-        if self.validation_type == ValidationType.GRAVITY_IN_6_DIRS:
-            self.hand_root, self.hand_file = handmodeltype_to_hand_root_hand_file[
-                hand_model_type
-            ]
-            self.virtual_joint_names = []
-        elif self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
+        if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
             (
                 self.hand_root,
                 self.hand_file,
@@ -256,9 +250,7 @@ class IsaacValidator:
             True  # Convex decomposition is better than convex hull
         )
 
-        if self.validation_type == ValidationType.GRAVITY_IN_6_DIRS:
-            self.obj_asset_options.disable_gravity = False
-        elif self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
+        if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
             self.obj_asset_options.disable_gravity = True
         elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
             self.obj_asset_options.disable_gravity = False
@@ -279,7 +271,7 @@ class IsaacValidator:
         )
 
     ########## ENV SETUP START ##########
-    def add_env_single_test_rotation(
+    def add_env(
         self,
         hand_quaternion_wxyz: np.ndarray,
         hand_translation: np.ndarray,
@@ -291,8 +283,6 @@ class IsaacValidator:
     ) -> None:
         # collision_idx should be unique for each env so envs don't collide
         collision_idx = len(self.envs)
-
-        transformation = gymapi.Transform()
 
         # Create env
         ENVS_PER_ROW = 6
@@ -309,56 +299,66 @@ class IsaacValidator:
             hand_quaternion_wxyz=hand_quaternion_wxyz,
             hand_translation=hand_translation,
             hand_qpos=hand_qpos,
-            transformation=transformation,
             target_qpos=target_qpos,
             collision_idx=collision_idx,
             add_random_pose_noise=add_random_pose_noise,
         )
 
-        self._setup_obj(
-            env,
-            obj_scale,
-            transformation,
-            collision_idx=collision_idx,
-        )
+        if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
+            obj_pose = gymapi.Transform()
+            obj_pose.p = gymapi.Vec3(0.0, 0.0, 0.0)
+            obj_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
 
-        if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+            self._setup_obj(
+                env,
+                obj_pose=obj_pose,
+                obj_scale=obj_scale,
+                collision_idx=collision_idx,
+            )
+        elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+            obj_pose = self._compute_init_obj_pose_above_table(obj_scale)
+
+            self._setup_obj(
+                env,
+                obj_pose=obj_pose,
+                obj_scale=obj_scale,
+                collision_idx=collision_idx,
+            )
             self._setup_table(
                 env=env,
-                transformation=transformation,
                 collision_idx=collision_idx,
-                obj_scale=obj_scale,
             )
+        else:
+            raise ValueError(f"Unknown validation type: {self.validation_type}")
 
         if record:
             self._setup_camera(env)
 
-    def get_table_surface_height(self, obj_scale: float) -> float:
-        # OBJ_MAX_EXTENT_FROM_ORIGIN = 0.2
-        # BUFFER = 1
-        # TABLE_THICKNESS = 0.1
-        # y_offset = OBJ_MAX_EXTENT_FROM_ORIGIN * BUFFER + TABLE_THICKNESS / 2
-
+    def _compute_init_obj_pose_above_table(self, obj_scale: float) -> gymapi.Transform:
+        # All objs are assumed to be centered in a bounding box, with the max width being 2.0m (unscaled)
+        # Thus max extent from origin is 1.0m (unscaled)
+        # So we want to place the obj above the table a bit more then rescale
+        OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0
         BUFFER = 1.2
-        OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0 * obj_scale * BUFFER
-        TABLE_THICKNESS = 0.1
-        y_offset = OBJ_MAX_EXTENT_FROM_ORIGIN + TABLE_THICKNESS / 2
-        return -y_offset
+        y_above_table = OBJ_MAX_EXTENT_FROM_ORIGIN * obj_scale * BUFFER
+
+        obj_pose = gymapi.Transform()
+        obj_pose.p = gymapi.Vec3(0.0, y_above_table, 0.0)
+        obj_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+        return obj_pose
 
     def _setup_table(
         self,
         env,
-        transformation: gymapi.Transform,
         collision_idx: int,
-        obj_scale: float,
     ) -> None:
-        table_surface_height = self.get_table_surface_height(obj_scale=obj_scale)
+        TABLE_THICKNESS = 0.1
 
         table_pose = gymapi.Transform()
-        table_pose.p = gymapi.Vec3(0, table_surface_height, 0)
+        table_pose.p = gymapi.Vec3(
+            0, -TABLE_THICKNESS / 2, 0
+        )  # Table surface is at y=0
         table_pose.r = gymapi.Quat(0, 0, 0, 1)
-
-        table_pose = transformation * table_pose
 
         # Create table
         table_actor_handle = gym.create_actor(
@@ -391,7 +391,6 @@ class IsaacValidator:
         hand_quaternion_wxyz: np.ndarray,
         hand_translation: np.ndarray,
         hand_qpos: np.ndarray,
-        transformation: gymapi.Transform,
         target_qpos: np.ndarray,
         collision_idx: int,
         add_random_pose_noise: bool = False,
@@ -401,7 +400,6 @@ class IsaacValidator:
         # Will move hand to object later
         hand_pose = gymapi.Transform()
         hand_pose.p = ARBITRARY_INIT_HAND_POS
-        hand_pose = transformation * hand_pose
 
         # Create hand
         hand_actor_handle = gym.create_actor(
@@ -506,15 +504,10 @@ class IsaacValidator:
     def _setup_obj(
         self,
         env,
+        obj_pose: gymapi.Transform,
         obj_scale: float,
-        transformation: gymapi.Transform,
         collision_idx: int,
     ) -> None:
-        obj_pose = gymapi.Transform()
-        obj_pose.p = gymapi.Vec3(0.0, 0.0, 0.0)
-        obj_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
-
-        obj_pose = transformation * obj_pose
         self.init_obj_poses.append(obj_pose)
 
         # Create obj
@@ -993,7 +986,9 @@ class IsaacValidator:
         assert step < length, f"{step} >= {length}"
         if step == 0:
             self._move_hands_to_objects()
-            return [True for _ in range(len(self.envs))], [True for _ in range(len(self.envs))]
+            return [True for _ in range(len(self.envs))], [
+                True for _ in range(len(self.envs))
+            ]
         else:
             # Can only check the collisions after taking a sim step
             hand_colliding_obj = self._is_hand_colliding_with_obj()
@@ -1453,11 +1448,9 @@ class IsaacValidator:
         )
         self.envs.append(env)
 
-        self._setup_obj(env, obj_scale, identity_transform, collision_idx=0)
+        self._setup_obj(env, obj_scale, collision_idx=0)
         if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
-            self._setup_table(
-                env, identity_transform, collision_idx=0, obj_scale=obj_scale
-            )
+            self._setup_table(env, collision_idx=0)
 
     def save_images(
         self, folder: str, overwrite: bool = False, num_cameras: int = 250

@@ -327,7 +327,7 @@ class ObjectModel:
 
         min_object_y = object_bounds[:, 0, 1]
 
-        Y_OFFSET = 0.025
+        Y_OFFSET = 0.01  # Keep the hand slightly above the table
         table_y = min_object_y + Y_OFFSET
         assert table_y.shape == (full_batch_size,)
 

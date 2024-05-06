@@ -188,7 +188,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             obj_file="coacd.urdf",
         )
         index = args.debug_index
-        sim.add_env_single_test_rotation(
+        sim.add_env(
             hand_quaternion_wxyz=quat_wxyz[index],
             hand_translation=trans[index],
             hand_qpos=init_joint_angles[index],
@@ -261,7 +261,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             obj_file="coacd.urdf",
         )
         for index in range(start_index, end_index):
-            sim.add_env_single_test_rotation(
+            sim.add_env(
                 hand_quaternion_wxyz=quat_wxyz[index],
                 hand_translation=trans[index],
                 hand_qpos=init_joint_angles[index],
@@ -273,7 +273,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
             if args.num_random_pose_noise_samples_per_grasp is not None:
                 for _ in range(args.num_random_pose_noise_samples_per_grasp):
-                    sim.add_env_single_test_rotation(
+                    sim.add_env(
                         hand_quaternion_wxyz=quat_wxyz[index],
                         hand_translation=trans[index],
                         hand_qpos=init_joint_angles[index],
