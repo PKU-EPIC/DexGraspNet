@@ -1,12 +1,27 @@
 # %%
+import plotly.graph_objects as go
 import numpy as np
+import matplotlib.pyplot as plt
 import pathlib
 from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
 from collections import defaultdict
+from localscope import localscope
+
+from utils.hand_model import HandModel
+from utils.hand_model_type import (
+    HandModelType,
+)
+from utils.pose_conversion import (
+    hand_config_to_pose,
+)
+from utils.joint_angle_targets import (
+    compute_fingertip_dirs,
+)
+import torch
 
 # %%
-TRANS_MAX_NOISE = 0.03
+TRANS_MAX_NOISE = 0.02
 ROT_DEG_MAX_NOISE = 5
 JOINT_POS_MAX_NOISE = 0
 GRASP_ORIENTATION_DEG_MAX_NOISE = 0
@@ -19,6 +34,91 @@ OUTPUT_PATH = pathlib.Path(
     "../data/2024-05-09_rotated_stable_grasps_noisy_pose_only/raw_grasp_config_dicts/"
 )
 OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
+
+
+# %%
+@localscope.mfc
+def add_noise_to_rot_matrices(
+    rot_matrices: np.ndarray,
+    rpy_noise: np.ndarray,
+) -> np.ndarray:
+    N = rot_matrices.shape[0]
+    assert rot_matrices.shape == (N, 3, 3)
+    assert rpy_noise.shape == (N, 3)
+
+    R_x = np.eye(3)[None, ...].repeat(N, axis=0)
+    R_y = np.eye(3)[None, ...].repeat(N, axis=0)
+    R_z = np.eye(3)[None, ...].repeat(N, axis=0)
+
+    R_x[:, 1, 1] = np.cos(rpy_noise[:, 0])
+    R_x[:, 1, 2] = -np.sin(rpy_noise[:, 0])
+    R_x[:, 2, 1] = np.sin(rpy_noise[:, 0])
+    R_x[:, 2, 2] = np.cos(rpy_noise[:, 0])
+
+    R_y[:, 0, 0] = np.cos(rpy_noise[:, 1])
+    R_y[:, 0, 2] = np.sin(rpy_noise[:, 1])
+    R_y[:, 2, 0] = -np.sin(rpy_noise[:, 1])
+    R_y[:, 2, 2] = np.cos(rpy_noise[:, 1])
+
+    R_z[:, 0, 0] = np.cos(rpy_noise[:, 2])
+    R_z[:, 0, 1] = -np.sin(rpy_noise[:, 2])
+    R_z[:, 1, 0] = np.sin(rpy_noise[:, 2])
+    R_z[:, 1, 1] = np.cos(rpy_noise[:, 2])
+
+    R_zy = np.einsum("ijk,ikl->ijl", R_z, R_y)
+    R_zyx = np.einsum("ijk,ikl->ijl", R_zy, R_x)
+
+    new_rot_matrices = np.einsum("ijk,ikl->ijl", rot_matrices, R_zyx)
+    return new_rot_matrices
+
+
+@localscope.mfc
+def add_noise_to_dirs(dirs: np.ndarray, theta_phi_noise: np.ndarray) -> np.ndarray:
+    N = dirs.shape[0]
+    assert dirs.shape == (N, 3)
+    assert theta_phi_noise.shape == (N, 2)
+
+    cos_thetas = np.cos(theta_phi_noise[:, 0])
+    sin_thetas = np.sin(theta_phi_noise[:, 0])
+    cos_phis = np.cos(theta_phi_noise[:, 1])
+    sin_phis = np.sin(theta_phi_noise[:, 1])
+
+    # Rotation around z-axis
+    RRz = np.eye(3)[None, ...].repeat(N, axis=0)
+    RRz[:, 0, 0] = cos_thetas
+    RRz[:, 0, 1] = -sin_thetas
+    RRz[:, 1, 0] = sin_thetas
+    RRz[:, 1, 1] = cos_thetas
+
+    RRy = np.eye(3)[None, ...].repeat(N, axis=0)
+    RRy[:, 0, 0] = cos_phis
+    RRy[:, 0, 2] = sin_phis
+    RRy[:, 2, 0] = -sin_phis
+    RRy[:, 2, 2] = cos_phis
+
+    RRyz = np.einsum("ijk,ikl->ijl", RRy, RRz)
+    new_z_dirs = np.einsum("ik,ikl->il", dirs, RRyz)
+    return new_z_dirs
+
+
+@localscope.mfc
+def clamp_joint_angles(
+    joint_angles: np.ndarray,
+    hand_model: HandModel,
+) -> np.ndarray:
+    N = joint_angles.shape[0]
+    assert joint_angles.shape == (N, 16)
+
+    joint_lowers = hand_model.joints_lower.detach().cpu().numpy()
+    joint_uppers = hand_model.joints_upper.detach().cpu().numpy()
+    new_joint_angles = np.clip(joint_angles, joint_lowers[None], joint_uppers[None])
+    return new_joint_angles
+
+
+# %%
+device = "cuda"
+hand_model_type = HandModelType.ALLEGRO_HAND
+hand_model = HandModel(hand_model_type=hand_model_type, device=device)
 
 # %%
 ######### CREATE NEW DATASET ##################
@@ -71,44 +171,45 @@ for obj, all_grasps_dict in tqdm(obj_to_all_grasps.items()):
 
 
 # %%
+@localscope.mfc
+def sample_noise(N: int, d: int, scale: float, mode: str = "normal") -> np.ndarray:
+    if mode == "halton":
+        from scipy.stats.qmc import Halton
+        noise = (Halton(d=d, scramble=True).random(n=N) * 2 - 1) * scale
+    elif mode == "uniform":
+        noise = np.random.uniform(low=-scale, high=scale, size=(N, d))
+    elif mode == "normal":
+        noise = np.random.normal(loc=0, scale=scale, size=(N, d))
+    else:
+        raise ValueError(f"Invalid mode: {mode}")
+
+    assert noise.shape == (N, d)
+    return noise
+
+
+# %%
+@localscope.mfc
 def add_noise(
     data_dict: dict,
     N_noisy: int,
+    hand_model: HandModel,
     trans_max_noise: float = TRANS_MAX_NOISE,
     rot_deg_max_noise: float = ROT_DEG_MAX_NOISE,
     joint_pos_max_noise: float = JOINT_POS_MAX_NOISE,
     grasp_orientation_deg_max_noise: float = GRASP_ORIENTATION_DEG_MAX_NOISE,
 ) -> dict:
-    from utils.hand_model import HandModel
-    from utils.hand_model_type import (
-        HandModelType,
-    )
-    from utils.pose_conversion import (
-        hand_config_to_pose,
-    )
-    from utils.joint_angle_targets import (
-        compute_fingertip_dirs,
-    )
-    import torch
-
     N_FINGERS = 4
-    from scipy.stats.qmc import Halton
 
     B = data_dict["trans"].shape[0]
     if B == 0:
         return {}
-    xyz_noise = (
-        Halton(d=3, scramble=True).random(n=N_noisy * B) * 2 - 1
-    ) * trans_max_noise
-    rpy_noise = (Halton(d=3, scramble=True).random(n=N_noisy * B) * 2 - 1) * np.deg2rad(
-        rot_deg_max_noise
+
+    xyz_noise = sample_noise(N=N_noisy * B, d=3, scale=trans_max_noise)
+    rpy_noise = sample_noise(N=N_noisy * B, d=3, scale=np.deg2rad(rot_deg_max_noise))
+    joint_angles_noise = sample_noise(N=N_noisy * B, d=16, scale=joint_pos_max_noise)
+    grasp_orientation_noise = sample_noise(
+        N=N_noisy * B * N_FINGERS, d=2, scale=np.deg2rad(grasp_orientation_deg_max_noise)
     )
-    joint_angles_noise = (
-        Halton(d=16, scramble=True).random(n=N_noisy * B) * 2 - 1
-    ) * joint_pos_max_noise
-    grasp_orientation_noise = (
-        Halton(d=2, scramble=True).random(n=N_noisy * B * N_FINGERS) * 2 - 1
-    ) * np.deg2rad(grasp_orientation_deg_max_noise)
 
     orig_trans = data_dict["trans"]
     orig_rot = data_dict["rot"]
@@ -128,30 +229,8 @@ def add_noise(
     new_data_dict["trans"] = new_trans
 
     # rot
-    R_x = np.eye(3)[None, ...].repeat(N_noisy * B, axis=0)
-    R_y = np.eye(3)[None, ...].repeat(N_noisy * B, axis=0)
-    R_z = np.eye(3)[None, ...].repeat(N_noisy * B, axis=0)
-
-    R_x[:, 1, 1] = np.cos(rpy_noise[:, 0])
-    R_x[:, 1, 2] = -np.sin(rpy_noise[:, 0])
-    R_x[:, 2, 1] = np.sin(rpy_noise[:, 0])
-    R_x[:, 2, 2] = np.cos(rpy_noise[:, 0])
-
-    R_y[:, 0, 0] = np.cos(rpy_noise[:, 1])
-    R_y[:, 0, 2] = np.sin(rpy_noise[:, 1])
-    R_y[:, 2, 0] = -np.sin(rpy_noise[:, 1])
-    R_y[:, 2, 2] = np.cos(rpy_noise[:, 1])
-
-    R_z[:, 0, 0] = np.cos(rpy_noise[:, 2])
-    R_z[:, 0, 1] = -np.sin(rpy_noise[:, 2])
-    R_z[:, 1, 0] = np.sin(rpy_noise[:, 2])
-    R_z[:, 1, 1] = np.cos(rpy_noise[:, 2])
-
-    R_zy = np.einsum("ijk,ikl->ijl", R_z, R_y)
-    R_zyx = np.einsum("ijk,ikl->ijl", R_zy, R_x)
-
     new_rot = orig_rot[:, None, ...].repeat(N_noisy, axis=1).reshape(N_noisy * B, 3, 3)
-    new_rot = np.einsum("ijk,ikl->ijl", new_rot, R_zyx)
+    new_rot = add_noise_to_rot_matrices(rot_matrices=new_rot, rpy_noise=rpy_noise)
     new_data_dict["rot"] = new_rot
 
     # joint_angles
@@ -159,19 +238,16 @@ def add_noise(
         orig_joint_angles[:, None, ...].repeat(N_noisy, axis=1).reshape(N_noisy * B, 16)
     )
     new_joint_angles += joint_angles_noise
+    new_joint_angles = clamp_joint_angles(
+        joint_angles=new_joint_angles, hand_model=hand_model
+    )
+    new_data_dict["joint_angles"] = new_joint_angles
 
     # hand_model
-    device = "cuda"
-    hand_pose = hand_config_to_pose(new_trans, new_rot, new_joint_angles).to(device)
-    hand_model_type = HandModelType.ALLEGRO_HAND
-    hand_model = HandModel(hand_model_type=hand_model_type, device=device)
+    hand_pose = hand_config_to_pose(new_trans, new_rot, new_joint_angles).to(
+        hand_model.device
+    )
     hand_model.set_parameters(hand_pose)
-
-    # Clamp
-    joint_lowers = hand_model.joints_lower.detach().cpu().numpy()
-    joint_uppers = hand_model.joints_upper.detach().cpu().numpy()
-    new_joint_angles = np.clip(new_joint_angles, joint_lowers, joint_uppers)
-    new_data_dict["joint_angles"] = new_joint_angles
 
     # grasp_orientations
     orig_z_dirs = orig_grasp_orientations[:, :, :, 2]
@@ -180,31 +256,14 @@ def add_noise(
         .repeat(N_noisy, axis=1)
         .reshape(N_noisy * B * N_FINGERS, 3)
     )
-
-    cos_thetas = np.cos(grasp_orientation_noise[:, 0])
-    sin_thetas = np.sin(grasp_orientation_noise[:, 0])
-    cos_phis = np.cos(grasp_orientation_noise[:, 1])
-    sin_phis = np.sin(grasp_orientation_noise[:, 1])
-
-    # Rotation around z-axis
-    RRz = np.eye(3)[None, ...].repeat(N_noisy * B * N_FINGERS, axis=0)
-    RRz[:, 0, 0] = cos_thetas
-    RRz[:, 0, 1] = -sin_thetas
-    RRz[:, 1, 0] = sin_thetas
-    RRz[:, 1, 1] = cos_thetas
-
-    RRy = np.eye(3)[None, ...].repeat(N_noisy * B * N_FINGERS, axis=0)
-    RRy[:, 0, 0] = cos_phis
-    RRy[:, 0, 2] = sin_phis
-    RRy[:, 2, 0] = -sin_phis
-    RRy[:, 2, 2] = cos_phis
-
-    RRyz = np.einsum("ijk,ikl->ijl", RRy, RRz)
-    new_z_dirs = np.einsum("ik,ikl->il", new_z_dirs, RRyz)
+    new_z_dirs = add_noise_to_dirs(
+        dirs=new_z_dirs, theta_phi_noise=grasp_orientation_noise
+    )
     new_z_dirs_torch = (
         torch.from_numpy(new_z_dirs).float().cuda().reshape(N_noisy * B, N_FINGERS, 3)
     )
 
+    # Math to get x_dirs, y_dirs
     (center_to_right_dirs, center_to_tip_dirs) = compute_fingertip_dirs(
         joint_angles=torch.from_numpy(new_joint_angles).float().cuda(),
         hand_model=hand_model,
@@ -229,10 +288,10 @@ def add_noise(
     x_dirs = torch.cross(y_dirs, new_z_dirs_torch)
     assert (x_dirs.norm(dim=-1).min() > 0).all()
     x_dirs = x_dirs / x_dirs.norm(dim=-1, keepdim=True)
-    new_grasp_orientations = torch.stack([x_dirs, y_dirs, new_z_dirs_torch], dim=-1)
-    new_data_dict["grasp_orientations"] = (
-        new_grasp_orientations.cpu().numpy().reshape(N_noisy * B, N_FINGERS, 3, 3)
+    new_grasp_orientations = (
+        torch.stack([x_dirs, y_dirs, new_z_dirs_torch], dim=-1).cpu().numpy()
     )
+    new_data_dict["grasp_orientations"] = new_grasp_orientations
 
     for k, v in data_dict.items():
         if k in ["trans", "rot", "joint_angles", "grasp_orientations"]:
@@ -246,38 +305,27 @@ def add_noise(
 
 # %%
 test_input = obj_to_good_grasps[objs[1]]
-test_output = add_noise(data_dict=test_input, N_noisy=10)
+test_n_noisy = 10
+test_output = add_noise(
+    data_dict=test_input, N_noisy=test_n_noisy, hand_model=hand_model
+)
 
 # %%
-import matplotlib.pyplot as plt
-
-idx = 1
+idx = 0
+offset_idx = 5
 test_input_trans_0 = test_input["trans"][idx]
-test_output_trans_0 = test_output["trans"][10 + idx]
+test_output_trans_0 = test_output["trans"][test_n_noisy * idx + offset_idx]
 diff = np.linalg.norm(test_input_trans_0 - test_output_trans_0)
-print(diff)
+print(f"diff: {diff}")
 
 # %%
-from utils.hand_model import HandModel
-from utils.hand_model_type import (
-    HandModelType,
-)
-from utils.pose_conversion import (
-    hand_config_to_pose,
-)
-from utils.joint_angle_targets import (
-    compute_fingertip_dirs,
-)
-import torch
-
 # hand_model
-device = "cuda"
-idx = 1
+idx = 2
+offset_idx = 3
+
 input_hand_pose = hand_config_to_pose(
     test_input["trans"], test_input["rot"], test_input["joint_angles"]
 ).to(device)
-hand_model_type = HandModelType.ALLEGRO_HAND
-hand_model = HandModel(hand_model_type=hand_model_type, device=device)
 hand_model.set_parameters(input_hand_pose)
 input_plotly = hand_model.get_plotly_data(i=idx, opacity=1.0)
 
@@ -285,12 +333,9 @@ output_hand_pose = hand_config_to_pose(
     test_output["trans"], test_output["rot"], test_output["joint_angles"]
 ).to(device)
 hand_model.set_parameters(output_hand_pose)
-offset_idx = 1
-output_plotly = hand_model.get_plotly_data(i=10 * idx + offset_idx)
+output_plotly = hand_model.get_plotly_data(i=test_n_noisy * idx + offset_idx)
 
 # %%
-import plotly.graph_objects as go
-
 fig = go.Figure(data=input_plotly + output_plotly)
 fig.show()
 
@@ -303,8 +348,12 @@ N_noisy = 40
 N_other = 10
 for obj, good_grasps_dict in tqdm(obj_to_good_grasps.items()):
     # Add noise
-    noisy_good_data_dict = add_noise(data_dict=good_grasps_dict, N_noisy=N_noisy)
-    noisy_other_data_dict = add_noise(data_dict=good_grasps_dict, N_noisy=N_other)
+    noisy_good_data_dict = add_noise(
+        data_dict=good_grasps_dict, N_noisy=N_noisy, hand_model=hand_model
+    )
+    noisy_other_data_dict = add_noise(
+        data_dict=good_grasps_dict, N_noisy=N_other, hand_model=hand_model
+    )
 
     # Get other object
     while True:
