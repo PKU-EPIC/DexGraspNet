@@ -1,4 +1,5 @@
 # %%
+from typing import Optional, Tuple
 import plotly.graph_objects as go
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,17 +22,17 @@ from utils.joint_angle_targets import (
 import torch
 
 # %%
-TRANS_MAX_NOISE = 0.02
-ROT_DEG_MAX_NOISE = 5
-JOINT_POS_MAX_NOISE = 0
-GRASP_ORIENTATION_DEG_MAX_NOISE = 0
+TRANS_MAX_NOISE = 0.01
+ROT_DEG_MAX_NOISE = 2.5
+JOINT_POS_MAX_NOISE = 0.1
+GRASP_ORIENTATION_DEG_MAX_NOISE = 0.0
 
 # %%
 MAX_N_OBJECTS = None
 
 # %%
 OUTPUT_PATH = pathlib.Path(
-    "../data/2024-05-09_rotated_stable_grasps_noisy_pose_only/raw_grasp_config_dicts/"
+    "../data/2024-05-09_rotated_stable_grasps_noisy_pose_joints_less/raw_grasp_config_dicts/"
 )
 OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -172,18 +173,23 @@ for obj, all_grasps_dict in tqdm(obj_to_all_grasps.items()):
 
 # %%
 @localscope.mfc
-def sample_noise(N: int, d: int, scale: float, mode: str = "normal") -> np.ndarray:
+def sample_noise(shape: Tuple[int], scale: float, mode: str = "normal") -> np.ndarray:
+    batch_dims = shape[:-1]
+    d = shape[-1]
+
     if mode == "halton":
         from scipy.stats.qmc import Halton
+
+        N = np.prod(batch_dims)
         noise = (Halton(d=d, scramble=True).random(n=N) * 2 - 1) * scale
     elif mode == "uniform":
-        noise = np.random.uniform(low=-scale, high=scale, size=(N, d))
+        noise = np.random.uniform(low=-scale, high=scale, size=(*batch_dims, d))
     elif mode == "normal":
-        noise = np.random.normal(loc=0, scale=scale, size=(N, d))
+        noise = np.random.normal(loc=0, scale=scale, size=(*batch_dims, d))
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
-    assert noise.shape == (N, d)
+    assert noise.shape == (*batch_dims, d)
     return noise
 
 
@@ -204,12 +210,19 @@ def add_noise(
     if B == 0:
         return {}
 
-    xyz_noise = sample_noise(N=N_noisy * B, d=3, scale=trans_max_noise)
-    rpy_noise = sample_noise(N=N_noisy * B, d=3, scale=np.deg2rad(rot_deg_max_noise))
-    joint_angles_noise = sample_noise(N=N_noisy * B, d=16, scale=joint_pos_max_noise)
+    xyz_noise = sample_noise(shape=(B, N_noisy, 3), scale=trans_max_noise)
+    rpy_noise = sample_noise(shape=(B, N_noisy, 3), scale=np.deg2rad(rot_deg_max_noise))
+    joint_angles_noise = sample_noise(shape=(B, N_noisy, 16), scale=joint_pos_max_noise)
     grasp_orientation_noise = sample_noise(
-        N=N_noisy * B * N_FINGERS, d=2, scale=np.deg2rad(grasp_orientation_deg_max_noise)
+        shape=(B, N_noisy, N_FINGERS, 2),
+        scale=np.deg2rad(grasp_orientation_deg_max_noise),
     )
+
+    # 0 noise for the first noisy sample of each batch dim
+    xyz_noise[:, 0] = 0
+    rpy_noise[:, 0] = 0
+    joint_angles_noise[:, 0] = 0
+    grasp_orientation_noise[:, 0] = 0
 
     orig_trans = data_dict["trans"]
     orig_rot = data_dict["rot"]
@@ -224,22 +237,22 @@ def add_noise(
     new_data_dict = {}
 
     # trans
-    new_trans = orig_trans[:, None, ...].repeat(N_noisy, axis=1).reshape(N_noisy * B, 3)
-    new_trans += xyz_noise
+    new_trans = orig_trans[:, None, ...].repeat(N_noisy, axis=1)
+    new_trans = (new_trans + xyz_noise).reshape(N_noisy * B, 3)
     new_data_dict["trans"] = new_trans
 
     # rot
-    new_rot = orig_rot[:, None, ...].repeat(N_noisy, axis=1).reshape(N_noisy * B, 3, 3)
-    new_rot = add_noise_to_rot_matrices(rot_matrices=new_rot, rpy_noise=rpy_noise)
+    new_rot = orig_rot[:, None, ...].repeat(N_noisy, axis=1)
+    new_rot = add_noise_to_rot_matrices(rot_matrices=new_rot.reshape(B*N_noisy, 3, 3), rpy_noise=rpy_noise.reshape(B*N_noisy, 3)).reshape(N_noisy * B, 3, 3)
     new_data_dict["rot"] = new_rot
 
     # joint_angles
     new_joint_angles = (
-        orig_joint_angles[:, None, ...].repeat(N_noisy, axis=1).reshape(N_noisy * B, 16)
+        orig_joint_angles[:, None, ...].repeat(N_noisy, axis=1)
     )
     new_joint_angles += joint_angles_noise
     new_joint_angles = clamp_joint_angles(
-        joint_angles=new_joint_angles, hand_model=hand_model
+        joint_angles=new_joint_angles.reshape(N_noisy * B, 16), hand_model=hand_model
     )
     new_data_dict["joint_angles"] = new_joint_angles
 
@@ -254,10 +267,9 @@ def add_noise(
     new_z_dirs = (
         orig_z_dirs[:, None, ...]
         .repeat(N_noisy, axis=1)
-        .reshape(N_noisy * B * N_FINGERS, 3)
     )
     new_z_dirs = add_noise_to_dirs(
-        dirs=new_z_dirs, theta_phi_noise=grasp_orientation_noise
+        dirs=new_z_dirs.reshape(B * N_noisy * N_FINGERS, 3), theta_phi_noise=grasp_orientation_noise.reshape(B * N_noisy * N_FINGERS, 2)
     )
     new_z_dirs_torch = (
         torch.from_numpy(new_z_dirs).float().cuda().reshape(N_noisy * B, N_FINGERS, 3)
@@ -311,8 +323,8 @@ test_output = add_noise(
 )
 
 # %%
-idx = 0
-offset_idx = 5
+idx = 1
+offset_idx = 1
 test_input_trans_0 = test_input["trans"][idx]
 test_output_trans_0 = test_output["trans"][test_n_noisy * idx + offset_idx]
 diff = np.linalg.norm(test_input_trans_0 - test_output_trans_0)
@@ -321,7 +333,7 @@ print(f"diff: {diff}")
 # %%
 # hand_model
 idx = 2
-offset_idx = 3
+offset_idx = 0
 
 input_hand_pose = hand_config_to_pose(
     test_input["trans"], test_input["rot"], test_input["joint_angles"]
