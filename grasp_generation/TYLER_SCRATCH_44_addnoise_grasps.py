@@ -25,14 +25,14 @@ import torch
 TRANS_MAX_NOISE = 0.01
 ROT_DEG_MAX_NOISE = 2.5
 JOINT_POS_MAX_NOISE = 0.1
-GRASP_ORIENTATION_DEG_MAX_NOISE = 0.0
+GRASP_ORIENTATION_DEG_MAX_NOISE = 15
 
 # %%
 MAX_N_OBJECTS = None
 
 # %%
 OUTPUT_PATH = pathlib.Path(
-    "../data/2024-05-09_rotated_stable_grasps_noisy_pose_joints_less/raw_grasp_config_dicts/"
+    "../data/2024-05-09_rotated_stable_grasps_noisy_TUNED/raw_grasp_config_dicts/"
 )
 OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -243,13 +243,14 @@ def add_noise(
 
     # rot
     new_rot = orig_rot[:, None, ...].repeat(N_noisy, axis=1)
-    new_rot = add_noise_to_rot_matrices(rot_matrices=new_rot.reshape(B*N_noisy, 3, 3), rpy_noise=rpy_noise.reshape(B*N_noisy, 3)).reshape(N_noisy * B, 3, 3)
+    new_rot = add_noise_to_rot_matrices(
+        rot_matrices=new_rot.reshape(B * N_noisy, 3, 3),
+        rpy_noise=rpy_noise.reshape(B * N_noisy, 3),
+    ).reshape(N_noisy * B, 3, 3)
     new_data_dict["rot"] = new_rot
 
     # joint_angles
-    new_joint_angles = (
-        orig_joint_angles[:, None, ...].repeat(N_noisy, axis=1)
-    )
+    new_joint_angles = orig_joint_angles[:, None, ...].repeat(N_noisy, axis=1)
     new_joint_angles += joint_angles_noise
     new_joint_angles = clamp_joint_angles(
         joint_angles=new_joint_angles.reshape(N_noisy * B, 16), hand_model=hand_model
@@ -264,12 +265,10 @@ def add_noise(
 
     # grasp_orientations
     orig_z_dirs = orig_grasp_orientations[:, :, :, 2]
-    new_z_dirs = (
-        orig_z_dirs[:, None, ...]
-        .repeat(N_noisy, axis=1)
-    )
+    new_z_dirs = orig_z_dirs[:, None, ...].repeat(N_noisy, axis=1)
     new_z_dirs = add_noise_to_dirs(
-        dirs=new_z_dirs.reshape(B * N_noisy * N_FINGERS, 3), theta_phi_noise=grasp_orientation_noise.reshape(B * N_noisy * N_FINGERS, 2)
+        dirs=new_z_dirs.reshape(B * N_noisy * N_FINGERS, 3),
+        theta_phi_noise=grasp_orientation_noise.reshape(B * N_noisy * N_FINGERS, 2),
     )
     new_z_dirs_torch = (
         torch.from_numpy(new_z_dirs).float().cuda().reshape(N_noisy * B, N_FINGERS, 3)
