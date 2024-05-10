@@ -915,13 +915,29 @@ class IsaacValidator:
                 raise ValueError(f"Unknown sim_step_idx: {sim_step_idx}")
 
             # Step physics if not paused
-            self.is_paused = False  # No pausing
             if not self.is_paused:
                 gym.simulate(self.sim)
                 gym.fetch_results(
                     self.sim, True
                 )
                 gym.refresh_actor_root_state_tensor(self.sim)
+
+                if self.camera_handles and sim_step_idx > 0:
+                    gym.step_graphics(self.sim)
+                    gym.render_all_camera_sensors(self.sim)
+                    for ii, env in enumerate(self.camera_envs):
+                        self.video_frames[ii].append(
+                            gym.get_camera_image(
+                                self.sim,
+                                env,
+                                self.camera_handles[ii],
+                                gymapi.IMAGE_COLOR,
+                            ).reshape(
+                                self.camera_properties_list[ii].height,
+                                self.camera_properties_list[ii].width,
+                                4,  # RGBA
+                            )
+                        )
                 sim_step_idx += 1
                 pbar.update(1)
 
