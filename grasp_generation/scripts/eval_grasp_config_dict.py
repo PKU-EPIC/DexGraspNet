@@ -322,7 +322,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         passed_penetration_object_test_array
     )
     passed_penetration_table_test_array = np.array(passed_penetration_table_test_array)
-    object_states_before_grasp_array = np.array(object_states_before_grasp_array)
+    object_states_before_grasp_array = np.concatenate(object_states_before_grasp_array, axis=0)
     E_pen_array = np.array(E_pen_array)
 
     if args.num_random_pose_noise_samples_per_grasp is not None:
