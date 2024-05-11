@@ -331,8 +331,8 @@ print(f"diff: {diff}")
 
 # %%
 # hand_model
-idx = 2
-offset_idx = 0
+idx = 3
+offset_idx = 2
 
 input_hand_pose = hand_config_to_pose(
     test_input["trans"], test_input["rot"], test_input["joint_angles"]
@@ -392,5 +392,12 @@ for obj in tqdm(objs):
 # Step 5: Save
 for obj, new_dict in tqdm(obj_to_new_grasps.items()):
     np.save(OUTPUT_PATH / f"{obj}.npy", new_dict)
+
+# %%
+# Step 6: Count
+n_grasps = 0
+for obj, new_dict in tqdm(obj_to_new_grasps.items()):
+    n_grasps += new_dict["trans"].shape[0]
+print(f"n_grasps: {n_grasps}")
 
 # %%
