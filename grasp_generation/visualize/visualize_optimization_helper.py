@@ -247,7 +247,7 @@ def create_figure_with_buttons_and_slider(
                         fig=fig, idx=fig_idx, visualization_freq=visualization_freq
                     ),
                     showlegend=True,
-                    scene_camera=fig.layout.scene.camera,
+                    # scene_camera=fig.layout.scene.camera,  # Actually doing this resets the camera every time, so changing frames is jarring, leave empty
                 ),
                 name=get_fig_name(fig_idx),  # Important to match with slider label
             )
