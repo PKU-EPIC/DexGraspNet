@@ -1091,7 +1091,7 @@ class IsaacValidator:
 
         self.camera_envs.append(env)
 
-        cam_target = gymapi.Vec3(0, 0, 0)  # type: ignore  # where object s
+        cam_target = gymapi.Vec3(0, 0.1, 0)  # type: ignore  # where object s
 
         cam_pos = cam_target + gymapi.Vec3(0.3, 0.3, 0.0)  # Define offset
 
@@ -1130,8 +1130,8 @@ class IsaacValidator:
         # Shaking / perturbation parameters for virtual joint targets.
 
         # Set dof pos targets [+x, -x]*N, 0, [+y, -y]*N, 0, [+z, -z]*N
-        dist_to_move = 0.05
-        N_SHAKES = 2
+        dist_to_move = 0.03
+        N_SHAKES = 1
         if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
             targets_sequence = [
                 *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N_SHAKES),
@@ -1147,19 +1147,23 @@ class IsaacValidator:
             INCLUDE_SHAKE = (self.validation_type == ValidationType.GRAVITY_AND_TABLE_AND_SHAKING)
             targets_sequence = [
                 [0.0, -Y_LIFT, 0.0],
-                [0.0, -Y_LIFT * 3 / 4, 0.0],
-                [0.0, -Y_LIFT * 2 / 4, 0.0],
-                [0.0, -Y_LIFT * 1 / 4, 0.0],
+                [0.0, -Y_LIFT * 7 / 8, 0.0],
+                [0.0, -Y_LIFT * 6 / 8, 0.0],
+                [0.0, -Y_LIFT * 5 / 8, 0.0],
+                [0.0, -Y_LIFT * 4 / 8, 0.0],
+                [0.0, -Y_LIFT * 3 / 8, 0.0],
+                [0.0, -Y_LIFT * 2 / 8, 0.0],
+                [0.0, -Y_LIFT * 1 / 8, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
             ]
             if INCLUDE_SHAKE:
                 targets_sequence += [
-                    *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N_SHAKES),
+                    *([[dist_to_move/2, 0.0, 0.0], [dist_to_move, 0.0, 0.0], [dist_to_move/2, 0.0, 0.0], [0.0, 0.0, 0.0], [-dist_to_move/2, 0.0, 0.0], [-dist_to_move, 0.0, 0.0], [-dist_to_move/2, 0.0, 0.0], [0.0, 0.0, 0.0]] * N_SHAKES),
                     [0.0, 0.0, 0.0],
-                    *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N_SHAKES),
+                    *([[0.0, dist_to_move/2, 0.0], [0.0, dist_to_move, 0.0], [0.0, dist_to_move/2, 0.0], [0.0, 0.0, 0.0], [0.0, -dist_to_move/2, 0.0], [0.0, -dist_to_move, 0.0], [0.0, -dist_to_move/2, 0.0], [0.0, 0.0, 0.0]] * N_SHAKES),
                     [0.0, 0.0, 0.0],
-                    *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N_SHAKES),
+                    *([[0.0, 0.0, dist_to_move/2], [0.0, 0.0, dist_to_move], [0.0, 0.0, dist_to_move/2], [0.0, 0.0, 0.0], [0.0, 0.0, -dist_to_move/2], [0.0, 0.0, -dist_to_move], [0.0, 0.0, -dist_to_move/2], [0.0, 0.0, 0.0]] * N_SHAKES),
                     [0.0, 0.0, 0.0],
                     [0.0, 0.0, 0.0],
                 ]
