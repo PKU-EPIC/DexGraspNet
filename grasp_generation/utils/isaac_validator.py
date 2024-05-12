@@ -131,17 +131,11 @@ class IsaacValidator:
         self,
         hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
         mode: str = "direct",
-        hand_friction: float = 0.9,
-        obj_friction: float = 0.9,
         gpu: int = 0,
-        debug_interval: float = 0.05,
         start_with_step_mode: bool = False,
         validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING,
         use_cpu: bool = True,
     ) -> None:
-        self.hand_friction = hand_friction
-        self.obj_friction = obj_friction
-        self.debug_interval = debug_interval
         self.gpu = gpu
         self.validation_type = validation_type
 
@@ -492,7 +486,7 @@ class IsaacValidator:
         # Set hand shape props
         hand_shape_props = gym.get_actor_rigid_shape_properties(env, hand_actor_handle)
         for i in range(len(hand_shape_props)):
-            hand_shape_props[i].friction = self.hand_friction
+            hand_shape_props[i].friction = 0.9
         gym.set_actor_rigid_shape_properties(env, hand_actor_handle, hand_shape_props)
         return
 
@@ -533,7 +527,7 @@ class IsaacValidator:
         # Set obj shape props
         obj_shape_props = gym.get_actor_rigid_shape_properties(env, obj_actor_handle)
         for i in range(len(obj_shape_props)):
-            obj_shape_props[i].friction = self.obj_friction
+            obj_shape_props[i].friction = 0.9
         gym.set_actor_rigid_shape_properties(env, obj_actor_handle, obj_shape_props)
         return
 
@@ -938,7 +932,7 @@ class IsaacValidator:
 
             # Update viewer
             if self.has_viewer:
-                sleep(self.debug_interval)
+                sleep(0.05)
                 if gym.query_viewer_has_closed(self.viewer):
                     break
 
