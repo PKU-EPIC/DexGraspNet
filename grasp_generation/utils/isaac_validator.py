@@ -1093,7 +1093,7 @@ class IsaacValidator:
 
         cam_target = gymapi.Vec3(0, 0, 0)  # type: ignore  # where object s
 
-        cam_pos = cam_target + gymapi.Vec3(0.25, 0.2, 0.0)  # Define offset
+        cam_pos = cam_target + gymapi.Vec3(0.3, 0.3, 0.0)  # Define offset
 
         self.video_frames.append([])
         gym.set_camera_location(camera_handle, env, cam_pos, cam_target)
@@ -1131,14 +1131,14 @@ class IsaacValidator:
 
         # Set dof pos targets [+x, -x]*N, 0, [+y, -y]*N, 0, [+z, -z]*N
         dist_to_move = 0.05
-        N = 2
+        N_SHAKES = 2
         if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
             targets_sequence = [
-                *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
+                *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N_SHAKES),
                 [0.0, 0.0, 0.0],
-                *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
+                *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N_SHAKES),
                 [0.0, 0.0, 0.0],
-                *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
+                *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N_SHAKES),
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
             ]
@@ -1155,9 +1155,13 @@ class IsaacValidator:
             ]
             if INCLUDE_SHAKE:
                 targets_sequence += [
-                    *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
-                    *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
-                    *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
+                    *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N_SHAKES),
+                    [0.0, 0.0, 0.0],
+                    *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N_SHAKES),
+                    [0.0, 0.0, 0.0],
+                    *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N_SHAKES),
+                    [0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0],
                 ]
 
             targets_sequence = [
