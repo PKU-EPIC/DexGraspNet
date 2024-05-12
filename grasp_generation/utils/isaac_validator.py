@@ -123,6 +123,7 @@ class AutoName(Enum):
 class ValidationType(AutoName):
     NO_GRAVITY_SHAKING = auto()
     GRAVITY_AND_TABLE = auto()
+    GRAVITY_AND_TABLE_AND_SHAKING = auto()
 
 
 class IsaacValidator:
@@ -132,7 +133,6 @@ class IsaacValidator:
         mode: str = "direct",
         hand_friction: float = 0.9,
         obj_friction: float = 0.9,
-        num_sim_steps: int = 200,  # TODO: Try to make this smaller to save sim time, but not so short to not lift and shake well
         gpu: int = 0,
         debug_interval: float = 0.05,
         start_with_step_mode: bool = False,
@@ -142,7 +142,6 @@ class IsaacValidator:
         self.hand_friction = hand_friction
         self.obj_friction = obj_friction
         self.debug_interval = debug_interval
-        self.num_sim_steps = num_sim_steps
         self.gpu = gpu
         self.validation_type = validation_type
 
@@ -154,38 +153,30 @@ class IsaacValidator:
         self._init_or_reset_state()
 
         # Need virtual joints to control hand position
+        (
+            self.hand_root,
+            self.hand_file,
+        ) = handmodeltype_to_hand_root_hand_file_with_virtual_joints[
+            hand_model_type
+        ]
+        # HACK: Hardcoded virtual joint names
+        self.virtual_joint_names = [
+            "virtual_joint_translation_x",
+            "virtual_joint_translation_y",
+            "virtual_joint_translation_z",
+            "virtual_joint_rotation_z",
+            "virtual_joint_rotation_y",
+            "virtual_joint_rotation_x",
+        ]
+
+        # Try to keep num_sim_steps as small as possible to save sim time, but not so short to not lift and shake well
         if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
-            (
-                self.hand_root,
-                self.hand_file,
-            ) = handmodeltype_to_hand_root_hand_file_with_virtual_joints[
-                hand_model_type
-            ]
-            # HACK: Hardcoded virtual joint names
-            self.virtual_joint_names = [
-                "virtual_joint_translation_x",
-                "virtual_joint_translation_y",
-                "virtual_joint_translation_z",
-                "virtual_joint_rotation_z",
-                "virtual_joint_rotation_y",
-                "virtual_joint_rotation_x",
-            ]
+            self.num_sim_steps = 200
         elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
-            (
-                self.hand_root,
-                self.hand_file,
-            ) = handmodeltype_to_hand_root_hand_file_with_virtual_joints[
-                hand_model_type
-            ]
-            # HACK: Hardcoded virtual joint names
-            self.virtual_joint_names = [
-                "virtual_joint_translation_x",
-                "virtual_joint_translation_y",
-                "virtual_joint_translation_z",
-                "virtual_joint_rotation_z",
-                "virtual_joint_rotation_y",
-                "virtual_joint_rotation_x",
-            ]
+            self.num_sim_steps = 200
+        elif self.validation_type == ValidationType.GRAVITY_AND_TABLE_AND_SHAKING:
+            # Need more steps to shake
+            self.num_sim_steps = 400
         else:
             raise ValueError(f"Unknown validation type: {validation_type}")
 
@@ -252,7 +243,7 @@ class IsaacValidator:
 
         if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
             self.obj_asset_options.disable_gravity = True
-        elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+        elif self.validation_type in [ValidationType.GRAVITY_AND_TABLE, ValidationType.GRAVITY_AND_TABLE_AND_SHAKING]:
             self.obj_asset_options.disable_gravity = False
         else:
             raise ValueError(f"Unknown validation type: {validation_type}")
@@ -313,7 +304,7 @@ class IsaacValidator:
                 obj_scale=obj_scale,
                 collision_idx=collision_idx,
             )
-        elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+        elif self.validation_type in [ValidationType.GRAVITY_AND_TABLE, ValidationType.GRAVITY_AND_TABLE_AND_SHAKING]:
             obj_pose = self._compute_init_obj_pose_above_table(obj_scale)
 
             self._setup_obj(
@@ -852,14 +843,14 @@ class IsaacValidator:
         while sim_step_idx < self.num_sim_steps:
             # Phase 1: Do nothing, hand far away
             #   * For NO_GRAVITY_SHAKING: object should stay in place
-            #   * For GRAVITY_AND_TABLE: object should fall to table and settle
+            #   * For GRAVITY_AND_TABLE and GRAVITY_AND_TABLE_AND_SHAKING: object should fall to table and settle
             # Phase 2: Move hand to object
             #   * For NO_GRAVITY_SHAKING: check if hand collides with object
-            #   * For GRAVITY_AND_TABLE: check if hand collides with object AND if hand collides with table
+            #   * For GRAVITY_AND_TABLE and GRAVITY_AND_TABLE_AND_SHAKING: check if hand collides with object AND if hand collides with table
             # Phase 3: Close hand
             # Phase 4: Shake hand
             #   * For NO_GRAVITY_SHAKING: shake from this position
-            #   * For GRAVITY_AND_TABLE: lift from table first, then shake
+            #   * For GRAVITY_AND_TABLE and GRAVITY_AND_TABLE_AND_SHAKING: lift from table first, then shake
             PHASE_1_LAST_STEP = (
                 50  # From analysis, takes about 40 steps for ball to settle
             )
@@ -1000,7 +991,7 @@ class IsaacValidator:
                 not colliding_obj for colliding_obj in hand_colliding_obj
             ]
 
-            if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+            if self.validation_type in [ValidationType.GRAVITY_AND_TABLE, ValidationType.GRAVITY_AND_TABLE_AND_SHAKING]:
                 hand_colliding_table = self._is_hand_colliding_with_table()
                 hand_not_colliding_table_list = [
                     not colliding_table for colliding_table in hand_colliding_table
@@ -1102,7 +1093,7 @@ class IsaacValidator:
 
         cam_target = gymapi.Vec3(0, 0, 0)  # type: ignore  # where object s
 
-        cam_pos = cam_target + gymapi.Vec3(0.25, 0.1, 0.0)  # Define offset
+        cam_pos = cam_target + gymapi.Vec3(0.25, 0.2, 0.0)  # Define offset
 
         self.video_frames.append([])
         gym.set_camera_location(camera_handle, env, cam_pos, cam_target)
@@ -1151,9 +1142,9 @@ class IsaacValidator:
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
             ]
-        elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+        elif self.validation_type in [ValidationType.GRAVITY_AND_TABLE, ValidationType.GRAVITY_AND_TABLE_AND_SHAKING]:
             Y_LIFT = 0.2
-            INCLUDE_SHAKE = False
+            INCLUDE_SHAKE = (self.validation_type == ValidationType.GRAVITY_AND_TABLE_AND_SHAKING)
             targets_sequence = [
                 [0.0, -Y_LIFT, 0.0],
                 [0.0, -Y_LIFT * 3 / 4, 0.0],
@@ -1456,7 +1447,7 @@ class IsaacValidator:
                 obj_scale=obj_scale,
                 collision_idx=0,
             )
-        elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+        elif self.validation_type in [ValidationType.GRAVITY_AND_TABLE, ValidationType.GRAVITY_AND_TABLE_AND_SHAKING]:
             obj_pose = self._compute_init_obj_pose_above_table(obj_scale)
 
             self._setup_obj(
