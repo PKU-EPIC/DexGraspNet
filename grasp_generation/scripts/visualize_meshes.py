@@ -156,8 +156,13 @@ for i in range(num_envs):
     ahandle = gym.create_actor(env, asset, pose, None, collision_group, collision_filter)
     num_rbs = gym.get_actor_rigid_body_count(env, ahandle)
 
+    # for i in range(num_rbs):
+        # gym.set_rigid_body_color(env, ahandle, i, gymapi.MESH_VISUAL_AND_COLLISION, color)
+
+    # Set table texture
+    table_texture = gym.create_texture_from_file(sim, "table/wood.png")
     for i in range(num_rbs):
-        gym.set_rigid_body_color(env, ahandle, i, gymapi.MESH_VISUAL_AND_COLLISION, color)
+        gym.set_rigid_body_texture(env, ahandle, i, gymapi.MESH_VISUAL_AND_COLLISION, table_texture)
 
 gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(20, 5, 20), gymapi.Vec3(0, 1, 0))
 
