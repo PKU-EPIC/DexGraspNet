@@ -92,7 +92,6 @@ for i, x in enumerate(tqdm(meshdata_root_path.rglob("**/coacd.urdf"), desc="Find
         break
 print(f"Found {len(urdf_paths)} urdf_paths")
 urdf_paths += [pathlib.Path("table/table.urdf")]
-urdf_paths += [pathlib.Path("table/box.urdf")]
 MAX_NUM_OBJECTS = 100
 print(f"Selecting {MAX_NUM_OBJECTS} objects")
 random.seed(18)
