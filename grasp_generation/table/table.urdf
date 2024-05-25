@@ -1,16 +1,16 @@
 <?xml version="1.0"?>
-<robot name="box">
-  <link name="box">
+<robot name="table">
+  <link name="table">
     <visual>
       <origin xyz="0 0 0"/>
       <geometry>
-        <box size="1.0 0.1 1.0"/>
+        <mesh filename="table.obj"/>
       </geometry>
     </visual>
     <collision>
       <origin xyz="0 0 0"/>
       <geometry>
-        <box size="1.0 0.1 1.0"/>
+        <mesh filename="table.obj"/>
       </geometry>
     </collision>
     <inertial>
