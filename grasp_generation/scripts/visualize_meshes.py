@@ -91,16 +91,25 @@ for i, x in enumerate(tqdm(meshdata_root_path.rglob("**/coacd.urdf"), desc="Find
     if i > 10:
         break
 print(f"Found {len(urdf_paths)} urdf_paths")
-MAX_NUM_OBJECTS = 5
+urdf_paths += [pathlib.Path("table/table.urdf")]
+urdf_paths += [pathlib.Path("table/box.urdf")]
+MAX_NUM_OBJECTS = 100
 print(f"Selecting {MAX_NUM_OBJECTS} objects")
 random.seed(18)
-urdf_paths = random.sample(urdf_paths, MAX_NUM_OBJECTS)
+urdf_paths = random.sample(urdf_paths, min(MAX_NUM_OBJECTS, len(urdf_paths)))
 
 assets = [
     gym.load_asset(sim, str(urdf_path.parents[0]), urdf_path.name, obj_asset_options)
     for urdf_path in tqdm(urdf_paths, desc="Loading assets")
 ]
 num_envs = len(assets)
+
+# set lighting
+light_index = 0
+intensity = gymapi.Vec3(0.5, 0.5, 0.5)
+ambient = gymapi.Vec3(0.5, 0.5, 0.5)
+direction = gymapi.Vec3(0.0, 0.0, -1.0)
+gym.set_light_parameters(sim, light_index, intensity, ambient, direction)
 
 # set up the env grid
 num_per_row = int(sqrt(num_envs))
