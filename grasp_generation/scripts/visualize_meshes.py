@@ -84,9 +84,14 @@ from tqdm import tqdm
 import random
 meshdata_root_path = pathlib.Path("../data/rotated_meshdata_stable")
 assert meshdata_root_path.exists(), f"Meshdata root path {meshdata_root_path} does not exist"
-urdf_paths = sorted([x for x in tqdm(meshdata_root_path.rglob("**/coacd.urdf"), desc="Finding URDFs")])
+# urdf_paths = sorted([x for x in tqdm(meshdata_root_path.rglob("**/coacd.urdf"), desc="Finding URDFs")])
+urdf_paths = []
+for i, x in enumerate(tqdm(meshdata_root_path.rglob("**/coacd.urdf"), desc="Finding URDFs")):
+    urdf_paths.append(x)
+    if i > 10:
+        break
 print(f"Found {len(urdf_paths)} urdf_paths")
-MAX_NUM_OBJECTS = 320
+MAX_NUM_OBJECTS = 5
 print(f"Selecting {MAX_NUM_OBJECTS} objects")
 random.seed(18)
 urdf_paths = random.sample(urdf_paths, MAX_NUM_OBJECTS)
