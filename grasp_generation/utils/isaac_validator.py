@@ -150,9 +150,7 @@ class IsaacValidator:
         (
             self.hand_root,
             self.hand_file,
-        ) = handmodeltype_to_hand_root_hand_file_with_virtual_joints[
-            hand_model_type
-        ]
+        ) = handmodeltype_to_hand_root_hand_file_with_virtual_joints[hand_model_type]
         # HACK: Hardcoded virtual joint names
         self.virtual_joint_names = [
             "virtual_joint_translation_x",
@@ -222,6 +220,13 @@ class IsaacValidator:
         else:
             self.has_viewer = False
 
+        # Set lighting
+        light_index = 0
+        intensity = gymapi.Vec3(0.75, 0.75, 0.75)
+        ambient = gymapi.Vec3(0.75, 0.75, 0.75)
+        direction = gymapi.Vec3(0.0, 0.0, -1.0)
+        gym.set_light_parameters(self.sim, light_index, intensity, ambient, direction)
+
         self.hand_asset_options = gymapi.AssetOptions()
         self.hand_asset_options.disable_gravity = True
         self.hand_asset_options.collapse_fixed_joints = True
@@ -237,7 +242,10 @@ class IsaacValidator:
 
         if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
             self.obj_asset_options.disable_gravity = True
-        elif self.validation_type in [ValidationType.GRAVITY_AND_TABLE, ValidationType.GRAVITY_AND_TABLE_AND_SHAKING]:
+        elif self.validation_type in [
+            ValidationType.GRAVITY_AND_TABLE,
+            ValidationType.GRAVITY_AND_TABLE_AND_SHAKING,
+        ]:
             self.obj_asset_options.disable_gravity = False
         else:
             raise ValueError(f"Unknown validation type: {validation_type}")
@@ -298,7 +306,10 @@ class IsaacValidator:
                 obj_scale=obj_scale,
                 collision_idx=collision_idx,
             )
-        elif self.validation_type in [ValidationType.GRAVITY_AND_TABLE, ValidationType.GRAVITY_AND_TABLE_AND_SHAKING]:
+        elif self.validation_type in [
+            ValidationType.GRAVITY_AND_TABLE,
+            ValidationType.GRAVITY_AND_TABLE_AND_SHAKING,
+        ]:
             obj_pose = self._compute_init_obj_pose_above_table(obj_scale)
 
             self._setup_obj(
@@ -369,9 +380,17 @@ class IsaacValidator:
 
         # Set table texture
         if not hasattr(self, "table_texture"):
-            self.table_texture = gym.create_texture_from_file(self.sim, "table/wood.png")
+            self.table_texture = gym.create_texture_from_file(
+                self.sim, "table/wood.png"
+            )
         RB_IDX = 0
-        gym.set_rigid_body_texture(env, table_actor_handle, RB_IDX, gymapi.MESH_VISUAL_AND_COLLISION, self.table_texture)
+        gym.set_rigid_body_texture(
+            env,
+            table_actor_handle,
+            RB_IDX,
+            gymapi.MESH_VISUAL_AND_COLLISION,
+            self.table_texture,
+        )
         return
 
     def _setup_hand(
@@ -613,9 +632,7 @@ class IsaacValidator:
             )
             final_obj_pose = self._get_object_pose(env=env, obj_handle=obj_handle)
             final_rel_obj_pose = final_hand_pose.inverse() * final_obj_pose
-            init_rel_obj_pose = self.desired_hand_poses_object_frame[
-                i
-            ].inverse()
+            init_rel_obj_pose = self.desired_hand_poses_object_frame[i].inverse()
             pos_change, max_euler_change = self._get_pos_and_euler_change(
                 pose1=init_rel_obj_pose, pose2=final_rel_obj_pose
             )
@@ -902,9 +919,7 @@ class IsaacValidator:
             # Step physics if not paused
             if not self.is_paused:
                 gym.simulate(self.sim)
-                gym.fetch_results(
-                    self.sim, True
-                )
+                gym.fetch_results(self.sim, True)
                 gym.refresh_actor_root_state_tensor(self.sim)
 
                 if self.camera_handles and sim_step_idx > 0:
@@ -985,7 +1000,10 @@ class IsaacValidator:
                 not colliding_obj for colliding_obj in hand_colliding_obj
             ]
 
-            if self.validation_type in [ValidationType.GRAVITY_AND_TABLE, ValidationType.GRAVITY_AND_TABLE_AND_SHAKING]:
+            if self.validation_type in [
+                ValidationType.GRAVITY_AND_TABLE,
+                ValidationType.GRAVITY_AND_TABLE_AND_SHAKING,
+            ]:
                 hand_colliding_table = self._is_hand_colliding_with_table()
                 hand_not_colliding_table_list = [
                     not colliding_table for colliding_table in hand_colliding_table
@@ -1136,9 +1154,14 @@ class IsaacValidator:
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
             ]
-        elif self.validation_type in [ValidationType.GRAVITY_AND_TABLE, ValidationType.GRAVITY_AND_TABLE_AND_SHAKING]:
+        elif self.validation_type in [
+            ValidationType.GRAVITY_AND_TABLE,
+            ValidationType.GRAVITY_AND_TABLE_AND_SHAKING,
+        ]:
             Y_LIFT = 0.2
-            INCLUDE_SHAKE = (self.validation_type == ValidationType.GRAVITY_AND_TABLE_AND_SHAKING)
+            INCLUDE_SHAKE = (
+                self.validation_type == ValidationType.GRAVITY_AND_TABLE_AND_SHAKING
+            )
             targets_sequence = [
                 [0.0, -Y_LIFT, 0.0],
                 [0.0, -Y_LIFT * 7 / 8, 0.0],
@@ -1153,11 +1176,47 @@ class IsaacValidator:
             ]
             if INCLUDE_SHAKE:
                 targets_sequence += [
-                    *([[dist_to_move/2, 0.0, 0.0], [dist_to_move, 0.0, 0.0], [dist_to_move/2, 0.0, 0.0], [0.0, 0.0, 0.0], [-dist_to_move/2, 0.0, 0.0], [-dist_to_move, 0.0, 0.0], [-dist_to_move/2, 0.0, 0.0], [0.0, 0.0, 0.0]] * N_SHAKES),
+                    *(
+                        [
+                            [dist_to_move / 2, 0.0, 0.0],
+                            [dist_to_move, 0.0, 0.0],
+                            [dist_to_move / 2, 0.0, 0.0],
+                            [0.0, 0.0, 0.0],
+                            [-dist_to_move / 2, 0.0, 0.0],
+                            [-dist_to_move, 0.0, 0.0],
+                            [-dist_to_move / 2, 0.0, 0.0],
+                            [0.0, 0.0, 0.0],
+                        ]
+                        * N_SHAKES
+                    ),
                     [0.0, 0.0, 0.0],
-                    *([[0.0, dist_to_move/2, 0.0], [0.0, dist_to_move, 0.0], [0.0, dist_to_move/2, 0.0], [0.0, 0.0, 0.0], [0.0, -dist_to_move/2, 0.0], [0.0, -dist_to_move, 0.0], [0.0, -dist_to_move/2, 0.0], [0.0, 0.0, 0.0]] * N_SHAKES),
+                    *(
+                        [
+                            [0.0, dist_to_move / 2, 0.0],
+                            [0.0, dist_to_move, 0.0],
+                            [0.0, dist_to_move / 2, 0.0],
+                            [0.0, 0.0, 0.0],
+                            [0.0, -dist_to_move / 2, 0.0],
+                            [0.0, -dist_to_move, 0.0],
+                            [0.0, -dist_to_move / 2, 0.0],
+                            [0.0, 0.0, 0.0],
+                        ]
+                        * N_SHAKES
+                    ),
                     [0.0, 0.0, 0.0],
-                    *([[0.0, 0.0, dist_to_move/2], [0.0, 0.0, dist_to_move], [0.0, 0.0, dist_to_move/2], [0.0, 0.0, 0.0], [0.0, 0.0, -dist_to_move/2], [0.0, 0.0, -dist_to_move], [0.0, 0.0, -dist_to_move/2], [0.0, 0.0, 0.0]] * N_SHAKES),
+                    *(
+                        [
+                            [0.0, 0.0, dist_to_move / 2],
+                            [0.0, 0.0, dist_to_move],
+                            [0.0, 0.0, dist_to_move / 2],
+                            [0.0, 0.0, 0.0],
+                            [0.0, 0.0, -dist_to_move / 2],
+                            [0.0, 0.0, -dist_to_move],
+                            [0.0, 0.0, -dist_to_move / 2],
+                            [0.0, 0.0, 0.0],
+                        ]
+                        * N_SHAKES
+                    ),
                     [0.0, 0.0, 0.0],
                     [0.0, 0.0, 0.0],
                 ]
@@ -1449,7 +1508,10 @@ class IsaacValidator:
                 obj_scale=obj_scale,
                 collision_idx=0,
             )
-        elif self.validation_type in [ValidationType.GRAVITY_AND_TABLE, ValidationType.GRAVITY_AND_TABLE_AND_SHAKING]:
+        elif self.validation_type in [
+            ValidationType.GRAVITY_AND_TABLE,
+            ValidationType.GRAVITY_AND_TABLE_AND_SHAKING,
+        ]:
             obj_pose = self._compute_init_obj_pose_above_table(obj_scale)
 
             self._setup_obj(
@@ -1478,9 +1540,7 @@ class IsaacValidator:
             object_indices = self._get_actor_indices(
                 envs=self.envs, actors=self.obj_handles
             ).to(self.root_state_tensor.device)
-            object_states = self.root_state_tensor[
-                object_indices, :13
-            ].clone()
+            object_states = self.root_state_tensor[object_indices, :13].clone()
             object_speed = object_states[:, 7:10].squeeze(dim=0).norm(dim=-1)
             object_angspeed = object_states[:, 10:13].squeeze(dim=0).norm(dim=-1)
             is_object_settled = object_speed < 5e-3 and object_angspeed < 1e-2
@@ -1492,9 +1552,7 @@ class IsaacValidator:
 
             # Step physics
             gym.simulate(self.sim)
-            gym.fetch_results(
-                self.sim, True
-            )
+            gym.fetch_results(self.sim, True)
             gym.refresh_actor_root_state_tensor(self.sim)
             # gym.step_graphics(self.sim)  # No need to step graphics until we need to render
             sim_step_idx += 1

@@ -105,8 +105,8 @@ num_envs = len(assets)
 
 # set lighting
 light_index = 0
-intensity = gymapi.Vec3(0.5, 0.5, 0.5)
-ambient = gymapi.Vec3(0.5, 0.5, 0.5)
+intensity = gymapi.Vec3(0.75, 0.75, 0.75)
+ambient = gymapi.Vec3(0.75, 0.75, 0.75)
 direction = gymapi.Vec3(0.0, 0.0, -1.0)
 gym.set_light_parameters(sim, light_index, intensity, ambient, direction)
 
