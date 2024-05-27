@@ -47,7 +47,6 @@ def load_assets(gym, sim, start_idx=0, end_idx=350) -> list:
     assert (
         meshdata_root_path.exists()
     ), f"Meshdata root path {meshdata_root_path} does not exist"
-    urdf_paths = []
     object_paths = sorted(list(meshdata_root_path.iterdir()))
     print(f"Found {len(object_paths)} object_paths")
 
@@ -55,20 +54,21 @@ def load_assets(gym, sim, start_idx=0, end_idx=350) -> list:
     print(
         f"Selected {len(selected_object_paths)} object_paths (from {start_idx} to {end_idx})"
     )
-    for x in tqdm(object_paths, desc="Finding URDFs"):
+    selected_urdf_paths = []
+    for x in tqdm(selected_object_paths, desc="Finding URDFs"):
         urdf_path = x / "coacd" / "coacd.urdf"
         if not urdf_path.exists():
             print(f"WARNING: {urdf_path} does not exist")
             continue
 
-        urdf_paths.append(urdf_path)
-    print(f"Found {len(urdf_paths)} urdf_paths")
+        selected_urdf_paths.append(urdf_path)
+    print(f"Found {len(selected_urdf_paths)} urdf_paths")
 
     assets = [
         gym.load_asset(
             sim, str(urdf_path.parents[0]), urdf_path.name, obj_asset_options
         )
-        for urdf_path in tqdm(urdf_paths, desc="Loading assets")
+        for urdf_path in tqdm(selected_urdf_paths, desc="Loading assets")
     ]
     return assets
 
@@ -90,6 +90,18 @@ args = gymutil.parse_arguments(
             "action": "store_true",
             "help": "Ignore all collisions",
         },
+        {
+            "name": "--start_idx",
+            "type": int,
+            "default": 0,
+            "help": "Start index of object paths to load",
+        },
+        {
+            "name": "--end_idx",
+            "type": int,
+            "default": 350,
+            "help": "End index of object paths to load",
+        }
     ],
 )
 
@@ -129,7 +141,7 @@ if viewer is None:
     quit()
 
 # load assets
-assets = load_assets(gym=gym, sim=sim, start_idx=350, end_idx=700)
+assets = load_assets(gym=gym, sim=sim, start_idx=args.start_idx, end_idx=args.end_idx)
 num_envs = len(assets)
 
 # set lighting
@@ -141,7 +153,7 @@ gym.set_light_parameters(sim, light_index, intensity, ambient, direction)
 
 # set up the env grid
 num_per_row = int(sqrt(num_envs))
-env_spacing = 1.25
+env_spacing = 2
 env_lower = gymapi.Vec3(-env_spacing, 0.0, -env_spacing)
 env_upper = gymapi.Vec3(env_spacing, env_spacing, env_spacing)
 
@@ -163,7 +175,7 @@ for i in range(num_envs):
     # create ball pyramid
     pose = gymapi.Transform()
     pose.r = gymapi.Quat(0, 0, 0, 1)
-    pose.p = gymapi.Vec3(0, 1.5, 0)
+    pose.p = gymapi.Vec3(0, 2, 0)
 
     # Set up collision filtering.
     if args.all_collisions:
