@@ -20,7 +20,7 @@ import multiprocessing
 
 class GenerateNerfDataArgumentParser(Tap):
     gpu: int = 0
-    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_stable")
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_v2")
     output_nerfdata_path: pathlib.Path = pathlib.Path("../data/nerfdata")
     num_cameras: int = 250
     randomize_order_seed: Optional[int] = None

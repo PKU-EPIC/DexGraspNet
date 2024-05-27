@@ -48,7 +48,7 @@ np.seterr(all="raise")
 class GenerateHandConfigDictsArgumentParser(Tap):
     # experiment settings
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
-    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_stable_trial")
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_v2_trial")
     output_hand_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/hand_config_dicts"
     )

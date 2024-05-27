@@ -17,7 +17,7 @@ ALL_MESHDATA_PATH_ON_BUCKET = "meshdata"
 
 class ArgParser(Tap):
     gcp_instance_names: List[str]
-    input_meshdata_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_stable")
+    input_meshdata_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_v2")
     experiment_name: str = DATETIME_STR
     dexgraspnet_root_path_on_instance: pathlib.Path = pathlib.Path("dexgraspnet")
     git_branch: str = "2023-09-07_TopLevelScriptAB_rebase"
@@ -116,7 +116,7 @@ def main() -> None:
         # Both source and destination paths must be directories
         # Don't upload meshdata, should already be there and takes ~5min to check if synced
         # Also, don't sync with input_meshdata_path, this could be subset, ALL_MESHDATA_PATH_ON_BUCKET should have all meshes
-        # If need to upload, run "gsutil -m rsync -r ../data/rotated_meshdata_stable gs://learned-nerf-grasping/meshdata"
+        # If need to upload, run "gsutil -m rsync -r ../data/rotated_meshdata_v2 gs://learned-nerf-grasping/meshdata"
         print_and_run(
             f"gsutil -m rsync -r {str(EXPERIMENT_DIR_PATH_LOCAL)} gs://learned-nerf-grasping/{EXPERIMENT_DIR_PATH_ON_BUCKET}"
         )

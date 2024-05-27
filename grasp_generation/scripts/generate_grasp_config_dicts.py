@@ -36,7 +36,7 @@ from utils.parse_object_code_and_scale import (
 class GenerateGraspConfigDictsArgumentParser(Tap):
     hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND
     gpu: int = 0
-    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_stable")
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_v2")
     input_hand_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/hand_config_dicts"
     )

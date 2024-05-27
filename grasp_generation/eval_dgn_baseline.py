@@ -7,7 +7,7 @@ from typing import Optional
 
 
 class ArgumentParser(Tap):
-    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_stable")
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_v2")
     nerf_meshdata_root_path: Optional[pathlib.Path] = None
     plan_using_nerf: bool = False
     eval_using_nerf: bool = False
