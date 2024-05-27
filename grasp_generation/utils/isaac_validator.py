@@ -1527,7 +1527,7 @@ class IsaacValidator:
         else:
             raise ValueError(f"Unknown validation type: {self.validation_type}")
 
-    def run_sim_till_object_settles(self) -> None:
+    def run_sim_till_object_settles(self) -> Tuple[bool, str]:
         gym.prepare_sim(self.sim)
 
         # Prepare tensors
@@ -1541,14 +1541,21 @@ class IsaacValidator:
                 envs=self.envs, actors=self.obj_handles
             ).to(self.root_state_tensor.device)
             object_states = self.root_state_tensor[object_indices, :13].clone()
+            quat_xyzw = object_states[:, 3:7].squeeze(dim=0)
+            quat_wxyz = quat_xyzw[[3, 0, 1, 2]]
+            abs_rpy = np.abs(transforms3d.euler.quat2euler(quat_wxyz))
+            quat_w = quat_wxyz[0]
             object_speed = object_states[:, 7:10].squeeze(dim=0).norm(dim=-1)
             object_angspeed = object_states[:, 10:13].squeeze(dim=0).norm(dim=-1)
-            is_object_settled = object_speed < 5e-3 and object_angspeed < 1e-2
+            is_object_settled = (
+                quat_w >= 0.95 and object_speed < 5e-3 and object_angspeed < 1e-2
+            )
 
             MIN_NUM_STEPS = 5
             if sim_step_idx > MIN_NUM_STEPS and is_object_settled:
-                print(f"Object settled at step {sim_step_idx}")
-                break
+                log_text = f"Object settled at step {sim_step_idx}"
+                print(log_text)
+                return True, log_text
 
             # Step physics
             gym.simulate(self.sim)
@@ -1556,6 +1563,10 @@ class IsaacValidator:
             gym.refresh_actor_root_state_tensor(self.sim)
             # gym.step_graphics(self.sim)  # No need to step graphics until we need to render
             sim_step_idx += 1
+
+        log_text = f"Object did not settle after max steps {MAX_SIM_STEPS}, quat_wxyz: {quat_wxyz}, object_speed: {object_speed}, object_angspeed: {object_angspeed}, abs_rpy: {abs_rpy}"
+        print(log_text)
+        return False, log_text
 
     def save_images(
         self, folder: str, overwrite: bool = False, num_cameras: int = 250

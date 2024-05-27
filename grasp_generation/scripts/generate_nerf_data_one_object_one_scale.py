@@ -63,7 +63,16 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
         )
 
     with loop_timer.add_section_timer("run sim till object settles"):
-        sim.run_sim_till_object_settles()
+        is_valid, log_text = sim.run_sim_till_object_settles()
+        if not is_valid:
+            log_failures_path = pathlib.Path(
+                str(args.output_nerfdata_path) + "_failures.txt"
+            )
+            print(
+                f"Skipping {object_code_and_scale_str} because {log_text}, writing to {log_failures_path}"
+            )
+            with open(log_failures_path, "a") as f:
+                f.write(f"{object_code_and_scale_str}: {log_text}\n")
 
     with loop_timer.add_section_timer("save images light"):
         sim.save_images_lightweight(
