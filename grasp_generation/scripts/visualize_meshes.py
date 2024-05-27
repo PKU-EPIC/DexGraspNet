@@ -31,7 +31,7 @@ from tqdm import tqdm
 import random
 
 
-def load_assets(gym, sim, max_objects=350) -> list:
+def load_assets(gym, sim, start_idx=0, end_idx=350) -> list:
     # Asset options
     obj_asset_options = gymapi.AssetOptions()
     obj_asset_options.override_com = True
@@ -44,9 +44,17 @@ def load_assets(gym, sim, max_objects=350) -> list:
 
     # urdf_paths
     meshdata_root_path = pathlib.Path("../data/meshdata")
-    assert meshdata_root_path.exists(), f"Meshdata root path {meshdata_root_path} does not exist"
+    assert (
+        meshdata_root_path.exists()
+    ), f"Meshdata root path {meshdata_root_path} does not exist"
     urdf_paths = []
-    object_paths = sorted(list(meshdata_root_path.iterdir()))[:max_objects]
+    object_paths = sorted(list(meshdata_root_path.iterdir()))
+    print(f"Found {len(object_paths)} object_paths")
+
+    selected_object_paths = object_paths[start_idx:end_idx]
+    print(
+        f"Selected {len(selected_object_paths)} object_paths (from {start_idx} to {end_idx})"
+    )
     for x in tqdm(object_paths, desc="Finding URDFs"):
         urdf_path = x / "coacd" / "coacd.urdf"
         if not urdf_path.exists():
@@ -57,7 +65,9 @@ def load_assets(gym, sim, max_objects=350) -> list:
     print(f"Found {len(urdf_paths)} urdf_paths")
 
     assets = [
-        gym.load_asset(sim, str(urdf_path.parents[0]), urdf_path.name, obj_asset_options)
+        gym.load_asset(
+            sim, str(urdf_path.parents[0]), urdf_path.name, obj_asset_options
+        )
         for urdf_path in tqdm(urdf_paths, desc="Loading assets")
     ]
     return assets
@@ -70,8 +80,18 @@ gym = gymapi.acquire_gym()
 args = gymutil.parse_arguments(
     description="Collision Filtering: Demonstrates filtering of collisions within and between environments",
     custom_parameters=[
-        {"name": "--all_collisions", "action": "store_true", "help": "Simulate all collisions"},
-        {"name": "--no_collisions", "action": "store_true", "help": "Ignore all collisions"}])
+        {
+            "name": "--all_collisions",
+            "action": "store_true",
+            "help": "Simulate all collisions",
+        },
+        {
+            "name": "--no_collisions",
+            "action": "store_true",
+            "help": "Ignore all collisions",
+        },
+    ],
+)
 
 # configure sim
 sim_params = gymapi.SimParams()
@@ -91,7 +111,9 @@ sim_params.use_gpu_pipeline = False
 if args.use_gpu_pipeline:
     print("WARNING: Forcing CPU pipeline.")
 
-sim = gym.create_sim(args.compute_device_id, args.graphics_device_id, args.physics_engine, sim_params)
+sim = gym.create_sim(
+    args.compute_device_id, args.graphics_device_id, args.physics_engine, sim_params
+)
 if sim is None:
     print("*** Failed to create sim")
     quit()
@@ -107,7 +129,7 @@ if viewer is None:
     quit()
 
 # load assets
-assets = load_assets(gym=gym, sim=sim)
+assets = load_assets(gym=gym, sim=sim, start_idx=350, end_idx=700)
 num_envs = len(assets)
 
 # set lighting
@@ -164,7 +186,9 @@ for i in range(num_envs):
         collision_group = i
         collision_filter = 0
 
-    ahandle = gym.create_actor(env, asset, pose, None, collision_group, collision_filter)
+    ahandle = gym.create_actor(
+        env, asset, pose, None, collision_group, collision_filter
+    )
     num_rbs = gym.get_actor_rigid_body_count(env, ahandle)
 
     COLOR_OR_TEXTURE = "COLOR"
@@ -175,12 +199,16 @@ for i in range(num_envs):
         color = gymapi.Vec3(c[0], c[1], c[2])
 
         for i in range(num_rbs):
-            gym.set_rigid_body_color(env, ahandle, i, gymapi.MESH_VISUAL_AND_COLLISION, color)
+            gym.set_rigid_body_color(
+                env, ahandle, i, gymapi.MESH_VISUAL_AND_COLLISION, color
+            )
     elif COLOR_OR_TEXTURE == "TEXTURE":
         # Set table texture
         table_texture = gym.create_texture_from_file(sim, "table/wood.png")
         for i in range(num_rbs):
-            gym.set_rigid_body_texture(env, ahandle, i, gymapi.MESH_VISUAL_AND_COLLISION, table_texture)
+            gym.set_rigid_body_texture(
+                env, ahandle, i, gymapi.MESH_VISUAL_AND_COLLISION, table_texture
+            )
     else:
         raise ValueError(f"Invalid COLOR_OR_TEXTURE: {COLOR_OR_TEXTURE}")
 
