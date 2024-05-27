@@ -43,7 +43,7 @@ def load_assets(gym, sim, start_idx=0, end_idx=350) -> list:
     )
 
     # urdf_paths
-    meshdata_root_path = pathlib.Path("../data/meshdata")
+    meshdata_root_path = pathlib.Path("../data/rotated_meshdata_v2")
     assert (
         meshdata_root_path.exists()
     ), f"Meshdata root path {meshdata_root_path} does not exist"
@@ -56,6 +56,9 @@ def load_assets(gym, sim, start_idx=0, end_idx=350) -> list:
     )
     selected_urdf_paths = []
     for x in tqdm(selected_object_paths, desc="Finding URDFs"):
+        if "hammer" not in x.name:
+            print(f"Skipping non hammer")
+            continue
         urdf_path = x / "coacd" / "coacd.urdf"
         if not urdf_path.exists():
             print(f"WARNING: {urdf_path} does not exist")
@@ -175,7 +178,7 @@ for i in range(num_envs):
     # create ball pyramid
     pose = gymapi.Transform()
     pose.r = gymapi.Quat(0, 0, 0, 1)
-    pose.p = gymapi.Vec3(0, 2, 0)
+    pose.p = gymapi.Vec3(0, 1.2, 0)
 
     # Set up collision filtering.
     if args.all_collisions:

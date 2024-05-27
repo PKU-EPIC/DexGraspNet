@@ -130,7 +130,7 @@ class IsaacValidator:
     def __init__(
         self,
         hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
-        mode: str = "direct",
+        mode: str = "headless",
         gpu: int = 0,
         start_with_step_mode: bool = False,
         validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING,
@@ -175,7 +175,7 @@ class IsaacValidator:
         self.sim_params = gymapi.SimParams()
 
         # set common parameters
-        self.sim_params.dt = 1 / 60
+        self.sim_params.dt = 1 / 100
         self.sim_params.substeps = 2
         self.sim_params.gravity = gymapi.Vec3(0.0, -9.8, 0)
 
@@ -255,7 +255,9 @@ class IsaacValidator:
             self.sim, self.hand_root, self.hand_file, self.hand_asset_options
         )
 
-    def set_obj_asset(self, obj_root: str, obj_file: str, vhacd_enabled: bool = True) -> None:
+    def set_obj_asset(
+        self, obj_root: str, obj_file: str, vhacd_enabled: bool = True
+    ) -> None:
         self.obj_asset_options.vhacd_enabled = vhacd_enabled  # Convex decomposition is better than convex hull, but slower, not 100% sure why it's not working
         self.obj_asset = gym.load_asset(
             self.sim, obj_root, obj_file, self.obj_asset_options
@@ -331,7 +333,7 @@ class IsaacValidator:
         # Thus max extent from origin is 1.0m (unscaled)
         # So we want to place the obj above the table a bit more then rescale
         OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0
-        BUFFER = 1.2
+        BUFFER = 1.1
         y_above_table = OBJ_MAX_EXTENT_FROM_ORIGIN * obj_scale * BUFFER
 
         obj_pose = gymapi.Transform()
@@ -544,7 +546,7 @@ class IsaacValidator:
         # Set obj shape props
         obj_shape_props = gym.get_actor_rigid_shape_properties(env, obj_actor_handle)
         for i in range(len(obj_shape_props)):
-            obj_shape_props[i].friction = 0.7
+            obj_shape_props[i].friction = 1.0
         gym.set_actor_rigid_shape_properties(env, obj_actor_handle, obj_shape_props)
         return
 
@@ -1532,7 +1534,7 @@ class IsaacValidator:
         root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
         self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
 
-        MAX_SIM_STEPS = 100
+        MAX_SIM_STEPS = 1000
         sim_step_idx = 0
         while sim_step_idx < MAX_SIM_STEPS:
             object_indices = self._get_actor_indices(
@@ -1545,6 +1547,11 @@ class IsaacValidator:
             quat_w = quat_wxyz[0]
             object_speed = object_states[:, 7:10].squeeze(dim=0).norm(dim=-1)
             object_angspeed = object_states[:, 10:13].squeeze(dim=0).norm(dim=-1)
+            print(f"quat_wxyz: {quat_wxyz}")
+            print(f"object_speed: {object_speed}")
+            print(f"object_angspeed: {object_angspeed}")
+            if sim_step_idx == 100:
+                breakpoint()
             is_object_settled = (
                 quat_w >= 0.95 and object_speed < 5e-3 and object_angspeed < 1e-2
             )
@@ -1559,7 +1566,12 @@ class IsaacValidator:
             gym.simulate(self.sim)
             gym.fetch_results(self.sim, True)
             gym.refresh_actor_root_state_tensor(self.sim)
-            # gym.step_graphics(self.sim)  # No need to step graphics until we need to render
+            if self.has_viewer:
+                # No need to step graphics until we need to render
+                # Unless we are using viewer
+                gym.step_graphics(self.sim)
+                gym.draw_viewer(self.viewer, self.sim, False)
+                sleep(0.05)
             sim_step_idx += 1
 
         log_text = f"Object did not settle after max steps {MAX_SIM_STEPS}, quat_wxyz: {quat_wxyz}, object_speed: {object_speed}, object_angspeed: {object_angspeed}, abs_rpy: {abs_rpy}"
