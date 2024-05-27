@@ -47,22 +47,26 @@ all_transform_names = [
 ]
 
 # %%
-@localscope.mfc
+# @localscope.mfc
 def save_img(mesh_file: pathlib.Path, output_filename: pathlib.Path, transforms: List[np.ndarray], transform_names: List[str]):
+    if not hasattr(save_img, "fig"):
+        save_img.fig = plt.figure(figsize=(25, 5))
+    else:
+        save_img.fig.clf()
+
     mesh = trimesh.load_mesh(mesh_file)
-    fig = plt.figure(figsize=(25, 5))
-    fig.suptitle(mesh_file.parent.name)
+    save_img.fig.suptitle(mesh_file.parent.name)
     for i, (transform, transform_name) in enumerate(zip(transforms, transform_names)):
         new_vertices = mesh.vertices @ transform[:3, :3].T + transform[:3, 3]
         triang = Triangulation(new_vertices[:, 0], new_vertices[:, 1], mesh.faces)
-        ax = fig.add_subplot(1, len(transforms), i + 1, projection='3d')
+        ax = save_img.fig.add_subplot(1, len(transforms), i + 1, projection='3d')
         ax.plot_trisurf(triang, new_vertices[:, 2], edgecolor='k', linewidth=0.5, antialiased=True)
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
         ax.axis("equal")
         ax.set_title(f"{i}. {transform_name}")
-    fig.tight_layout()
+    save_img.fig.tight_layout()
     plt.savefig(output_filename)
 
 
