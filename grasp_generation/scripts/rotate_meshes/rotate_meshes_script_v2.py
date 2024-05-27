@@ -71,26 +71,28 @@ def save_img(mesh_file: pathlib.Path, output_filename: pathlib.Path, transforms:
 
 
 # %%
-# Meshes => Images for analysis
-meshdata_folder = pathlib.Path("/home/tylerlum/meshdata")
-assert meshdata_folder.exists()
+SAVE_IMGS = False
+if SAVE_IMGS:
+    output_imgs_folder = pathlib.Path("/home/tylerlum/mesh_images")
+    output_imgs_folder.mkdir(parents=True, exist_ok=True)
 
-output_imgs_folder = pathlib.Path("/home/tylerlum/mesh_images")
-output_imgs_folder.mkdir(parents=True, exist_ok=True)
+    # Meshes => Images for analysis
+    meshdata_folder = pathlib.Path("/home/tylerlum/meshdata")
+    assert meshdata_folder.exists()
 
-sorted_object_code_folders = sorted(meshdata_folder.iterdir())
-for object_code_folder in tqdm(sorted_object_code_folders):
-    if not object_code_folder.is_dir():
-        continue
-    for mesh_file in object_code_folder.rglob("decomposed.obj"):
-        output_filename = output_imgs_folder / f"{object_code_folder.name}.png"
-        if output_filename.exists():
+    sorted_object_code_folders = sorted(meshdata_folder.iterdir())
+    for object_code_folder in tqdm(sorted_object_code_folders):
+        if not object_code_folder.is_dir():
             continue
-        save_img(mesh_file=mesh_file, output_filename=output_filename, transforms=all_transforms, transform_names=all_transform_names)
+        for mesh_file in object_code_folder.rglob("decomposed.obj"):
+            output_filename = output_imgs_folder / f"{object_code_folder.name}.png"
+            if output_filename.exists():
+                continue
+            save_img(mesh_file=mesh_file, output_filename=output_filename, transforms=all_transforms, transform_names=all_transform_names)
 
 # %%
 # Read in mesh labels
-mesh_labels_filename = pathlib.Path("/juno/u/tylerlum/DexGraspNet/scripts/rotate_meshes/mesh_labels.txt")
+mesh_labels_filename = pathlib.Path("/juno/u/tylerlum/github_repos/DexGraspNet/grasp_generation/scripts/rotate_meshes/mesh_labels.txt")
 assert mesh_labels_filename.exists()
 
 mesh_labels = {}
@@ -111,13 +113,22 @@ with open(mesh_labels_filename, "r") as f:
             mesh_labels[object_code] = None
 
 # %%
+len(mesh_labels)
+
+# %%
+from collections import Counter
+counter = Counter(mesh_labels.values())
+counter
+
+# %%
 # Output rotated meshes
 output_mesh_dir = pathlib.Path("/home/tylerlum/rotated_meshdata_v2")
 assert output_mesh_dir.exists()
-object_code_folders = sorted(list(output_mesh_dir.iterdir()))
+
+sorted_object_code_folders = sorted(output_mesh_dir.iterdir())
 
 # %%
-for object_code_folder in tqdm(object_code_folders):
+for object_code_folder in tqdm(sorted_object_code_folders):
     if not object_code_folder.is_dir():
         continue
     assert object_code_folder.name in mesh_labels, f"{object_code_folder.name} not in mesh_labels"
@@ -137,19 +148,25 @@ for object_code_folder in tqdm(object_code_folders):
         mesh.apply_transform(transform_for_z_up)
         mesh.apply_transform(transform_for_y_up)
         mesh.export(obj_file)
+
 # %%
-# Output rotated images to check
-rotated_output_imgs_folder = pathlib.Path("/home/tylerlum/rotated_mesh_images_v2")
-rotated_output_imgs_folder.mkdir(parents=True, exist_ok=True)
+SAVE_IMGS = True
+if SAVE_IMGS:
+    # Output rotated images to check
+    rotated_output_imgs_folder = pathlib.Path("/home/tylerlum/rotated_mesh_images_v2")
+    rotated_output_imgs_folder.mkdir(parents=True, exist_ok=True)
 
-for object_code_folder in tqdm(object_code_folders):
-    if not object_code_folder.is_dir():
-        continue
+    random_order_object_code_folders = sorted_object_code_folders.copy()
+    import random
+    random.shuffle(random_order_object_code_folders)
 
-    for mesh_file in object_code_folder.rglob("decomposed.obj"):
-        output_filename = rotated_output_imgs_folder / f"{object_code_folder.name}.png"
-        if output_filename.exists():
+    for object_code_folder in tqdm(random_order_object_code_folders):
+        if not object_code_folder.is_dir():
             continue
-        save_img(mesh_file=mesh_file, output_filename=output_filename, transforms=all_transforms, transform_names=all_transform_names)
-# %%
 
+        for mesh_file in object_code_folder.rglob("decomposed.obj"):
+            output_filename = rotated_output_imgs_folder / f"{object_code_folder.name}.png"
+            if output_filename.exists():
+                continue
+            save_img(mesh_file=mesh_file, output_filename=output_filename, transforms=all_transforms, transform_names=all_transform_names)
+# %%
