@@ -48,7 +48,7 @@ class VisualizeConfigDictOptimizationArgumentParser(Tap):
     input_config_dicts_mid_optimization_path: pathlib.Path = pathlib.Path(
         "../data/config_dicts_mid_optimization"
     )
-    meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_stable")
     object_code_and_scale_str: str = (
         "mujoco-Olive_Kids_Butterfly_Garden_Pencil_Case_0_10"
     )

@@ -18,7 +18,7 @@ import pathlib
 
 class GenerateNerfDataOneObjectOneScaleArgumentParser(Tap):
     gpu: int = 0
-    meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_stable")
     output_nerfdata_path: pathlib.Path = pathlib.Path("../data/nerfdata")
     object_code: str = "sem-Camera-7bff4fd4dc53de7496dece3f86cb5dd5"
     object_scale: float = 0.1
@@ -46,29 +46,28 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
     with loop_timer.add_section_timer("create sim"):
         sim = IsaacValidator(
             gpu=args.gpu,
-            validation_type=ValidationType.NO_GRAVITY_SHAKING,  # Floating object, no table
-            # validation_type=ValidationType.GRAVITY_AND_TABLE,  # Object on table
+            # validation_type=ValidationType.NO_GRAVITY_SHAKING,  # Floating object, no table
+            validation_type=ValidationType.GRAVITY_AND_TABLE,  # Object on table
         )
 
-    # For each scale, create NeRF dataset
     with loop_timer.add_section_timer("set obj asset"):
         args.output_nerfdata_path.mkdir(parents=True, exist_ok=True)
         sim.set_obj_asset(
             obj_root=str(args.meshdata_root_path / args.object_code / "coacd"),
             obj_file="coacd.urdf",
         )
+
     with loop_timer.add_section_timer("add env"):
         sim.add_env_nerf_data_collection(
             obj_scale=args.object_scale,
         )
 
-    # ORIGINAL SCALING STRATEGY:
-    # object scale = 0.1
-    # camera radius = 0.3
+    with loop_timer.add_section_timer("run sim till object settles"):
+        sim.run_sim_till_object_settles()
+
     with loop_timer.add_section_timer("save images light"):
         sim.save_images_lightweight(
             folder=str(output_nerf_object_path),
-            obj_scale=args.object_scale,
             generate_seg=args.generate_seg,
             generate_depth=args.generate_depth,
             num_cameras=args.num_cameras,

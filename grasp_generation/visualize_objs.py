@@ -10,7 +10,7 @@ from tap import Tap
 
 
 class ArgParser(Tap):
-    meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_stable")
     max_num_objects_to_visualize: int = 10
 
 

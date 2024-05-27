@@ -43,7 +43,7 @@ class EvalGraspConfigDictArgumentParser(Tap):
     # validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING
     validation_type: ValidationType = ValidationType.GRAVITY_AND_TABLE
     gpu: int = 0
-    meshdata_root_path: pathlib.Path = pathlib.Path("../data/meshdata")
+    meshdata_root_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_stable")
     input_grasp_config_dicts_path: pathlib.Path = pathlib.Path(
         "../data/grasp_config_dicts"
     )
@@ -188,7 +188,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             obj_file="coacd.urdf",
         )
         index = args.debug_index
-        sim.add_env_single_test_rotation(
+        sim.add_env(
             hand_quaternion_wxyz=quat_wxyz[index],
             hand_translation=trans[index],
             hand_qpos=init_joint_angles[index],
@@ -261,7 +261,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
             obj_file="coacd.urdf",
         )
         for index in range(start_index, end_index):
-            sim.add_env_single_test_rotation(
+            sim.add_env(
                 hand_quaternion_wxyz=quat_wxyz[index],
                 hand_translation=trans[index],
                 hand_qpos=init_joint_angles[index],
@@ -273,7 +273,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
             if args.num_random_pose_noise_samples_per_grasp is not None:
                 for _ in range(args.num_random_pose_noise_samples_per_grasp):
-                    sim.add_env_single_test_rotation(
+                    sim.add_env(
                         hand_quaternion_wxyz=quat_wxyz[index],
                         hand_translation=trans[index],
                         hand_qpos=init_joint_angles[index],
@@ -322,7 +322,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
         passed_penetration_object_test_array
     )
     passed_penetration_table_test_array = np.array(passed_penetration_table_test_array)
-    object_states_before_grasp_array = np.array(object_states_before_grasp_array)
+    object_states_before_grasp_array = np.concatenate(object_states_before_grasp_array, axis=0)
     E_pen_array = np.array(E_pen_array)
 
     if args.num_random_pose_noise_samples_per_grasp is not None:

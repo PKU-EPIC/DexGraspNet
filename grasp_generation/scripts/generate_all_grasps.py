@@ -11,7 +11,7 @@ DATETIME_STR = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 
 class ArgParser(Tap):
-    input_meshdata_path: pathlib.Path = pathlib.Path("../data/meshdata")
+    input_meshdata_path: pathlib.Path = pathlib.Path("../data/rotated_meshdata_stable")
     base_data_path: pathlib.Path = pathlib.Path("../data")
     experiment_name: str = DATETIME_STR
     use_multiprocess: bool = True

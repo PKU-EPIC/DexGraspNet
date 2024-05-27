@@ -11,7 +11,7 @@ EXPERIMENT_DIR_PATH_ON_BUCKET = "experiments"
 EXPERIMENT_DIR_PATH_LOCAL = pathlib.Path("../data/experiments")
 
 ALL_MESHDATA_PATH_ON_BUCKET = "meshdata"
-ALL_MESHDATA_PATH_LOCAL = pathlib.Path("../data/meshdata")
+ALL_MESHDATA_PATH_LOCAL = pathlib.Path("../data/rotated_meshdata_stable")
 
 DEXGRASPNET_GIVEN_DATA_PATH_ON_BUCKET = "dexgraspnet_given_data"
 DEXGRASPNET_GIVEN_DATA_PATH_LOCAL = pathlib.Path("../data/dexgraspnet_given_data")

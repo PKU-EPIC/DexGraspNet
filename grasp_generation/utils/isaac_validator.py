@@ -121,9 +121,9 @@ class AutoName(Enum):
 
 
 class ValidationType(AutoName):
-    GRAVITY_IN_6_DIRS = auto()
     NO_GRAVITY_SHAKING = auto()
     GRAVITY_AND_TABLE = auto()
+    GRAVITY_AND_TABLE_AND_SHAKING = auto()
 
 
 class IsaacValidator:
@@ -131,19 +131,11 @@ class IsaacValidator:
         self,
         hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
         mode: str = "direct",
-        hand_friction: float = 0.9,
-        obj_friction: float = 0.9,
-        num_sim_steps: int = 200,  # TODO: Try to make this smaller to save sim time, but not so short to not lift and shake well
         gpu: int = 0,
-        debug_interval: float = 0.05,
         start_with_step_mode: bool = False,
         validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING,
         use_cpu: bool = True,
     ) -> None:
-        self.hand_friction = hand_friction
-        self.obj_friction = obj_friction
-        self.debug_interval = debug_interval
-        self.num_sim_steps = num_sim_steps
         self.gpu = gpu
         self.validation_type = validation_type
 
@@ -155,43 +147,28 @@ class IsaacValidator:
         self._init_or_reset_state()
 
         # Need virtual joints to control hand position
-        if self.validation_type == ValidationType.GRAVITY_IN_6_DIRS:
-            self.hand_root, self.hand_file = handmodeltype_to_hand_root_hand_file[
-                hand_model_type
-            ]
-            self.virtual_joint_names = []
-        elif self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
-            (
-                self.hand_root,
-                self.hand_file,
-            ) = handmodeltype_to_hand_root_hand_file_with_virtual_joints[
-                hand_model_type
-            ]
-            # HACK: Hardcoded virtual joint names
-            self.virtual_joint_names = [
-                "virtual_joint_translation_x",
-                "virtual_joint_translation_y",
-                "virtual_joint_translation_z",
-                "virtual_joint_rotation_z",
-                "virtual_joint_rotation_y",
-                "virtual_joint_rotation_x",
-            ]
+        (
+            self.hand_root,
+            self.hand_file,
+        ) = handmodeltype_to_hand_root_hand_file_with_virtual_joints[hand_model_type]
+        # HACK: Hardcoded virtual joint names
+        self.virtual_joint_names = [
+            "virtual_joint_translation_x",
+            "virtual_joint_translation_y",
+            "virtual_joint_translation_z",
+            "virtual_joint_rotation_z",
+            "virtual_joint_rotation_y",
+            "virtual_joint_rotation_x",
+        ]
+
+        # Try to keep num_sim_steps as small as possible to save sim time, but not so short to not lift and shake well
+        if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
+            self.num_sim_steps = 200
         elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
-            (
-                self.hand_root,
-                self.hand_file,
-            ) = handmodeltype_to_hand_root_hand_file_with_virtual_joints[
-                hand_model_type
-            ]
-            # HACK: Hardcoded virtual joint names
-            self.virtual_joint_names = [
-                "virtual_joint_translation_x",
-                "virtual_joint_translation_y",
-                "virtual_joint_translation_z",
-                "virtual_joint_rotation_z",
-                "virtual_joint_rotation_y",
-                "virtual_joint_rotation_x",
-            ]
+            self.num_sim_steps = 200
+        elif self.validation_type == ValidationType.GRAVITY_AND_TABLE_AND_SHAKING:
+            # Need more steps to shake
+            self.num_sim_steps = 400
         else:
             raise ValueError(f"Unknown validation type: {validation_type}")
 
@@ -243,6 +220,13 @@ class IsaacValidator:
         else:
             self.has_viewer = False
 
+        # Set lighting
+        light_index = 0
+        intensity = gymapi.Vec3(0.75, 0.75, 0.75)
+        ambient = gymapi.Vec3(0.75, 0.75, 0.75)
+        direction = gymapi.Vec3(0.0, 0.0, -1.0)
+        gym.set_light_parameters(self.sim, light_index, intensity, ambient, direction)
+
         self.hand_asset_options = gymapi.AssetOptions()
         self.hand_asset_options.disable_gravity = True
         self.hand_asset_options.collapse_fixed_joints = True
@@ -256,11 +240,12 @@ class IsaacValidator:
             True  # Convex decomposition is better than convex hull
         )
 
-        if self.validation_type == ValidationType.GRAVITY_IN_6_DIRS:
-            self.obj_asset_options.disable_gravity = False
-        elif self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
+        if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
             self.obj_asset_options.disable_gravity = True
-        elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+        elif self.validation_type in [
+            ValidationType.GRAVITY_AND_TABLE,
+            ValidationType.GRAVITY_AND_TABLE_AND_SHAKING,
+        ]:
             self.obj_asset_options.disable_gravity = False
         else:
             raise ValueError(f"Unknown validation type: {validation_type}")
@@ -279,7 +264,7 @@ class IsaacValidator:
         )
 
     ########## ENV SETUP START ##########
-    def add_env_single_test_rotation(
+    def add_env(
         self,
         hand_quaternion_wxyz: np.ndarray,
         hand_translation: np.ndarray,
@@ -291,8 +276,6 @@ class IsaacValidator:
     ) -> None:
         # collision_idx should be unique for each env so envs don't collide
         collision_idx = len(self.envs)
-
-        transformation = gymapi.Transform()
 
         # Create env
         ENVS_PER_ROW = 6
@@ -309,56 +292,67 @@ class IsaacValidator:
             hand_quaternion_wxyz=hand_quaternion_wxyz,
             hand_translation=hand_translation,
             hand_qpos=hand_qpos,
-            transformation=transformation,
             target_qpos=target_qpos,
             collision_idx=collision_idx,
             add_random_pose_noise=add_random_pose_noise,
         )
 
-        self._setup_obj(
-            env,
-            obj_scale,
-            transformation,
-            collision_idx=collision_idx,
-        )
+        if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
+            obj_pose = gymapi.Transform()
 
-        if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+            self._setup_obj(
+                env,
+                obj_pose=obj_pose,
+                obj_scale=obj_scale,
+                collision_idx=collision_idx,
+            )
+        elif self.validation_type in [
+            ValidationType.GRAVITY_AND_TABLE,
+            ValidationType.GRAVITY_AND_TABLE_AND_SHAKING,
+        ]:
+            obj_pose = self._compute_init_obj_pose_above_table(obj_scale)
+
+            self._setup_obj(
+                env,
+                obj_pose=obj_pose,
+                obj_scale=obj_scale,
+                collision_idx=collision_idx,
+            )
             self._setup_table(
                 env=env,
-                transformation=transformation,
                 collision_idx=collision_idx,
-                obj_scale=obj_scale,
             )
+        else:
+            raise ValueError(f"Unknown validation type: {self.validation_type}")
 
         if record:
             self._setup_camera(env)
 
-    def get_table_surface_height(self, obj_scale: float) -> float:
-        # OBJ_MAX_EXTENT_FROM_ORIGIN = 0.2
-        # BUFFER = 1
-        # TABLE_THICKNESS = 0.1
-        # y_offset = OBJ_MAX_EXTENT_FROM_ORIGIN * BUFFER + TABLE_THICKNESS / 2
-
+    def _compute_init_obj_pose_above_table(self, obj_scale: float) -> gymapi.Transform:
+        # All objs are assumed to be centered in a bounding box, with the max width being 2.0m (unscaled)
+        # Thus max extent from origin is 1.0m (unscaled)
+        # So we want to place the obj above the table a bit more then rescale
+        OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0
         BUFFER = 1.2
-        OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0 * obj_scale * BUFFER
-        TABLE_THICKNESS = 0.1
-        y_offset = OBJ_MAX_EXTENT_FROM_ORIGIN + TABLE_THICKNESS / 2
-        return -y_offset
+        y_above_table = OBJ_MAX_EXTENT_FROM_ORIGIN * obj_scale * BUFFER
+
+        obj_pose = gymapi.Transform()
+        obj_pose.p = gymapi.Vec3(0.0, y_above_table, 0.0)
+        obj_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
+        return obj_pose
 
     def _setup_table(
         self,
         env,
-        transformation: gymapi.Transform,
         collision_idx: int,
-        obj_scale: float,
     ) -> None:
-        table_surface_height = self.get_table_surface_height(obj_scale=obj_scale)
+        TABLE_THICKNESS = 0.1
 
         table_pose = gymapi.Transform()
-        table_pose.p = gymapi.Vec3(0, table_surface_height, 0)
+        table_pose.p = gymapi.Vec3(
+            0, -TABLE_THICKNESS / 2, 0
+        )  # Table surface is at y=0
         table_pose.r = gymapi.Quat(0, 0, 0, 1)
-
-        table_pose = transformation * table_pose
 
         # Create table
         table_actor_handle = gym.create_actor(
@@ -383,6 +377,20 @@ class IsaacValidator:
         for i in range(len(table_shape_props)):
             table_shape_props[i].friction = 1.0
         gym.set_actor_rigid_shape_properties(env, table_actor_handle, table_shape_props)
+
+        # Set table texture
+        if not hasattr(self, "table_texture"):
+            self.table_texture = gym.create_texture_from_file(
+                self.sim, "table/wood.png"
+            )
+        RB_IDX = 0
+        gym.set_rigid_body_texture(
+            env,
+            table_actor_handle,
+            RB_IDX,
+            gymapi.MESH_VISUAL_AND_COLLISION,
+            self.table_texture,
+        )
         return
 
     def _setup_hand(
@@ -391,7 +399,6 @@ class IsaacValidator:
         hand_quaternion_wxyz: np.ndarray,
         hand_translation: np.ndarray,
         hand_qpos: np.ndarray,
-        transformation: gymapi.Transform,
         target_qpos: np.ndarray,
         collision_idx: int,
         add_random_pose_noise: bool = False,
@@ -401,7 +408,6 @@ class IsaacValidator:
         # Will move hand to object later
         hand_pose = gymapi.Transform()
         hand_pose.p = ARBITRARY_INIT_HAND_POS
-        hand_pose = transformation * hand_pose
 
         # Create hand
         hand_actor_handle = gym.create_actor(
@@ -499,22 +505,17 @@ class IsaacValidator:
         # Set hand shape props
         hand_shape_props = gym.get_actor_rigid_shape_properties(env, hand_actor_handle)
         for i in range(len(hand_shape_props)):
-            hand_shape_props[i].friction = self.hand_friction
+            hand_shape_props[i].friction = 0.7
         gym.set_actor_rigid_shape_properties(env, hand_actor_handle, hand_shape_props)
         return
 
     def _setup_obj(
         self,
         env,
+        obj_pose: gymapi.Transform,
         obj_scale: float,
-        transformation: gymapi.Transform,
         collision_idx: int,
     ) -> None:
-        obj_pose = gymapi.Transform()
-        obj_pose.p = gymapi.Vec3(0.0, 0.0, 0.0)
-        obj_pose.r = gymapi.Quat(0.0, 0.0, 0.0, 1.0)
-
-        obj_pose = transformation * obj_pose
         self.init_obj_poses.append(obj_pose)
 
         # Create obj
@@ -545,7 +546,7 @@ class IsaacValidator:
         # Set obj shape props
         obj_shape_props = gym.get_actor_rigid_shape_properties(env, obj_actor_handle)
         for i in range(len(obj_shape_props)):
-            obj_shape_props[i].friction = self.obj_friction
+            obj_shape_props[i].friction = 0.7
         gym.set_actor_rigid_shape_properties(env, obj_actor_handle, obj_shape_props)
         return
 
@@ -553,7 +554,7 @@ class IsaacValidator:
 
     ########## RUN SIM END ##########
     def run_sim(self) -> Tuple[List[bool], List[bool], List[bool], np.ndarray]:
-        gym.prepare_sim(self.sim)  # TODO: Check if this is needed?
+        gym.prepare_sim(self.sim)
 
         # Prepare tensors
         root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
@@ -631,9 +632,7 @@ class IsaacValidator:
             )
             final_obj_pose = self._get_object_pose(env=env, obj_handle=obj_handle)
             final_rel_obj_pose = final_hand_pose.inverse() * final_obj_pose
-            init_rel_obj_pose = self.desired_hand_poses_object_frame[
-                i
-            ].inverse()  # TODO: Check if this makes sense
+            init_rel_obj_pose = self.desired_hand_poses_object_frame[i].inverse()
             pos_change, max_euler_change = self._get_pos_and_euler_change(
                 pose1=init_rel_obj_pose, pose2=final_rel_obj_pose
             )
@@ -855,14 +854,14 @@ class IsaacValidator:
         while sim_step_idx < self.num_sim_steps:
             # Phase 1: Do nothing, hand far away
             #   * For NO_GRAVITY_SHAKING: object should stay in place
-            #   * For GRAVITY_AND_TABLE: object should fall to table and settle
+            #   * For GRAVITY_AND_TABLE and GRAVITY_AND_TABLE_AND_SHAKING: object should fall to table and settle
             # Phase 2: Move hand to object
             #   * For NO_GRAVITY_SHAKING: check if hand collides with object
-            #   * For GRAVITY_AND_TABLE: check if hand collides with object AND if hand collides with table
+            #   * For GRAVITY_AND_TABLE and GRAVITY_AND_TABLE_AND_SHAKING: check if hand collides with object AND if hand collides with table
             # Phase 3: Close hand
             # Phase 4: Shake hand
             #   * For NO_GRAVITY_SHAKING: shake from this position
-            #   * For GRAVITY_AND_TABLE: lift from table first, then shake
+            #   * For GRAVITY_AND_TABLE and GRAVITY_AND_TABLE_AND_SHAKING: lift from table first, then shake
             PHASE_1_LAST_STEP = (
                 50  # From analysis, takes about 40 steps for ball to settle
             )
@@ -920,9 +919,7 @@ class IsaacValidator:
             # Step physics if not paused
             if not self.is_paused:
                 gym.simulate(self.sim)
-                gym.fetch_results(
-                    self.sim, True
-                )  # TODO: Check if this slows things down
+                gym.fetch_results(self.sim, True)
                 gym.refresh_actor_root_state_tensor(self.sim)
 
                 if self.camera_handles and sim_step_idx > 0:
@@ -950,7 +947,7 @@ class IsaacValidator:
 
             # Update viewer
             if self.has_viewer:
-                sleep(self.debug_interval)
+                sleep(0.05)
                 if gym.query_viewer_has_closed(self.viewer):
                     break
 
@@ -993,7 +990,9 @@ class IsaacValidator:
         assert step < length, f"{step} >= {length}"
         if step == 0:
             self._move_hands_to_objects()
-            return [True for _ in range(len(self.envs))], [True for _ in range(len(self.envs))]
+            return [True for _ in range(len(self.envs))], [
+                True for _ in range(len(self.envs))
+            ]
         else:
             # Can only check the collisions after taking a sim step
             hand_colliding_obj = self._is_hand_colliding_with_obj()
@@ -1001,7 +1000,10 @@ class IsaacValidator:
                 not colliding_obj for colliding_obj in hand_colliding_obj
             ]
 
-            if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+            if self.validation_type in [
+                ValidationType.GRAVITY_AND_TABLE,
+                ValidationType.GRAVITY_AND_TABLE_AND_SHAKING,
+            ]:
                 hand_colliding_table = self._is_hand_colliding_with_table()
                 hand_not_colliding_table_list = [
                     not colliding_table for colliding_table in hand_colliding_table
@@ -1101,9 +1103,9 @@ class IsaacValidator:
 
         self.camera_envs.append(env)
 
-        cam_target = gymapi.Vec3(0, 0, 0)  # type: ignore  # where object s
+        cam_target = gymapi.Vec3(0, 0.1, 0)  # type: ignore  # where object s
 
-        cam_pos = cam_target + gymapi.Vec3(0.25, 0.1, 0.0)  # Define offset
+        cam_pos = cam_target + gymapi.Vec3(0.3, 0.3, 0.0)  # Define offset
 
         self.video_frames.append([])
         gym.set_camera_location(camera_handle, env, cam_pos, cam_target)
@@ -1140,34 +1142,83 @@ class IsaacValidator:
         # Shaking / perturbation parameters for virtual joint targets.
 
         # Set dof pos targets [+x, -x]*N, 0, [+y, -y]*N, 0, [+z, -z]*N
-        dist_to_move = 0.05
-        N = 2
+        dist_to_move = 0.03
+        N_SHAKES = 1
         if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
             targets_sequence = [
-                *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
+                *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N_SHAKES),
                 [0.0, 0.0, 0.0],
-                *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
+                *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N_SHAKES),
                 [0.0, 0.0, 0.0],
-                *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
+                *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N_SHAKES),
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
             ]
-        elif self.validation_type == ValidationType.GRAVITY_AND_TABLE:
+        elif self.validation_type in [
+            ValidationType.GRAVITY_AND_TABLE,
+            ValidationType.GRAVITY_AND_TABLE_AND_SHAKING,
+        ]:
             Y_LIFT = 0.2
-            INCLUDE_SHAKE = False
+            INCLUDE_SHAKE = (
+                self.validation_type == ValidationType.GRAVITY_AND_TABLE_AND_SHAKING
+            )
             targets_sequence = [
                 [0.0, -Y_LIFT, 0.0],
-                [0.0, -Y_LIFT * 3 / 4, 0.0],
-                [0.0, -Y_LIFT * 2 / 4, 0.0],
-                [0.0, -Y_LIFT * 1 / 4, 0.0],
+                [0.0, -Y_LIFT * 7 / 8, 0.0],
+                [0.0, -Y_LIFT * 6 / 8, 0.0],
+                [0.0, -Y_LIFT * 5 / 8, 0.0],
+                [0.0, -Y_LIFT * 4 / 8, 0.0],
+                [0.0, -Y_LIFT * 3 / 8, 0.0],
+                [0.0, -Y_LIFT * 2 / 8, 0.0],
+                [0.0, -Y_LIFT * 1 / 8, 0.0],
                 [0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0],
             ]
             if INCLUDE_SHAKE:
                 targets_sequence += [
-                    *([[dist_to_move, 0.0, 0.0], [-dist_to_move, 0.0, 0.0]] * N),
-                    *([[0.0, dist_to_move, 0.0], [0.0, -dist_to_move, 0.0]] * N),
-                    *([[0.0, 0.0, dist_to_move], [0.0, 0.0, -dist_to_move]] * N),
+                    *(
+                        [
+                            [dist_to_move / 2, 0.0, 0.0],
+                            [dist_to_move, 0.0, 0.0],
+                            [dist_to_move / 2, 0.0, 0.0],
+                            [0.0, 0.0, 0.0],
+                            [-dist_to_move / 2, 0.0, 0.0],
+                            [-dist_to_move, 0.0, 0.0],
+                            [-dist_to_move / 2, 0.0, 0.0],
+                            [0.0, 0.0, 0.0],
+                        ]
+                        * N_SHAKES
+                    ),
+                    [0.0, 0.0, 0.0],
+                    *(
+                        [
+                            [0.0, dist_to_move / 2, 0.0],
+                            [0.0, dist_to_move, 0.0],
+                            [0.0, dist_to_move / 2, 0.0],
+                            [0.0, 0.0, 0.0],
+                            [0.0, -dist_to_move / 2, 0.0],
+                            [0.0, -dist_to_move, 0.0],
+                            [0.0, -dist_to_move / 2, 0.0],
+                            [0.0, 0.0, 0.0],
+                        ]
+                        * N_SHAKES
+                    ),
+                    [0.0, 0.0, 0.0],
+                    *(
+                        [
+                            [0.0, 0.0, dist_to_move / 2],
+                            [0.0, 0.0, dist_to_move],
+                            [0.0, 0.0, dist_to_move / 2],
+                            [0.0, 0.0, 0.0],
+                            [0.0, 0.0, -dist_to_move / 2],
+                            [0.0, 0.0, -dist_to_move],
+                            [0.0, 0.0, -dist_to_move / 2],
+                            [0.0, 0.0, 0.0],
+                        ]
+                        * N_SHAKES
+                    ),
+                    [0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0],
                 ]
 
             targets_sequence = [
@@ -1438,11 +1489,6 @@ class IsaacValidator:
         self,
         obj_scale: float,
     ) -> None:
-        # Set test rotation
-        identity_transform = gymapi.Transform(
-            gymapi.Vec3(0, 0, 0), gymapi.Quat(0, 0, 0, 1)
-        )
-
         # Create env
         spacing = 1.0
         env = gym.create_env(
@@ -1453,11 +1499,63 @@ class IsaacValidator:
         )
         self.envs.append(env)
 
-        self._setup_obj(env, obj_scale, identity_transform, collision_idx=0)
-        if self.validation_type == ValidationType.GRAVITY_AND_TABLE:
-            self._setup_table(
-                env, identity_transform, collision_idx=0, obj_scale=obj_scale
+        if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
+            obj_pose = gymapi.Transform()
+
+            self._setup_obj(
+                env,
+                obj_pose=obj_pose,
+                obj_scale=obj_scale,
+                collision_idx=0,
             )
+        elif self.validation_type in [
+            ValidationType.GRAVITY_AND_TABLE,
+            ValidationType.GRAVITY_AND_TABLE_AND_SHAKING,
+        ]:
+            obj_pose = self._compute_init_obj_pose_above_table(obj_scale)
+
+            self._setup_obj(
+                env,
+                obj_pose=obj_pose,
+                obj_scale=obj_scale,
+                collision_idx=0,
+            )
+            self._setup_table(
+                env=env,
+                collision_idx=0,
+            )
+        else:
+            raise ValueError(f"Unknown validation type: {self.validation_type}")
+
+    def run_sim_till_object_settles(self) -> None:
+        gym.prepare_sim(self.sim)
+
+        # Prepare tensors
+        root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
+        self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
+
+        MAX_SIM_STEPS = 100
+        sim_step_idx = 0
+        while sim_step_idx < MAX_SIM_STEPS:
+            object_indices = self._get_actor_indices(
+                envs=self.envs, actors=self.obj_handles
+            ).to(self.root_state_tensor.device)
+            object_states = self.root_state_tensor[object_indices, :13].clone()
+            object_speed = object_states[:, 7:10].squeeze(dim=0).norm(dim=-1)
+            object_angspeed = object_states[:, 10:13].squeeze(dim=0).norm(dim=-1)
+            is_object_settled = object_speed < 5e-3 and object_angspeed < 1e-2
+
+            MIN_NUM_STEPS = 5
+            if sim_step_idx > MIN_NUM_STEPS and is_object_settled:
+                print(f"Object settled at step {sim_step_idx}")
+                break
+
+            # Step physics
+            gym.simulate(self.sim)
+            gym.fetch_results(self.sim, True)
+            gym.refresh_actor_root_state_tensor(self.sim)
+            # gym.step_graphics(self.sim)  # No need to step graphics until we need to render
+            sim_step_idx += 1
 
     def save_images(
         self, folder: str, overwrite: bool = False, num_cameras: int = 250
@@ -1478,15 +1576,13 @@ class IsaacValidator:
     def save_images_lightweight(
         self,
         folder: str,
-        obj_scale: float,
         overwrite: bool = False,
         generate_seg: bool = False,
         generate_depth: bool = False,
         num_cameras: int = 250,
     ) -> None:
         assert len(self.envs) == 1
-        camera_radius = 3 * obj_scale
-        self._setup_cameras(self.envs[0], radius=camera_radius, num_cameras=num_cameras)
+        self._setup_cameras(self.envs[0], num_cameras=num_cameras)
 
         gym.step_graphics(self.sim)
         gym.render_all_camera_sensors(self.sim)
@@ -1505,24 +1601,23 @@ class IsaacValidator:
         # Avoid segfault if run multiple times by destroying camera sensors
         self._destroy_cameras(self.envs[0])
 
-    def _setup_cameras(self, env, num_cameras=250, radius=0.3):
+    def _setup_cameras(self, env, num_cameras: int):
         camera_props = gymapi.CameraProperties()
         camera_props.horizontal_fov = CAMERA_HORIZONTAL_FOV_DEG
         camera_props.width = CAMERA_IMG_WIDTH
         camera_props.height = CAMERA_IMG_HEIGHT
 
-        # Generates camera positions uniformly sampled from sphere around object.
-        u_vals = np.random.uniform(-1.0, 1.0, num_cameras)
-        th_vals = np.random.uniform(0.0, 2 * np.pi, num_cameras)
+        # Sample num_cameras points on sphere with points away from table surface using phi_degrees
+        # May 2024: Radius is approximately 0.45, phi_degrees is 45 in real world
+        xyz_vals = sample_points_on_sphere(N=num_cameras, radius=0.45, phi_degrees=45)
+        x_vals, y_vals, z_vals = xyz_vals[:, 0], xyz_vals[:, 1], xyz_vals[:, 2]
 
-        x_vals = radius * np.sqrt(1 - np.square(u_vals)) * np.cos(th_vals)
-        y_vals = radius * np.sqrt(1 - np.square(u_vals)) * np.sin(th_vals)
-        z_vals = radius * u_vals
+        camera_target = gymapi.Vec3(0, 0, 0)
 
         for xx, yy, zz in zip(x_vals, y_vals, z_vals):
             camera_handle = gym.create_camera_sensor(env, camera_props)
             gym.set_camera_location(
-                camera_handle, env, gymapi.Vec3(xx, yy, zz), gymapi.Vec3(0.0, 0.0, 0.0)
+                camera_handle, env, gymapi.Vec3(xx, yy, zz), camera_target
             )
             self.camera_handles.append(camera_handle)
 
@@ -1811,5 +1906,41 @@ class IsaacValidator:
 
         with open(os.path.join(folder, "transforms.json"), "w") as outfile:
             outfile.write(json.dumps(json_dict))
+
+
+def sample_points_on_sphere(N: int, radius: float, phi_degrees: float) -> np.ndarray:
+    """
+    Generate N random points on the surface of a sphere of given radius.
+    Points are sampled in a region where the polar angle phi (from the y-axis)
+    is in the range [0, phi_degrees].
+
+    Parameters:
+    N (int): Number of points to sample.
+    radius (float): Radius of the sphere.
+    phi_degrees (float): Maximum angle in degrees from the y-axis.
+
+    Returns:
+    np.ndarray: Array of shape (N, 3) containing the xyz coordinates of the sampled points.
+    """
+    # Convert maximum phi from degrees to radians
+    phi_max = np.radians(phi_degrees)
+
+    # Sample phi and theta values
+    # phi is sampled uniformly in cosine space to maintain uniformity on the sphere's surface
+    cos_phi = np.random.uniform(np.cos(phi_max), 1, size=N)
+    phi = np.arccos(cos_phi)  # Invert cosine to get angles
+    theta = np.random.uniform(
+        0, 2 * np.pi, size=N
+    )  # Uniformly sample theta around the sphere
+
+    # Convert spherical coordinates to Cartesian coordinates
+    x = radius * np.sin(phi) * np.cos(theta)
+    y = radius * np.cos(phi)  # y is up, so it's linked to the cos(phi)
+    z = radius * np.sin(phi) * np.sin(theta)
+
+    # Stack into a (N, 3) array
+    points = np.vstack((x, y, z)).T
+
+    return points
 
     ########## NERF DATA COLLECTION END ##########
