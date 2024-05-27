@@ -25,6 +25,7 @@ class GenerateNerfDataOneObjectOneScaleArgumentParser(Tap):
     generate_seg: bool = False
     generate_depth: bool = False
     num_cameras: int = 250
+    debug_with_gui: bool = False
 
 
 def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
@@ -44,12 +45,11 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
 
     # Create sim
     with loop_timer.add_section_timer("create sim"):
-        DEBUG_WITH_GUI = False
         sim = IsaacValidator(
             gpu=args.gpu,
             # validation_type=ValidationType.NO_GRAVITY_SHAKING,  # Floating object, no table
             validation_type=ValidationType.GRAVITY_AND_TABLE,  # Object on table
-            mode="gui" if DEBUG_WITH_GUI else "headless",
+            mode="gui" if args.debug_with_gui else "headless",
         )
 
     with loop_timer.add_section_timer("set obj asset"):
