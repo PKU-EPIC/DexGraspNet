@@ -55,6 +55,7 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
         sim.set_obj_asset(
             obj_root=str(args.meshdata_root_path / args.object_code / "coacd"),
             obj_file="coacd.urdf",
+            vhacd_enabled=False,  # Disable vhacd because it should be faster and not needed
         )
 
     with loop_timer.add_section_timer("add env"):

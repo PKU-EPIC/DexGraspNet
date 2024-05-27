@@ -236,9 +236,6 @@ class IsaacValidator:
         self.obj_asset_options.override_com = True
         self.obj_asset_options.override_inertia = True
         self.obj_asset_options.density = 500
-        self.obj_asset_options.vhacd_enabled = (
-            True  # Convex decomposition is better than convex hull
-        )
 
         if self.validation_type == ValidationType.NO_GRAVITY_SHAKING:
             self.obj_asset_options.disable_gravity = True
@@ -258,7 +255,8 @@ class IsaacValidator:
             self.sim, self.hand_root, self.hand_file, self.hand_asset_options
         )
 
-    def set_obj_asset(self, obj_root: str, obj_file: str) -> None:
+    def set_obj_asset(self, obj_root: str, obj_file: str, vhacd_enabled: bool = True) -> None:
+        self.obj_asset_options.vhacd_enabled = vhacd_enabled  # Convex decomposition is better than convex hull, but slower, not 100% sure why it's not working
         self.obj_asset = gym.load_asset(
             self.sim, obj_root, obj_file, self.obj_asset_options
         )
