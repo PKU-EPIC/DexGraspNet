@@ -26,6 +26,43 @@ from isaacgym import gymutil
 from isaacgym import gymapi
 from math import sqrt
 
+import pathlib
+from tqdm import tqdm
+import random
+
+
+def load_assets(gym, sim, max_objects=350) -> list:
+    # Asset options
+    obj_asset_options = gymapi.AssetOptions()
+    obj_asset_options.override_com = True
+    obj_asset_options.override_inertia = True
+    obj_asset_options.density = 500
+    obj_asset_options.vhacd_enabled = (
+        # True  # Convex decomposition is better than convex hull
+        False  # Convex decomposition is better than convex hull
+    )
+
+    # urdf_paths
+    meshdata_root_path = pathlib.Path("../data/meshdata")
+    assert meshdata_root_path.exists(), f"Meshdata root path {meshdata_root_path} does not exist"
+    urdf_paths = []
+    object_paths = sorted(list(meshdata_root_path.iterdir()))[:max_objects]
+    for x in tqdm(object_paths, desc="Finding URDFs"):
+        urdf_path = x / "coacd" / "coacd.urdf"
+        if not urdf_path.exists():
+            print(f"WARNING: {urdf_path} does not exist")
+            continue
+
+        urdf_paths.append(urdf_path)
+    print(f"Found {len(urdf_paths)} urdf_paths")
+
+    assets = [
+        gym.load_asset(sim, str(urdf_path.parents[0]), urdf_path.name, obj_asset_options)
+        for urdf_path in tqdm(urdf_paths, desc="Loading assets")
+    ]
+    return assets
+
+
 # initialize gym
 gym = gymapi.acquire_gym()
 
@@ -70,37 +107,7 @@ if viewer is None:
     quit()
 
 # load assets
-obj_asset_options = gymapi.AssetOptions()
-obj_asset_options.override_com = True
-obj_asset_options.override_inertia = True
-obj_asset_options.density = 500
-obj_asset_options.vhacd_enabled = (
-    # True  # Convex decomposition is better than convex hull
-    False  # Convex decomposition is better than convex hull
-)
-
-import pathlib
-from tqdm import tqdm
-import random
-meshdata_root_path = pathlib.Path("../data/rotated_meshdata_stable")
-assert meshdata_root_path.exists(), f"Meshdata root path {meshdata_root_path} does not exist"
-# urdf_paths = sorted([x for x in tqdm(meshdata_root_path.rglob("**/coacd.urdf"), desc="Finding URDFs")])
-urdf_paths = []
-for i, x in enumerate(tqdm(meshdata_root_path.rglob("**/coacd.urdf"), desc="Finding URDFs")):
-    urdf_paths.append(x)
-    if i > 10:
-        break
-print(f"Found {len(urdf_paths)} urdf_paths")
-urdf_paths += [pathlib.Path("table/table.urdf")]
-MAX_NUM_OBJECTS = 100
-print(f"Selecting {MAX_NUM_OBJECTS} objects")
-random.seed(18)
-urdf_paths = random.sample(urdf_paths, min(MAX_NUM_OBJECTS, len(urdf_paths)))
-
-assets = [
-    gym.load_asset(sim, str(urdf_path.parents[0]), urdf_path.name, obj_asset_options)
-    for urdf_path in tqdm(urdf_paths, desc="Loading assets")
-]
+assets = load_assets(gym=gym, sim=sim)
 num_envs = len(assets)
 
 # set lighting
@@ -131,10 +138,6 @@ for i in range(num_envs):
     env = gym.create_env(sim, env_lower, env_upper, num_per_row)
     envs.append(env)
 
-    # generate random bright color
-    c = 0.5 + 0.5 * np.random.random(3)
-    color = gymapi.Vec3(c[0], c[1], c[2])
-
     # create ball pyramid
     pose = gymapi.Transform()
     pose.r = gymapi.Quat(0, 0, 0, 1)
@@ -164,13 +167,22 @@ for i in range(num_envs):
     ahandle = gym.create_actor(env, asset, pose, None, collision_group, collision_filter)
     num_rbs = gym.get_actor_rigid_body_count(env, ahandle)
 
-    # for i in range(num_rbs):
-        # gym.set_rigid_body_color(env, ahandle, i, gymapi.MESH_VISUAL_AND_COLLISION, color)
+    COLOR_OR_TEXTURE = "COLOR"
 
-    # Set table texture
-    table_texture = gym.create_texture_from_file(sim, "table/wood.png")
-    for i in range(num_rbs):
-        gym.set_rigid_body_texture(env, ahandle, i, gymapi.MESH_VISUAL_AND_COLLISION, table_texture)
+    if COLOR_OR_TEXTURE == "COLOR":
+        # generate random bright color
+        c = 0.5 + 0.5 * np.random.random(3)
+        color = gymapi.Vec3(c[0], c[1], c[2])
+
+        for i in range(num_rbs):
+            gym.set_rigid_body_color(env, ahandle, i, gymapi.MESH_VISUAL_AND_COLLISION, color)
+    elif COLOR_OR_TEXTURE == "TEXTURE":
+        # Set table texture
+        table_texture = gym.create_texture_from_file(sim, "table/wood.png")
+        for i in range(num_rbs):
+            gym.set_rigid_body_texture(env, ahandle, i, gymapi.MESH_VISUAL_AND_COLLISION, table_texture)
+    else:
+        raise ValueError(f"Invalid COLOR_OR_TEXTURE: {COLOR_OR_TEXTURE}")
 
 gym.viewer_camera_look_at(viewer, None, gymapi.Vec3(20, 5, 20), gymapi.Vec3(0, 1, 0))
 
