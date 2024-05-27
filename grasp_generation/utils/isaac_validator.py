@@ -1547,11 +1547,6 @@ class IsaacValidator:
             quat_w = quat_wxyz[0]
             object_speed = object_states[:, 7:10].squeeze(dim=0).norm(dim=-1)
             object_angspeed = object_states[:, 10:13].squeeze(dim=0).norm(dim=-1)
-            print(f"quat_wxyz: {quat_wxyz}")
-            print(f"object_speed: {object_speed}")
-            print(f"object_angspeed: {object_angspeed}")
-            if sim_step_idx == 100:
-                breakpoint()
             is_object_settled = (
                 quat_w >= 0.95 and object_speed < 5e-3 and object_angspeed < 1e-2
             )
@@ -1572,6 +1567,13 @@ class IsaacValidator:
                 gym.step_graphics(self.sim)
                 gym.draw_viewer(self.viewer, self.sim, False)
                 sleep(0.05)
+
+                print(f"quat_wxyz: {quat_wxyz}")
+                print(f"object_speed: {object_speed}")
+                print(f"object_angspeed: {object_angspeed}")
+                if sim_step_idx == 100:
+                    breakpoint()
+
             sim_step_idx += 1
 
         log_text = f"Object did not settle after max steps {MAX_SIM_STEPS}, quat_wxyz: {quat_wxyz}, object_speed: {object_speed}, object_angspeed: {object_angspeed}, abs_rpy: {abs_rpy}"
