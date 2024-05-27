@@ -2561,13 +2561,13 @@ ddg-gd_flashlight_poisson_009: 0
 ddg-gd_flashlight_poisson_010: 0
 ddg-gd_flashlight_poisson_013: 0
 ddg-gd_flashlight_poisson_014: 0
-ddg-gd_hammer_poisson_005: 0
-ddg-gd_hammer_poisson_009: 0
+ddg-gd_hammer_poisson_005: 1
+ddg-gd_hammer_poisson_009: 3
 ddg-gd_hammer_poisson_011: 0
 ddg-gd_hammer_poisson_013: 0
-ddg-gd_hammer_poisson_015: 0
+ddg-gd_hammer_poisson_015: 1
 ddg-gd_hammer_poisson_024: 0
-ddg-gd_hammer_poisson_031: 0
+ddg-gd_hammer_poisson_031: 1
 ddg-gd_hammer_poisson_035: 0
 ddg-gd_jar_poisson_000: 0
 ddg-gd_jar_poisson_001: 0
