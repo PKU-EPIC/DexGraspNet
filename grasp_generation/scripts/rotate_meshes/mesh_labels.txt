@@ -3418,7 +3418,7 @@ mujoco-PEEKABOO_ROLLER: 3
 mujoco-Pennington_Electric_Pot_Cabana_4: 0
 mujoco-Pepsi_Caffeine_Free_Diet_12_CT: 0
 mujoco-Pepsi_Cola_Caffeine_Free_12_12_fl_oz_355_ml_cans_144_fl_oz_426_lt: 0
-mujoco-Pepsi_Cola_Wild_Cherry_Diet_12_12_fl_oz_355_ml_cans_144_fl_oz_426_lt: 
+mujoco-Pepsi_Cola_Wild_Cherry_Diet_12_12_fl_oz_355_ml_cans_144_fl_oz_426_lt: 0
 mujoco-Pepsi_Max_Cola_Zero_Calorie_12_12_fl_oz_355_ml_cans_144_fl_oz_426_lt: 0
 mujoco-PEPSI_NEXT_CACRV: 0
 mujoco-Perricoen_MD_No_Concealer_Concealer: 0
@@ -3801,17 +3801,17 @@ mujoco-ZigKick_Hoops: 0
 mujoco-ZX700_lYiwcTIekXk: 0
 mujoco-ZX700_mf9Pc06uL06: 0
 mujoco-ZX700_mzGbdP3u6JB: 0
-sem-AAABattery-a924eb3037129eaff8095890d92b7d6c: 
-sem-Airplane-68ff153952368948b4eba5f9f157d8c8: 
-sem-Airplane-704645aab47a7523eeffd0b15e05669b: 
-sem-Airplane-866180a3962eb78526acd17789ec9c7b: 
-sem-Airplane-8e47730a471abb7f43afdb9c81ff2967: 
-sem-Airplane-98a84003006d3c7142a4fe95eae396be: 
-sem-Airplane-9a0f4dd21a4ca19bf1cb19f636b1c2bd: 
-sem-Airplane-d0198fd427a58492dd8dc6d5a969eed: 
-sem-Ashtray-2b210ae3bfa1abe43da807e9c1c58ac0: 
-sem-Ashtray-cace60b05eee02e1476198bed2ee6497: 
-sem-Ashtray-d0c87fd06d3b89faace168ea8ead0df6: 
+sem-AAABattery-a924eb3037129eaff8095890d92b7d6c: 0
+sem-Airplane-68ff153952368948b4eba5f9f157d8c8: 0
+sem-Airplane-704645aab47a7523eeffd0b15e05669b: 0
+sem-Airplane-866180a3962eb78526acd17789ec9c7b: 0
+sem-Airplane-8e47730a471abb7f43afdb9c81ff2967: 0
+sem-Airplane-98a84003006d3c7142a4fe95eae396be: 0
+sem-Airplane-9a0f4dd21a4ca19bf1cb19f636b1c2bd: 0
+sem-Airplane-d0198fd427a58492dd8dc6d5a969eed: 0
+sem-Ashtray-2b210ae3bfa1abe43da807e9c1c58ac0: 0
+sem-Ashtray-cace60b05eee02e1476198bed2ee6497: 0
+sem-Ashtray-d0c87fd06d3b89faace168ea8ead0df6: 0
 sem-Ball-29830fb806fe23b29ccf01d06bf2094d: 0
 sem-Ball-2f486fc43af412df22ebff72a57eff4: 0
 sem-Ball-38bda8fa453447d9b4d73e4449062b04: 0
@@ -3832,132 +3832,132 @@ sem-Ball-d255146e719c5a337a1788bf14a90e4e: 0
 sem-Ball-e301a0fef95e78e78c9affdacaf55648: 0
 sem-Ball-f196e79de92e2e52fdddc29bb3e72366: 0
 sem-Ball-f9565685ded6f466921689331038c385: 0
-sem-Battery-1d8fb5872696c64b62fb74d013fec4f1: 
-sem-Battery-351927882f2dcd2b3a7b57717d183d7e: 
-sem-Battery-3f16a24e0f77a392f7aa33a9774f16af: 
-sem-Battery-55bd81649a4685ebca46627d6e5395f5: 
-sem-Battery-62733b55e76a3b718c9d9ab13336021b: 
-sem-Battery-630dd3e061ddbb38592b368dd25aa8a7: 
-sem-Battery-7ecc6a361de0128ec8de11d571206924: 
-sem-Battery-830285a269a59ea498fc5f87a7f37aac: 
-sem-Battery-97b155f96786759b958a354b52bd2c29: 
-sem-Battery-9ef02f2ccd82f254a780807144cc58d9: 
-sem-Battery-a27f760d79386b7ae520afb34d7d31e4: 
-sem-Battery-b19a5b014dc258084c67f377a28bcf90: 
-sem-Battery-df764d4f469372c468909d1f30d3c271: 
-sem-Battery-e9618fc24f59c47424f030789cba1c9f: 
-sem-Battery-f168cb95bee9962f171dcfaba5dcf7df: 
-sem-Battery-f2883772a1ff21098dd1225ea7af8125: 
-sem-Battery-f8a093851f146122dd4616bdfbd70670: 
-sem-BeanBag-231fc7a5fee77fb49d033c6b39a97cb6: 
-sem-BeanBag-4c1d6b12b48a80b0ebd10747ca93b13b: 
-sem-BeanBag-4fa3a2c2b7ff8766a1c637e821f12a67: 
-sem-BeanBag-5aeefb539699524044b2fa2cac0778f5: 
-sem-BeanBag-7263fe53bb4601efa37f3fc191551700: 
-sem-BeanBag-b5a0c927213ba01dc39a00da16746b95: 
-sem-BeanBag-de862f78d1412e5268d4f5a3519f61be: 
-sem-Bear-1629215db795111ba649bd1425725662: 
-sem-Bear-1a0312faac503f7dc2c1a442b53fa053: 
-sem-Bear-1d8d5e96803c04e3f21c57f8caa5d803: 
-sem-Bear-2f55f20282971f7125c70fb1df3f879b: 
-sem-Bear-345b945db322120d4cccbece4754c7cf: 
-sem-Bear-3695cb6bc925dfa1f6a5b0146bf3030: 
-sem-Bear-51edeb8280ab94c8a597ad25be21334: 
-sem-Bear-52f9a230c400bddd55330ea4156a425f: 
-sem-Bear-5c9d0645958d19ec881d4c49e3031458: 
-sem-Bear-66dfcafd1ca29817de1afe4c8aa3dcce: 
-sem-Bear-762fbaa6bf5823c21c1ef519b9196b63: 
-sem-Bear-821c4789edfbcdda84a6218346f27787: 
-sem-Bear-931aed954d9930a6cf3c4bee96d5618c: 
-sem-Bear-a200c5af60e49857b7d0eee5f296f7bb: 
-sem-Bear-a4c14d2008146b61bcab7dd7c7b222d8: 
-sem-Bear-f02c9521301862672bf47341dbd96eb: 
-sem-Bird-41c002793fb78ecd73b3b0e3e8724599: 
-sem-Bird-6229c3883a77a702a0cd627c4ce0de5e: 
-sem-Bird-6d5fce8f0e0f97c0b123e15f13846450: 
-sem-Bird-6f15389d26f166488976b8df93909268: 
-sem-Bird-80d3f59a24d8ca5bd2642d1110fc45b5: 
-sem-Bird-c40c0001176913ad966682ff0be3efee: 
-sem-Bird-dbeed75ee99096cf62f6f4c0c94a99e1: 
-sem-Bird-fd1da95e820f2332f8dcb632aa65da28: 
-sem-Blender-1a6960ddfdd323ec494dc7b475c330b5: 
-sem-Blender-482ae495439fca7ef5afb395b99ae069: 
-sem-Blender-48bddfc383e475583f36fda0f70067c5: 
-sem-Blender-dd06add5426f69ddc9c603cb0476780f: 
-sem-Book-11183af410a81c186f525e79a05bbcb3: 
-sem-Book-13335c01414d6fd85af897847a7513ca: 
-sem-Book-19f04c7aecfb05a3cc639cc85c8f16df: 
-sem-Book-1d493a57a21833f2d92c7cdc3939488b: 
-sem-Book-1e2dcb130b75c6c09251ef7f51226942: 
-sem-Book-1fd8d3cdf525532b5b5a685c28abd3e: 
-sem-Book-20dec770602a8ac2331999dc8823fe0d: 
-sem-Book-22b7066166d83798876972681d7d64db: 
-sem-Book-2394aad19bdb0ca8e751791317b66d8c: 
-sem-Book-25dd6051429b804430a87f4918e4b66: 
-sem-Book-2c3fff6bb2f03eeddec62a61accd35e7: 
-sem-Book-2d3598f0e0a07de7ff8a6b1ceab25ae8: 
-sem-Book-3c030f8b8f7637eac0d3742cb5ee0e30: 
-sem-Book-40063a7b95efd3e94e3ba00caff7aecc: 
-sem-Book-459e81b89a4b2fd7f29c5890b07f3a65: 
-sem-Book-485d9ea2f47335b03e27fc67bf70fa23: 
-sem-Book-4dc6344e8e357867a0a7b8ecc42036d5: 
-sem-Book-4e0eab530e900d09bcbccbbd6200163: 
-sem-Book-4fc472642d8831d32b47ff0229e1155a: 
-sem-Book-59fd296e42d9d65cd889106d819b8d66: 
-sem-Book-5ba89398d98be20e691def363532c98: 
-sem-Book-5d734ee7d5114084625ac64d4da8b7e4: 
-sem-Book-5e90bf1bb411069c115aef9ae267d6b7: 
-sem-Book-5fb3c24bb78a75976ad1e524762a34d5: 
-sem-Book-617cb1e6a2ecfeb9987c0cc553273cda: 
-sem-Book-63c552fb147b553994de7b39c8fe55aa: 
-sem-Book-6ad85ddb5a110664e632c30f54a9aa37: 
-sem-Book-6c467f08afa8c50e8ff650f628611182: 
-sem-Book-6d12de155ea37ea8c37837f2575f34ab: 
-sem-Book-742e14aa241feab67efcee988123ee4c: 
-sem-Book-76c6048ea537ca8f78f998d890758e90: 
-sem-Book-77fbfb099946218de7cc0348080803a7: 
-sem-Book-7899800a75e1ed45c7c51d4ea74651a7: 
-sem-Book-78ef41d48086be4f578beb8a8c25e433: 
-sem-Book-7f81a942c7f8fdb242ca7cc070f21ed3: 
-sem-Book-80302eee16d4e9da384368499a680cf1: 
-sem-Book-89c7cc9f23c67ed6978cd0e4ce91ea2b: 
-sem-Book-8daa30dd38bd5f5cd5bd8e7415322d0f: 
-sem-Book-920d841d67130f9ac762eb31f1f0c676: 
-sem-Book-966f99bf764882a5b4305483d4641c5e: 
-sem-Book-997d0daf40925e5f54bf0ed06a1506a7: 
-sem-Book-9ee8ceff2bd0f1adb3480c13e0bfacdf: 
-sem-Book-a238b2f6f5e2cf66c77016426fd9cf48: 
-sem-Book-a355beaa0446cee43a9ac064380c69d0: 
-sem-Book-a65a1329f220b75dc397398a02cfbf3: 
-sem-Book-a7617f767cda4fa35d11c10c7ee088e4: 
-sem-Book-a793d662d70db6b39774d2c749f8f717: 
-sem-Book-a7ce5adc817940ab7eb50173c6da3ca0: 
-sem-Book-aa52d97d28e0269c9a4be081d49fa50d: 
-sem-Book-ab54d97d4677d537bb4fd842f8631c2b: 
-sem-Book-b1611143b4da5c783143cfc9128d0843: 
-sem-Book-b7f90bcd0df05b2fdb8263f95c1cca50: 
-sem-Book-ba7de321e408c3f52420c65296dc6dfb: 
-sem-Book-bf256642fdf506e29a39c6489bdf936f: 
-sem-Book-bfaaaeae7f08e588b0173158df715b5e: 
-sem-Book-c528887fc9e3bee5e523f60434adc08: 
-sem-Book-c5b5fefe11d3d9d28524f7821d57684c: 
-sem-Book-c7f991b1a9bfcff0fe1e2f026632da15: 
-sem-Book-c8691c86e110318ef2bc9da1ba799c60: 
-sem-Book-ca686d7726623dc7fa2e328741dade59: 
-sem-Book-cc0e864645032185d2d64d0098518cf: 
-sem-Book-d01a14177316c1c64b957fdbc5213e37: 
-sem-Book-d6df9bdabdd66e07f256a8c3e3396495: 
-sem-Book-d8d4004791c4f61b80fa98b5eeb7036c: 
-sem-Book-dc0c4db824981b8cf29c5890b07f3a65: 
-sem-Book-de9973cc24c80178d1500d3c97406d29: 
-sem-Book-e9c15756a9c5c9d5188705959b3fcb07: 
-sem-Book-ebcd6d6c36a7193a952c493f36a7be8: 
-sem-Book-f3671892b7732d98f660746ea5b1e425: 
-sem-Book-f3cd14044560d9f161886ba4a02e7ed6: 
-sem-Book-fd1843119c00bec7a4e3429ccb8eaf16: 
-sem-Book-fd9f588d4c9a47121447e7c887285c7c: 
-sem-Book-fdba54bd8ef643a24cd85a95026d8bd: 
-sem-Book-fe3ccb1376a4b6b34e309f47b24dd64: 
+sem-Battery-1d8fb5872696c64b62fb74d013fec4f1: 0
+sem-Battery-351927882f2dcd2b3a7b57717d183d7e: 0
+sem-Battery-3f16a24e0f77a392f7aa33a9774f16af: 0
+sem-Battery-55bd81649a4685ebca46627d6e5395f5: 0
+sem-Battery-62733b55e76a3b718c9d9ab13336021b: 0
+sem-Battery-630dd3e061ddbb38592b368dd25aa8a7: 0
+sem-Battery-7ecc6a361de0128ec8de11d571206924: 0
+sem-Battery-830285a269a59ea498fc5f87a7f37aac: 0
+sem-Battery-97b155f96786759b958a354b52bd2c29: 0
+sem-Battery-9ef02f2ccd82f254a780807144cc58d9: 0
+sem-Battery-a27f760d79386b7ae520afb34d7d31e4: 0
+sem-Battery-b19a5b014dc258084c67f377a28bcf90: 0
+sem-Battery-df764d4f469372c468909d1f30d3c271: 0
+sem-Battery-e9618fc24f59c47424f030789cba1c9f: 0
+sem-Battery-f168cb95bee9962f171dcfaba5dcf7df: 0
+sem-Battery-f2883772a1ff21098dd1225ea7af8125: 0
+sem-Battery-f8a093851f146122dd4616bdfbd70670: 0
+sem-BeanBag-231fc7a5fee77fb49d033c6b39a97cb6: 0
+sem-BeanBag-4c1d6b12b48a80b0ebd10747ca93b13b: 0
+sem-BeanBag-4fa3a2c2b7ff8766a1c637e821f12a67: 0
+sem-BeanBag-5aeefb539699524044b2fa2cac0778f5: 0
+sem-BeanBag-7263fe53bb4601efa37f3fc191551700: 0
+sem-BeanBag-b5a0c927213ba01dc39a00da16746b95: 0
+sem-BeanBag-de862f78d1412e5268d4f5a3519f61be: 0
+sem-Bear-1629215db795111ba649bd1425725662: 0
+sem-Bear-1a0312faac503f7dc2c1a442b53fa053: 0
+sem-Bear-1d8d5e96803c04e3f21c57f8caa5d803: 0
+sem-Bear-2f55f20282971f7125c70fb1df3f879b: 0
+sem-Bear-345b945db322120d4cccbece4754c7cf: 0
+sem-Bear-3695cb6bc925dfa1f6a5b0146bf3030: 0
+sem-Bear-51edeb8280ab94c8a597ad25be21334: 0
+sem-Bear-52f9a230c400bddd55330ea4156a425f: 0
+sem-Bear-5c9d0645958d19ec881d4c49e3031458: 0
+sem-Bear-66dfcafd1ca29817de1afe4c8aa3dcce: 0
+sem-Bear-762fbaa6bf5823c21c1ef519b9196b63: 0
+sem-Bear-821c4789edfbcdda84a6218346f27787: 0
+sem-Bear-931aed954d9930a6cf3c4bee96d5618c: 0
+sem-Bear-a200c5af60e49857b7d0eee5f296f7bb: 0
+sem-Bear-a4c14d2008146b61bcab7dd7c7b222d8: 0
+sem-Bear-f02c9521301862672bf47341dbd96eb: 0
+sem-Bird-41c002793fb78ecd73b3b0e3e8724599: 0
+sem-Bird-6229c3883a77a702a0cd627c4ce0de5e: 0
+sem-Bird-6d5fce8f0e0f97c0b123e15f13846450: 0
+sem-Bird-6f15389d26f166488976b8df93909268: 0
+sem-Bird-80d3f59a24d8ca5bd2642d1110fc45b5: 0
+sem-Bird-c40c0001176913ad966682ff0be3efee: 0
+sem-Bird-dbeed75ee99096cf62f6f4c0c94a99e1: 0
+sem-Bird-fd1da95e820f2332f8dcb632aa65da28: 0
+sem-Blender-1a6960ddfdd323ec494dc7b475c330b5: 0
+sem-Blender-482ae495439fca7ef5afb395b99ae069: 0
+sem-Blender-48bddfc383e475583f36fda0f70067c5: 0
+sem-Blender-dd06add5426f69ddc9c603cb0476780f: 0
+sem-Book-11183af410a81c186f525e79a05bbcb3: 0
+sem-Book-13335c01414d6fd85af897847a7513ca: 0
+sem-Book-19f04c7aecfb05a3cc639cc85c8f16df: 0
+sem-Book-1d493a57a21833f2d92c7cdc3939488b: 0
+sem-Book-1e2dcb130b75c6c09251ef7f51226942: 0
+sem-Book-1fd8d3cdf525532b5b5a685c28abd3e: 0
+sem-Book-20dec770602a8ac2331999dc8823fe0d: 0
+sem-Book-22b7066166d83798876972681d7d64db: 0
+sem-Book-2394aad19bdb0ca8e751791317b66d8c: 0
+sem-Book-25dd6051429b804430a87f4918e4b66: 0
+sem-Book-2c3fff6bb2f03eeddec62a61accd35e7: 0
+sem-Book-2d3598f0e0a07de7ff8a6b1ceab25ae8: 0
+sem-Book-3c030f8b8f7637eac0d3742cb5ee0e30: 0
+sem-Book-40063a7b95efd3e94e3ba00caff7aecc: 0
+sem-Book-459e81b89a4b2fd7f29c5890b07f3a65: 0
+sem-Book-485d9ea2f47335b03e27fc67bf70fa23: 0
+sem-Book-4dc6344e8e357867a0a7b8ecc42036d5: 0
+sem-Book-4e0eab530e900d09bcbccbbd6200163: 0
+sem-Book-4fc472642d8831d32b47ff0229e1155a: 0
+sem-Book-59fd296e42d9d65cd889106d819b8d66: 0
+sem-Book-5ba89398d98be20e691def363532c98: 0
+sem-Book-5d734ee7d5114084625ac64d4da8b7e4: 0
+sem-Book-5e90bf1bb411069c115aef9ae267d6b7: 0
+sem-Book-5fb3c24bb78a75976ad1e524762a34d5: 0
+sem-Book-617cb1e6a2ecfeb9987c0cc553273cda: 0
+sem-Book-63c552fb147b553994de7b39c8fe55aa: 0
+sem-Book-6ad85ddb5a110664e632c30f54a9aa37: 0
+sem-Book-6c467f08afa8c50e8ff650f628611182: 0
+sem-Book-6d12de155ea37ea8c37837f2575f34ab: 0
+sem-Book-742e14aa241feab67efcee988123ee4c: 0
+sem-Book-76c6048ea537ca8f78f998d890758e90: 0
+sem-Book-77fbfb099946218de7cc0348080803a7: 0
+sem-Book-7899800a75e1ed45c7c51d4ea74651a7: 0
+sem-Book-78ef41d48086be4f578beb8a8c25e433: 0
+sem-Book-7f81a942c7f8fdb242ca7cc070f21ed3: 0
+sem-Book-80302eee16d4e9da384368499a680cf1: 0
+sem-Book-89c7cc9f23c67ed6978cd0e4ce91ea2b: 0
+sem-Book-8daa30dd38bd5f5cd5bd8e7415322d0f: 0
+sem-Book-920d841d67130f9ac762eb31f1f0c676: 0
+sem-Book-966f99bf764882a5b4305483d4641c5e: 0
+sem-Book-997d0daf40925e5f54bf0ed06a1506a7: 0
+sem-Book-9ee8ceff2bd0f1adb3480c13e0bfacdf: 0
+sem-Book-a238b2f6f5e2cf66c77016426fd9cf48: 0
+sem-Book-a355beaa0446cee43a9ac064380c69d0: 0
+sem-Book-a65a1329f220b75dc397398a02cfbf3: 0
+sem-Book-a7617f767cda4fa35d11c10c7ee088e4: 0
+sem-Book-a793d662d70db6b39774d2c749f8f717: 0
+sem-Book-a7ce5adc817940ab7eb50173c6da3ca0: 0
+sem-Book-aa52d97d28e0269c9a4be081d49fa50d: 0
+sem-Book-ab54d97d4677d537bb4fd842f8631c2b: 0
+sem-Book-b1611143b4da5c783143cfc9128d0843: 0
+sem-Book-b7f90bcd0df05b2fdb8263f95c1cca50: 0
+sem-Book-ba7de321e408c3f52420c65296dc6dfb: 0
+sem-Book-bf256642fdf506e29a39c6489bdf936f: 0
+sem-Book-bfaaaeae7f08e588b0173158df715b5e: 0
+sem-Book-c528887fc9e3bee5e523f60434adc08: 0
+sem-Book-c5b5fefe11d3d9d28524f7821d57684c: 0
+sem-Book-c7f991b1a9bfcff0fe1e2f026632da15: 0
+sem-Book-c8691c86e110318ef2bc9da1ba799c60: 0
+sem-Book-ca686d7726623dc7fa2e328741dade59: 0
+sem-Book-cc0e864645032185d2d64d0098518cf: 0
+sem-Book-d01a14177316c1c64b957fdbc5213e37: 0
+sem-Book-d6df9bdabdd66e07f256a8c3e3396495: 0
+sem-Book-d8d4004791c4f61b80fa98b5eeb7036c: 0
+sem-Book-dc0c4db824981b8cf29c5890b07f3a65: 0
+sem-Book-de9973cc24c80178d1500d3c97406d29: 0
+sem-Book-e9c15756a9c5c9d5188705959b3fcb07: 0
+sem-Book-ebcd6d6c36a7193a952c493f36a7be8: 0
+sem-Book-f3671892b7732d98f660746ea5b1e425: 0
+sem-Book-f3cd14044560d9f161886ba4a02e7ed6: 0
+sem-Book-fd1843119c00bec7a4e3429ccb8eaf16: 0
+sem-Book-fd9f588d4c9a47121447e7c887285c7c: 0
+sem-Book-fdba54bd8ef643a24cd85a95026d8bd: 0
+sem-Book-fe3ccb1376a4b6b34e309f47b24dd64: 0
 sem-Bottle-109d55a137c042f5760315ac3bf2c13e: 0
 sem-Bottle-10d3d5961e00b2133ff038bc77759685: 0
 sem-Bottle-114509277e76e413c8724d5673a063a6: 0
@@ -4070,42 +4070,42 @@ sem-Bowl-e2485e9899c45b4213c8070bd9ea6b40: 0
 sem-Bowl-ecb86f63e92e346a25c70fb1df3f879b: 0
 sem-Bowl-fa23aa60ec51c8e4c40fe5637f0a27e1: 0
 sem-Bowl-fca9fcb710592311d291861d5bc3e7c8: 0
-sem-Bus-28d8eafb888cd457e8784f880dac0f61: 
-sem-Bus-418ecddf4297b8051138452c33de4a3d: 
-sem-Bus-e299444f1a4c7457fa9ee9b3a7eba069: 
-sem-Calculator-1195f3e9e2d20c31af2bcf0b16fddd8f: 
-sem-Calculator-1cdb3ab817e6cefdc0dc668541bf405a: 
-sem-Calculator-28c54e8b42c04eab47a3c30e38e33df7: 
-sem-Calculator-28cae57a8d9f858b92eb9b3d545b01bd: 
-sem-Calculator-387e59aec6f5fdc04b836f408176a54c: 
-sem-Calculator-3b947648cfb77c92dc6e31f308657eca: 
-sem-Calculator-473ea02038078433988af32f989056a2: 
-sem-Calculator-52ffe1a907d8349bd48efd896a2846bc: 
-sem-Calculator-57f8d6a2c733c5795bbea6ee257e41cc: 
-sem-Calculator-58787f4e0d10d8eee04b0ea419de85e: 
-sem-Calculator-5e82ba29356e199ba701d7974c476044: 
-sem-Calculator-62b3e184f027575ecd0ef049f5791ffc: 
-sem-Calculator-62be0f7fe8076ede31fd93e535713515: 
-sem-Calculator-6679ba12b3966188de86c9f6866913f8: 
-sem-Calculator-67efcc256e30d958873597b3ac6495b5: 
-sem-Calculator-6b33f889e5b2c5b6177ef3150c947f22: 
-sem-Calculator-6ba3f8a4a4750534cc2e054c56e9a85a: 
-sem-Calculator-88c302d87bda30c65e8f8bafc1052064: 
-sem-Calculator-8b292f77d3ceca046440583ca66a6ee: 
-sem-Calculator-8ccb82862dac1e512846fa729d90e125: 
-sem-Calculator-9601a3be08cd1dcfc6f38051a0177f8e: 
-sem-Calculator-98eb939617847c7f3827f738c1a435b: 
-sem-Calculator-9c9b1758dd61c4168d66b04680005e70: 
-sem-Calculator-a1a602b6c9467ce1920de219c00d1c3b: 
-sem-Calculator-abe7d4239af7db4f69efbadfeeff28b7: 
-sem-Calculator-ba19649ebdf4e92fa6fdf2685cdc27cd: 
-sem-Calculator-bd983ce3c4734098303cda9f385c061: 
-sem-Calculator-c13f22c6d442694a45d5a97317136194: 
-sem-Calculator-cdf2273b23d3f147f1c83b9415baaca4: 
-sem-Calculator-d08f980577e061b3689728fb96d00170: 
-sem-Calculator-ddd053d1db789cca9c6d98002e5b7f0: 
-sem-Calculator-e1b66636b997771b23cad435b162a966: 
-sem-Calculator-e74f9d8953b07caf0c9aa1f26355fec: 
+sem-Bus-28d8eafb888cd457e8784f880dac0f61: 0
+sem-Bus-418ecddf4297b8051138452c33de4a3d: 0
+sem-Bus-e299444f1a4c7457fa9ee9b3a7eba069: 0
+sem-Calculator-1195f3e9e2d20c31af2bcf0b16fddd8f: 3
+sem-Calculator-1cdb3ab817e6cefdc0dc668541bf405a: 3
+sem-Calculator-28c54e8b42c04eab47a3c30e38e33df7: 3
+sem-Calculator-28cae57a8d9f858b92eb9b3d545b01bd: 3
+sem-Calculator-387e59aec6f5fdc04b836f408176a54c: 3
+sem-Calculator-3b947648cfb77c92dc6e31f308657eca: 3
+sem-Calculator-473ea02038078433988af32f989056a2: 3
+sem-Calculator-52ffe1a907d8349bd48efd896a2846bc: 3
+sem-Calculator-57f8d6a2c733c5795bbea6ee257e41cc: 3
+sem-Calculator-58787f4e0d10d8eee04b0ea419de85e: 3
+sem-Calculator-5e82ba29356e199ba701d7974c476044: 3
+sem-Calculator-62b3e184f027575ecd0ef049f5791ffc: 3
+sem-Calculator-62be0f7fe8076ede31fd93e535713515: 3
+sem-Calculator-6679ba12b3966188de86c9f6866913f8: 3
+sem-Calculator-67efcc256e30d958873597b3ac6495b5: 3
+sem-Calculator-6b33f889e5b2c5b6177ef3150c947f22: 3
+sem-Calculator-6ba3f8a4a4750534cc2e054c56e9a85a: 3
+sem-Calculator-88c302d87bda30c65e8f8bafc1052064: 3
+sem-Calculator-8b292f77d3ceca046440583ca66a6ee: 3
+sem-Calculator-8ccb82862dac1e512846fa729d90e125: 3
+sem-Calculator-9601a3be08cd1dcfc6f38051a0177f8e: 3
+sem-Calculator-98eb939617847c7f3827f738c1a435b: 3
+sem-Calculator-9c9b1758dd61c4168d66b04680005e70: 3
+sem-Calculator-a1a602b6c9467ce1920de219c00d1c3b: 3
+sem-Calculator-abe7d4239af7db4f69efbadfeeff28b7: 3
+sem-Calculator-ba19649ebdf4e92fa6fdf2685cdc27cd: 3
+sem-Calculator-bd983ce3c4734098303cda9f385c061: 3
+sem-Calculator-c13f22c6d442694a45d5a97317136194: 3
+sem-Calculator-cdf2273b23d3f147f1c83b9415baaca4: 3
+sem-Calculator-d08f980577e061b3689728fb96d00170: 3
+sem-Calculator-ddd053d1db789cca9c6d98002e5b7f0: 3
+sem-Calculator-e1b66636b997771b23cad435b162a966: 3
+sem-Calculator-e74f9d8953b07caf0c9aa1f26355fec: 3
 sem-Camera-1221201ed6aac041745b4b48c30a506e: 0
 sem-Camera-155ffb08fba5df33f0c6f578f0594c3: 0
 sem-Camera-1ab3abb5c090d9b68e940c4e64a94e1e: 0
@@ -4189,157 +4189,157 @@ sem-Candle-f13cd463079ccc3071fed78a5e58c3d1: 0
 sem-Candle-f35dd907ca111f9e7d1b7935311a2ed0: 0
 sem-Candle-f3f153a48c4999da90b6eaaae2f0ee32: 0
 sem-Candle-f8760b585415ba4a6b32fbc60e12dcfe: 0
-sem-Canister-714320da4aafcb4a47be2353d2b2403b: 
-sem-Canister-abeaed132c7266b73e9c38134dedd15c: 
-sem-CanOpener-ef6762a35438931aec2282dd8bc87a: 
-sem-Cap-60104a0945f83b063f30fadefd6911f2: 
-sem-Cap-90c6bffdc81cedbeb80102c6e0a7618a: 
-sem-Cap-c2cf2cf35d08662945c5fa74440a4519: 
-sem-Cap-ed52d2c2a9c1b606cf9bbc203a5cff99: 
-sem-Car-27e267f0570f121869a949ac99a843c4: 
-sem-Car-2f28e2bd754977da8cfac9da0ff28f62: 
-sem-Car-58379002fbdaf20e61a47cff24512a0: 
-sem-Car-669043a8ce40d9d78781f76a6db4ab62: 
-sem-Car-71ecab71f04e7cd235c52f8f88910645: 
-sem-Car-8d25182a83eadf3b65656a35467c62d7: 
-sem-Car-aeeb2fb31215f3249acee38782dd9680: 
-sem-Car-b7645cf6a5951d83ea20189afcde525: 
-sem-Car-bf6e89e4fef8c547ff23af07d9064736: 
-sem-Car-d4586d32eec8134cba6d6cddf62a644b: 
-sem-Car-d514864129f44931aa2c589772d7a017: 
-sem-Car-d79570b1699c6c81aa2c589772d7a017: 
-sem-Car-da496ba5f90a476a1493b1a3f79fe4c6: 
-sem-Car-db8eb94d24f5d8a2350dd0b332d84c76: 
-sem-Car-f47765d3d57f4ea8e0ed4664c59dfd1: 
-sem-Car-f9c2bc7b4ef896e7146ff63b4c7525d9: 
-sem-Cassette-54878d2b00d673b1819c4700f82fab78: 
-sem-Cassette-c294fbb74defe9ea58bc52a3cb9ad93d: 
-sem-Cat-13af92fb42fdc0d774d5a6a8a8e5a2e: 
-sem-Cat-2163e8058aaa96a771879a51f4bce289: 
-sem-Cat-f0b4f696e91f59af18b14db3b83de9ff: 
-sem-CellPhone-136ef91c95ca5c2d4b9a4e1a888c5f59: 
-sem-CellPhone-1376723fa98487933f197465f86dea52: 
-sem-CellPhone-16c6403551e81a3eeedfca8b846d3b01: 
-sem-CellPhone-18d6296006502cc7aa0a75782a86b0f3: 
-sem-CellPhone-1984fb95afb6dae5804722305621f918: 
-sem-CellPhone-1d7830c5d0322518d95aa859a460a9ec: 
-sem-CellPhone-1f4e56064de606093e746e5f1700ce1a: 
-sem-CellPhone-2333cb1bbf825467becc5889eb0cb75b: 
-sem-CellPhone-24c665b954ccb8c26e4f3fb3ce0feb39: 
-sem-CellPhone-25aced12e526ee7c156c6b2b0b4a3b8: 
-sem-CellPhone-2682cb34e7db8735bdc7fd7cf135ade2: 
-sem-CellPhone-2725909a09e1a7961df58f4da76e254b: 
-sem-CellPhone-2b221582a01bded2becc5889eb0cb75b: 
-sem-CellPhone-2bb42eb0676116d41580700c4211a379: 
-sem-CellPhone-30b4eb2b7f2e74e3870115a6947530: 
-sem-CellPhone-342ef21b1ed9615685feaf23dbe1f454: 
-sem-CellPhone-345415c84aee5e1e99f14d125f819dd1: 
-sem-CellPhone-35acbed1b3a54d7d980a39e0273687b1: 
-sem-CellPhone-365d20ea3f3ba642846fa729d90e125: 
-sem-CellPhone-378bb409b48e53835b6639c43a38be21: 
-sem-CellPhone-380769bbf131125eafec9235550038aa: 
-sem-CellPhone-39359aaddcc4b761b0a79e28606cb167: 
-sem-CellPhone-3962952c17ac7d134f2cff376d8fda95: 
-sem-CellPhone-3c8e65d5e1d5394999b5b8ecc373dd91: 
-sem-CellPhone-3e2d210b0c417fd07dc210e0cbe8d6ee: 
-sem-CellPhone-427d255534038d47e5eda863cef11226: 
-sem-CellPhone-42a03d149cdf71a7c156c6b2b0b4a3b8: 
-sem-CellPhone-4322e0ac9d897177f7df9f2cbbf98673: 
-sem-CellPhone-44d7b5d87c26896944608b3255ca1886: 
-sem-CellPhone-471a1ba8c1e1fb0a5b031707d900d7ec: 
-sem-CellPhone-48a4adf9f47b08f06810060c16e68d51: 
-sem-CellPhone-4a17ee1627cc0242c9e8d695b1dfdde: 
-sem-CellPhone-4ab745d5e834afd23765349fd8e5584: 
-sem-CellPhone-4c992058eca403d9980a39e0273687b1: 
-sem-CellPhone-4ce4f7fcf5f0c57a3caebb882f007959: 
-sem-CellPhone-4db6499f5cd8e81de246e0ed150b5a5e: 
-sem-CellPhone-4dc4b935b2f43989becc5889eb0cb75b: 
-sem-CellPhone-4e2f684b3cebdbc344f470fdd42caac6: 
-sem-CellPhone-4e401dd3f80cc5398cb92d283b4ad690: 
-sem-CellPhone-588619a23a5d7812f2f720a563565b58: 
-sem-CellPhone-596e06847f9197d0d5a4f8ac20c6e6d5: 
-sem-CellPhone-59f22509efc4ef00fd99b5d113e1e39a: 
-sem-CellPhone-5abeb89902fa3f4d93e23bce24555640: 
-sem-CellPhone-5e32cab23e238e0cb4267f4766f946: 
-sem-CellPhone-5f919ac1f790280f563028cebd5782b: 
-sem-CellPhone-610a9f79a2f2faacc43c9f60fcc79b4c: 
-sem-CellPhone-612466085d24ce50b260ba4e94db1a27: 
-sem-CellPhone-63d7e19327f1bca6fbd525df60e2bb14: 
-sem-CellPhone-65d6456fa77b526da2c7c5886f4bbc93: 
-sem-CellPhone-6753572868705eacdd043998582f5fa: 
-sem-CellPhone-6bec4d34769d9af32b23f814327082fc: 
-sem-CellPhone-6c7fc79a5028bd769caad6e0fbf3962c: 
-sem-CellPhone-6e6d7c2ffadc2fad2fffec7af390883: 
-sem-CellPhone-6fd3968f737bcf7e64ac3b2f693d10e5: 
-sem-CellPhone-72e61015d1e4fcee8739b6dd0f9695f: 
-sem-CellPhone-73d6b5dfb0f2bd8f5c351e299b24e355: 
-sem-CellPhone-770166f2c77c9e7a8b19bfbd24fb3100: 
-sem-CellPhone-77801d4e3e21c8d31962ed8178fb2189: 
-sem-CellPhone-7b8cee15c14823463ff936510fe2e02f: 
-sem-CellPhone-7ea27ed05044031a6fe19ebe291582: 
-sem-CellPhone-856af7985cf65ce9c2e7d069edab0831: 
-sem-CellPhone-858b400f7d2121753c66719c45320bd: 
-sem-CellPhone-85a94f368a791343985b19765176f4ab: 
-sem-CellPhone-872cafaa1a4b658878df813b603fccea: 
-sem-CellPhone-8826babe37996d5ba7ceedb2540a32b0: 
-sem-CellPhone-891c0e8f0d8c2008a0ec9fff281c141: 
-sem-CellPhone-8aa05d2bb435ab441ac3fdfdb76cf4dc: 
-sem-CellPhone-8ede5d8c00e10a2ff35554ebed2bf2: 
-sem-CellPhone-91f2f9df007f4d318fdcd40fee9b11be: 
-sem-CellPhone-92f2806d4e79471f138a2eb0b24a9d34: 
-sem-CellPhone-93d617cb7bf7558671fd17a89eb6aa70: 
-sem-CellPhone-97636c08b1f1c4c2420f2c422430d6fa: 
-sem-CellPhone-98ae1f4e9c6c42423fc645f8192a3987: 
-sem-CellPhone-996fd7ccc0567c3c6b2ba76eab0d2b1c: 
-sem-CellPhone-9b3ceb20bc6037d3168540475994a324: 
-sem-CellPhone-9c1286570bbc6fc78f257ecba9a6ef8: 
-sem-CellPhone-9cedde0b189fc03824ec4b72ec33390e: 
-sem-CellPhone-9ddd4f60765fe56df7a6ba154b1bfb92: 
-sem-CellPhone-a0402aeeda1803b264ac3b2f693d10e5: 
-sem-CellPhone-a2dedd1d1369d4ae25bdb70a4d3731d4: 
-sem-CellPhone-a4387fd1049722f53adb21a59d529cb8: 
-sem-CellPhone-a6188e308c33e146821ccd94ca6205: 
-sem-CellPhone-a8924202a504478af325eaa2da7ecc8: 
-sem-CellPhone-ac0967f9fe8f63f46b2ba76eab0d2b1c: 
-sem-CellPhone-ae86fa976ddb0f923bb35aa9d5fb636b: 
-sem-CellPhone-b1feb3020d9380ba4fb324159a14f34e: 
-sem-CellPhone-b305303ce10b9caad197a144490f1a7c: 
-sem-CellPhone-b45a8268ef0af4ced1e2e75d4f3c9502: 
-sem-CellPhone-b91bbf0a0d09d2eb243525d45e430520: 
-sem-CellPhone-bb0b34d466dbbda110bc2436075f6a52: 
-sem-CellPhone-bfba0e8cdd5462e4fe103fdbd20df6: 
-sem-CellPhone-c13ce3bd7153ea262388b9322a31a5: 
-sem-CellPhone-c179b4234e00c6d2ba58668e02b0b051: 
-sem-CellPhone-c2884eed47300891697f9662a764c78: 
-sem-CellPhone-c29ff2cbafdcf988bd5b0af7009d604c: 
-sem-CellPhone-c346cf8bf70fabc9e615a342a5da23b6: 
-sem-CellPhone-c68de337e8058d876c3d68c21e39d9c0: 
-sem-CellPhone-c7c46fd26b992a68399d7a32e765770f: 
-sem-CellPhone-c7fef6ae7f7f91814a0be3d856af9ad: 
-sem-CellPhone-caa0cf3c7bf2cc4e50e8879f012090b1: 
-sem-CellPhone-cae417bf3a81e663c6d475e0bba8d9c4: 
-sem-CellPhone-cb3145362d4c4e615a342a5da23b6: 
-sem-CellPhone-d1134b5b107fcfedb58c0249f6338472: 
-sem-CellPhone-d2023b9e8284e50f719849e3a9efc095: 
-sem-CellPhone-dbc10ea4f133b92218e4480467ac75d4: 
-sem-CellPhone-dc8108a14b6718ac980a39e0273687b1: 
-sem-CellPhone-e1f4c110a670bab48b89df7bead6cd94: 
-sem-CellPhone-e5c31d3b8bed5d1925c70fb1df3f879b: 
-sem-CellPhone-e5e728d7d0600d5968f78fafaaa936eb: 
-sem-CellPhone-e679783f54c36220b99a2cc4ddf0d3f9: 
-sem-CellPhone-e70daec70daaea412b23f814327082fc: 
-sem-CellPhone-e78b89af4afb0ea1a2c7c5886f4bbc93: 
-sem-CellPhone-e8c4ef4c74c631e83628c1e9941a8ab9: 
-sem-CellPhone-e8d826158072a6bf1455397a420729a1: 
-sem-CellPhone-eb42218d2a584af6259592a4a580c1e4: 
-sem-CellPhone-ee7ef8b40cc2c90d6b7170bfc4da1f8: 
-sem-CellPhone-f0b3e6f5bd34ca3cf0c6f578f0594c3: 
-sem-CellPhone-f3aac8f54f5f2a2f983ec12a2b33f18b: 
-sem-CellPhone-f42fdbed4f5cae8fbecc5889eb0cb75b: 
-sem-CellPhone-f6b4f01d4c9c09e6af1fe3c052ed3a8c: 
-sem-CellPhone-f8788ee72552e46d2cb30f9f0e012738: 
-sem-CellPhone-f9b16ef975f61442e615a342a5da23b6: 
-sem-CellPhone-fe9d97823a25e56d95e43220ee0eb824: 
+sem-Canister-714320da4aafcb4a47be2353d2b2403b: 0
+sem-Canister-abeaed132c7266b73e9c38134dedd15c: 0
+sem-CanOpener-ef6762a35438931aec2282dd8bc87a: 0
+sem-Cap-60104a0945f83b063f30fadefd6911f2: 0
+sem-Cap-90c6bffdc81cedbeb80102c6e0a7618a: 0
+sem-Cap-c2cf2cf35d08662945c5fa74440a4519: 0
+sem-Cap-ed52d2c2a9c1b606cf9bbc203a5cff99: 0
+sem-Car-27e267f0570f121869a949ac99a843c4: 0
+sem-Car-2f28e2bd754977da8cfac9da0ff28f62: 0
+sem-Car-58379002fbdaf20e61a47cff24512a0: 0
+sem-Car-669043a8ce40d9d78781f76a6db4ab62: 0
+sem-Car-71ecab71f04e7cd235c52f8f88910645: 0
+sem-Car-8d25182a83eadf3b65656a35467c62d7: 0
+sem-Car-aeeb2fb31215f3249acee38782dd9680: 0
+sem-Car-b7645cf6a5951d83ea20189afcde525: 0
+sem-Car-bf6e89e4fef8c547ff23af07d9064736: 0
+sem-Car-d4586d32eec8134cba6d6cddf62a644b: 0
+sem-Car-d514864129f44931aa2c589772d7a017: 0
+sem-Car-d79570b1699c6c81aa2c589772d7a017: 0
+sem-Car-da496ba5f90a476a1493b1a3f79fe4c6: 0
+sem-Car-db8eb94d24f5d8a2350dd0b332d84c76: 0
+sem-Car-f47765d3d57f4ea8e0ed4664c59dfd1: 0
+sem-Car-f9c2bc7b4ef896e7146ff63b4c7525d9: 0
+sem-Cassette-54878d2b00d673b1819c4700f82fab78: 0
+sem-Cassette-c294fbb74defe9ea58bc52a3cb9ad93d: 0
+sem-Cat-13af92fb42fdc0d774d5a6a8a8e5a2e: 0
+sem-Cat-2163e8058aaa96a771879a51f4bce289: 0
+sem-Cat-f0b4f696e91f59af18b14db3b83de9ff: 0
+sem-CellPhone-136ef91c95ca5c2d4b9a4e1a888c5f59: 1
+sem-CellPhone-1376723fa98487933f197465f86dea52: 1
+sem-CellPhone-16c6403551e81a3eeedfca8b846d3b01: 1
+sem-CellPhone-18d6296006502cc7aa0a75782a86b0f3: 1
+sem-CellPhone-1984fb95afb6dae5804722305621f918: 1
+sem-CellPhone-1d7830c5d0322518d95aa859a460a9ec: 1
+sem-CellPhone-1f4e56064de606093e746e5f1700ce1a: 1
+sem-CellPhone-2333cb1bbf825467becc5889eb0cb75b: 1
+sem-CellPhone-24c665b954ccb8c26e4f3fb3ce0feb39: 1
+sem-CellPhone-25aced12e526ee7c156c6b2b0b4a3b8: 1
+sem-CellPhone-2682cb34e7db8735bdc7fd7cf135ade2: 1
+sem-CellPhone-2725909a09e1a7961df58f4da76e254b: 1
+sem-CellPhone-2b221582a01bded2becc5889eb0cb75b: 1
+sem-CellPhone-2bb42eb0676116d41580700c4211a379: 1
+sem-CellPhone-30b4eb2b7f2e74e3870115a6947530: 1
+sem-CellPhone-342ef21b1ed9615685feaf23dbe1f454: 1
+sem-CellPhone-345415c84aee5e1e99f14d125f819dd1: 1
+sem-CellPhone-35acbed1b3a54d7d980a39e0273687b1: 1
+sem-CellPhone-365d20ea3f3ba642846fa729d90e125: 1
+sem-CellPhone-378bb409b48e53835b6639c43a38be21: 1
+sem-CellPhone-380769bbf131125eafec9235550038aa: 1
+sem-CellPhone-39359aaddcc4b761b0a79e28606cb167: 1
+sem-CellPhone-3962952c17ac7d134f2cff376d8fda95: 1
+sem-CellPhone-3c8e65d5e1d5394999b5b8ecc373dd91: 1
+sem-CellPhone-3e2d210b0c417fd07dc210e0cbe8d6ee: 1
+sem-CellPhone-427d255534038d47e5eda863cef11226: 1
+sem-CellPhone-42a03d149cdf71a7c156c6b2b0b4a3b8: 1
+sem-CellPhone-4322e0ac9d897177f7df9f2cbbf98673: 1
+sem-CellPhone-44d7b5d87c26896944608b3255ca1886: 1
+sem-CellPhone-471a1ba8c1e1fb0a5b031707d900d7ec: 1
+sem-CellPhone-48a4adf9f47b08f06810060c16e68d51: 1
+sem-CellPhone-4a17ee1627cc0242c9e8d695b1dfdde: 1
+sem-CellPhone-4ab745d5e834afd23765349fd8e5584: 1
+sem-CellPhone-4c992058eca403d9980a39e0273687b1: 1
+sem-CellPhone-4ce4f7fcf5f0c57a3caebb882f007959: 1
+sem-CellPhone-4db6499f5cd8e81de246e0ed150b5a5e: 1
+sem-CellPhone-4dc4b935b2f43989becc5889eb0cb75b: 1
+sem-CellPhone-4e2f684b3cebdbc344f470fdd42caac6: 1
+sem-CellPhone-4e401dd3f80cc5398cb92d283b4ad690: 1
+sem-CellPhone-588619a23a5d7812f2f720a563565b58: 1
+sem-CellPhone-596e06847f9197d0d5a4f8ac20c6e6d5: 1
+sem-CellPhone-59f22509efc4ef00fd99b5d113e1e39a: 1
+sem-CellPhone-5abeb89902fa3f4d93e23bce24555640: 1
+sem-CellPhone-5e32cab23e238e0cb4267f4766f946: 1
+sem-CellPhone-5f919ac1f790280f563028cebd5782b: 1
+sem-CellPhone-610a9f79a2f2faacc43c9f60fcc79b4c: 1
+sem-CellPhone-612466085d24ce50b260ba4e94db1a27: 1
+sem-CellPhone-63d7e19327f1bca6fbd525df60e2bb14: 1
+sem-CellPhone-65d6456fa77b526da2c7c5886f4bbc93: 1
+sem-CellPhone-6753572868705eacdd043998582f5fa: 1
+sem-CellPhone-6bec4d34769d9af32b23f814327082fc: 1
+sem-CellPhone-6c7fc79a5028bd769caad6e0fbf3962c: 1
+sem-CellPhone-6e6d7c2ffadc2fad2fffec7af390883: 1
+sem-CellPhone-6fd3968f737bcf7e64ac3b2f693d10e5: 1
+sem-CellPhone-72e61015d1e4fcee8739b6dd0f9695f: 1
+sem-CellPhone-73d6b5dfb0f2bd8f5c351e299b24e355: 1
+sem-CellPhone-770166f2c77c9e7a8b19bfbd24fb3100: 1
+sem-CellPhone-77801d4e3e21c8d31962ed8178fb2189: 1
+sem-CellPhone-7b8cee15c14823463ff936510fe2e02f: 1
+sem-CellPhone-7ea27ed05044031a6fe19ebe291582: 1
+sem-CellPhone-856af7985cf65ce9c2e7d069edab0831: 1
+sem-CellPhone-858b400f7d2121753c66719c45320bd: 1
+sem-CellPhone-85a94f368a791343985b19765176f4ab: 1
+sem-CellPhone-872cafaa1a4b658878df813b603fccea: 1
+sem-CellPhone-8826babe37996d5ba7ceedb2540a32b0: 1
+sem-CellPhone-891c0e8f0d8c2008a0ec9fff281c141: 1
+sem-CellPhone-8aa05d2bb435ab441ac3fdfdb76cf4dc: 1
+sem-CellPhone-8ede5d8c00e10a2ff35554ebed2bf2: 1
+sem-CellPhone-91f2f9df007f4d318fdcd40fee9b11be: 1
+sem-CellPhone-92f2806d4e79471f138a2eb0b24a9d34: 1
+sem-CellPhone-93d617cb7bf7558671fd17a89eb6aa70: 1
+sem-CellPhone-97636c08b1f1c4c2420f2c422430d6fa: 1
+sem-CellPhone-98ae1f4e9c6c42423fc645f8192a3987: 1
+sem-CellPhone-996fd7ccc0567c3c6b2ba76eab0d2b1c: 1
+sem-CellPhone-9b3ceb20bc6037d3168540475994a324: 1
+sem-CellPhone-9c1286570bbc6fc78f257ecba9a6ef8: 1
+sem-CellPhone-9cedde0b189fc03824ec4b72ec33390e: 1
+sem-CellPhone-9ddd4f60765fe56df7a6ba154b1bfb92: 1
+sem-CellPhone-a0402aeeda1803b264ac3b2f693d10e5: 1
+sem-CellPhone-a2dedd1d1369d4ae25bdb70a4d3731d4: 1
+sem-CellPhone-a4387fd1049722f53adb21a59d529cb8: 1
+sem-CellPhone-a6188e308c33e146821ccd94ca6205: 1
+sem-CellPhone-a8924202a504478af325eaa2da7ecc8: 1
+sem-CellPhone-ac0967f9fe8f63f46b2ba76eab0d2b1c: 1
+sem-CellPhone-ae86fa976ddb0f923bb35aa9d5fb636b: 1
+sem-CellPhone-b1feb3020d9380ba4fb324159a14f34e: 1
+sem-CellPhone-b305303ce10b9caad197a144490f1a7c: 1
+sem-CellPhone-b45a8268ef0af4ced1e2e75d4f3c9502: 1
+sem-CellPhone-b91bbf0a0d09d2eb243525d45e430520: 1
+sem-CellPhone-bb0b34d466dbbda110bc2436075f6a52: 1
+sem-CellPhone-bfba0e8cdd5462e4fe103fdbd20df6: 1
+sem-CellPhone-c13ce3bd7153ea262388b9322a31a5: 1
+sem-CellPhone-c179b4234e00c6d2ba58668e02b0b051: 1
+sem-CellPhone-c2884eed47300891697f9662a764c78: 1
+sem-CellPhone-c29ff2cbafdcf988bd5b0af7009d604c: 1
+sem-CellPhone-c346cf8bf70fabc9e615a342a5da23b6: 1
+sem-CellPhone-c68de337e8058d876c3d68c21e39d9c0: 1
+sem-CellPhone-c7c46fd26b992a68399d7a32e765770f: 1
+sem-CellPhone-c7fef6ae7f7f91814a0be3d856af9ad: 1
+sem-CellPhone-caa0cf3c7bf2cc4e50e8879f012090b1: 1
+sem-CellPhone-cae417bf3a81e663c6d475e0bba8d9c4: 1
+sem-CellPhone-cb3145362d4c4e615a342a5da23b6: 1
+sem-CellPhone-d1134b5b107fcfedb58c0249f6338472: 1
+sem-CellPhone-d2023b9e8284e50f719849e3a9efc095: 1
+sem-CellPhone-dbc10ea4f133b92218e4480467ac75d4: 1
+sem-CellPhone-dc8108a14b6718ac980a39e0273687b1: 1
+sem-CellPhone-e1f4c110a670bab48b89df7bead6cd94: 1
+sem-CellPhone-e5c31d3b8bed5d1925c70fb1df3f879b: 1
+sem-CellPhone-e5e728d7d0600d5968f78fafaaa936eb: 1
+sem-CellPhone-e679783f54c36220b99a2cc4ddf0d3f9: 1
+sem-CellPhone-e70daec70daaea412b23f814327082fc: 1
+sem-CellPhone-e78b89af4afb0ea1a2c7c5886f4bbc93: 1
+sem-CellPhone-e8c4ef4c74c631e83628c1e9941a8ab9: 1
+sem-CellPhone-e8d826158072a6bf1455397a420729a1: 1
+sem-CellPhone-eb42218d2a584af6259592a4a580c1e4: 1
+sem-CellPhone-ee7ef8b40cc2c90d6b7170bfc4da1f8: 1
+sem-CellPhone-f0b3e6f5bd34ca3cf0c6f578f0594c3: 1
+sem-CellPhone-f3aac8f54f5f2a2f983ec12a2b33f18b: 1
+sem-CellPhone-f42fdbed4f5cae8fbecc5889eb0cb75b: 1
+sem-CellPhone-f6b4f01d4c9c09e6af1fe3c052ed3a8c: 1
+sem-CellPhone-f8788ee72552e46d2cb30f9f0e012738: 1
+sem-CellPhone-f9b16ef975f61442e615a342a5da23b6: 1
+sem-CellPhone-fe9d97823a25e56d95e43220ee0eb824: 1
 sem-CerealBox-12a565f8aecaafcbce41b639931f9ca1: 0
 sem-CerealBox-1bc88814b90df8c45a17ac5e1b4e4a4b: 0
 sem-CerealBox-1dd407598b5850959b1500745a428d00: 0
@@ -4364,8 +4364,8 @@ sem-CerealBox-f822931fe07a7654ce41b639931f9ca1: 0
 sem-CerealBox-fbf7021503a2a11fce41b639931f9ca1: 0
 sem-CerealBox-fc470c18236612f9d26bdac1fd187e4: 0
 sem-CerealBox-fc6667707faff16544608b3255ca1886: 0
-sem-Chocolate-27f8f22fea3cc34219cd7d4b344db6b9: 
-sem-Chocolate-c79da9bcb5c6f6a5a544d74fd0364407: 
+sem-Chocolate-27f8f22fea3cc34219cd7d4b344db6b9: 0
+sem-Chocolate-c79da9bcb5c6f6a5a544d74fd0364407: 0
 sem-Clock-10a200395145c61aea2f5d52559debc: 0
 sem-Clock-16296c688e1c7fb9aa1091dc2d565d62: 0
 sem-Clock-1710033fefac979deed60df91eb05a5b: 0
@@ -4387,67 +4387,67 @@ sem-Clock-c764e7f423ea0b0251dd279724dd0c: 0
 sem-Clock-cca5dddf86affe9a23522985f649a9ae: 0
 sem-Clock-cf0208d1c19e8313cc63543a91bdd558: 0
 sem-Clock-f13269cf1c50893d2ea98d69e91ba870: 0
-sem-Coin-3114a48018c1b0ba316e398e79bfa21a: 
-sem-Coin-3268b978e9e5efebd3fb018caad1b802: 
-sem-Coin-3d218ab9b3ecba8c4768b491c2c6e170: 
-sem-Coin-49b886b4423ca29c18af33eada386f49: 
-sem-Coin-88b7181e1b7ff59251ddf7810ac75c3: 
-sem-Coin-b748261bf05afa1e4dec1b3e5b450774: 
-sem-Coin-c2817372ece2a8c4b746bebe89abd6b4: 
-sem-Coin-cb826e0205ac0134316e398e79bfa21a: 
-sem-Coin-d85d70ee773585b4158f0afc845a367: 
-sem-Coin-e777985e27af0ec5b581cc9c4410f841: 
-sem-Coin-f28ea389bf901129de650492e45fb14f: 
-sem-Compass-2add5d4bbef562f578832031b48c2b4d: 
-sem-ComputerMouse-2a9343e04fa85d132109d639e99c4886: 
-sem-ComputerMouse-41a047710c6f0fa1cad45966cda6cfb6: 
-sem-ComputerMouse-4ca610046b322197fd93c2ac42357c74: 
-sem-ComputerMouse-5622a18c1ca2a53a3728518db8bc5c6d: 
-sem-ComputerMouse-6ff315614cde9b42e58e58ea74bf6c0a: 
-sem-ComputerMouse-787bf704109ef23b89c1825c188af072: 
-sem-ComputerMouse-8ffc9e567e5af31a563b10b1d8090f9f: 
-sem-ComputerMouse-90490d506c40f6b344ebbc705ad8c07: 
-sem-ComputerMouse-be0e483839b977f1ce8bf8bfdf6340e2: 
-sem-ComputerMouse-c3814bd41e0273f621001e6372ea21bf: 
-sem-ComputerMouse-d249653931daa9e6fd56d9106430c3fe: 
-sem-ComputerMouse-d578b1493e118a736d07c55cf995503e: 
-sem-Controller-61c6c6a47e5b9d34496c7671bf276db5: 
-sem-Cookie-2ec24ca1dd42c39f6ad0370a38d43358: 
-sem-Cookie-6a4bcdda0de2810190a3f8bc630957a8: 
-sem-Cookie-a8e3118bec4c495f737a00f007529fbf: 
-sem-Cookie-ccfa74e5574678325cde8c99e4b182f9: 
-sem-Cookie-e1bc84ee7b9ef7f331999dc8823fe0d: 
-sem-Cow-67d466a374e88c3de80df3c23687288a: 
-sem-Cow-720025ba8f1ca815bec6be80de02c183: 
-sem-Cup-d8ea3aa39bcb162798910e50f05b8001: 
-sem-Cup-dc1c220c8ef89a5d1a57566a9a7e5976: 
-sem-Cup-e1a88aaf815c847d7d2b35f495afbe58: 
-sem-Detergent-266dd42d5c571ee65af983a27c524ad0: 
-sem-Detergent-2d9be843d39a545f5af983a27c524ad0: 
-sem-Detergent-547fa0085800c5c3846564a8a219239b: 
-sem-Detergent-91235f7d65aec958ca972daa503b3095: 
-sem-Detergent-c02d623423a67ed9bda72093f9b5aa73: 
-sem-Detergent-eded10bf44a2571a911cff0cb398f845: 
-sem-DiscCase-2e36b4ec329c0cfe27152572287f9903: 
-sem-DiscCase-30bbf4c0046123dad8d2e2560dfff359: 
-sem-DiscCase-3b17040c0ed9d9fc8b763cbe52396380: 
-sem-DiscCase-3ce52bd08c33e1eadffde7f53a4e1a2: 
-sem-DiscCase-527f99b597b9eef9b89c32e5ba005b86: 
-sem-DiscCase-5aeb80c9c9ed4c955fae600f2d0e29: 
-sem-DiscCase-6268862d43393bdfab0b172d4dea80cd: 
-sem-DiscCase-7f3791a9931ed296d9b40382485f92: 
-sem-DiscCase-8a2cfe964083ef3fbb01628f533af3ce: 
-sem-DiscCase-d0d103de6609d3ff94d0c8d8af3cd8ea: 
-sem-Dog-2526b1f358f773034203f59b4fda924b: 
-sem-Dog-35f73ca2716aefcfbeccafa1b3b5f850: 
-sem-Dog-42eca48d3d77f69fd1b60ecd8be23ba6: 
-sem-Dog-666e9c3ff214f7a661c1d97b345c8391: 
-sem-Dog-a39484a9d57d1b149fdc03fc6d14c305: 
-sem-Dog-b03a3694d83c03c3edec1057e3d29143: 
-sem-Dog-d6ee5fee4374b404ea7973eb2e95e6f1: 
-sem-Dog-e5cf3055d4dbe35c6cee5c93a7be9401: 
-sem-Dog-f2bcfa3ef5f2494ca76cd3c14a882cc8: 
-sem-Donkey-b09e0a52bd3b1b4eab2bd7322386ffd: 
+sem-Coin-3114a48018c1b0ba316e398e79bfa21a: 0
+sem-Coin-3268b978e9e5efebd3fb018caad1b802: 0
+sem-Coin-3d218ab9b3ecba8c4768b491c2c6e170: 0
+sem-Coin-49b886b4423ca29c18af33eada386f49: 0
+sem-Coin-88b7181e1b7ff59251ddf7810ac75c3: 0
+sem-Coin-b748261bf05afa1e4dec1b3e5b450774: 0
+sem-Coin-c2817372ece2a8c4b746bebe89abd6b4: 0
+sem-Coin-cb826e0205ac0134316e398e79bfa21a: 0
+sem-Coin-d85d70ee773585b4158f0afc845a367: 0
+sem-Coin-e777985e27af0ec5b581cc9c4410f841: 0
+sem-Coin-f28ea389bf901129de650492e45fb14f: 0
+sem-Compass-2add5d4bbef562f578832031b48c2b4d: 0
+sem-ComputerMouse-2a9343e04fa85d132109d639e99c4886: 0
+sem-ComputerMouse-41a047710c6f0fa1cad45966cda6cfb6: 0
+sem-ComputerMouse-4ca610046b322197fd93c2ac42357c74: 0
+sem-ComputerMouse-5622a18c1ca2a53a3728518db8bc5c6d: 0
+sem-ComputerMouse-6ff315614cde9b42e58e58ea74bf6c0a: 0
+sem-ComputerMouse-787bf704109ef23b89c1825c188af072: 0
+sem-ComputerMouse-8ffc9e567e5af31a563b10b1d8090f9f: 0
+sem-ComputerMouse-90490d506c40f6b344ebbc705ad8c07: 0
+sem-ComputerMouse-be0e483839b977f1ce8bf8bfdf6340e2: 0
+sem-ComputerMouse-c3814bd41e0273f621001e6372ea21bf: 0
+sem-ComputerMouse-d249653931daa9e6fd56d9106430c3fe: 0
+sem-ComputerMouse-d578b1493e118a736d07c55cf995503e: 0
+sem-Controller-61c6c6a47e5b9d34496c7671bf276db5: 0
+sem-Cookie-2ec24ca1dd42c39f6ad0370a38d43358: 0
+sem-Cookie-6a4bcdda0de2810190a3f8bc630957a8: 0
+sem-Cookie-a8e3118bec4c495f737a00f007529fbf: 0
+sem-Cookie-ccfa74e5574678325cde8c99e4b182f9: 0
+sem-Cookie-e1bc84ee7b9ef7f331999dc8823fe0d: 0
+sem-Cow-67d466a374e88c3de80df3c23687288a: 0
+sem-Cow-720025ba8f1ca815bec6be80de02c183: 0
+sem-Cup-d8ea3aa39bcb162798910e50f05b8001: 0
+sem-Cup-dc1c220c8ef89a5d1a57566a9a7e5976: 0
+sem-Cup-e1a88aaf815c847d7d2b35f495afbe58: 0
+sem-Detergent-266dd42d5c571ee65af983a27c524ad0: 0
+sem-Detergent-2d9be843d39a545f5af983a27c524ad0: 0
+sem-Detergent-547fa0085800c5c3846564a8a219239b: 0
+sem-Detergent-91235f7d65aec958ca972daa503b3095: 0
+sem-Detergent-c02d623423a67ed9bda72093f9b5aa73: 0
+sem-Detergent-eded10bf44a2571a911cff0cb398f845: 0
+sem-DiscCase-2e36b4ec329c0cfe27152572287f9903: 0
+sem-DiscCase-30bbf4c0046123dad8d2e2560dfff359: 0
+sem-DiscCase-3b17040c0ed9d9fc8b763cbe52396380: 0
+sem-DiscCase-3ce52bd08c33e1eadffde7f53a4e1a2: 0
+sem-DiscCase-527f99b597b9eef9b89c32e5ba005b86: 0
+sem-DiscCase-5aeb80c9c9ed4c955fae600f2d0e29: 0
+sem-DiscCase-6268862d43393bdfab0b172d4dea80cd: 0
+sem-DiscCase-7f3791a9931ed296d9b40382485f92: 0
+sem-DiscCase-8a2cfe964083ef3fbb01628f533af3ce: 0
+sem-DiscCase-d0d103de6609d3ff94d0c8d8af3cd8ea: 0
+sem-Dog-2526b1f358f773034203f59b4fda924b: 0
+sem-Dog-35f73ca2716aefcfbeccafa1b3b5f850: 0
+sem-Dog-42eca48d3d77f69fd1b60ecd8be23ba6: 0
+sem-Dog-666e9c3ff214f7a661c1d97b345c8391: 0
+sem-Dog-a39484a9d57d1b149fdc03fc6d14c305: 0
+sem-Dog-b03a3694d83c03c3edec1057e3d29143: 0
+sem-Dog-d6ee5fee4374b404ea7973eb2e95e6f1: 0
+sem-Dog-e5cf3055d4dbe35c6cee5c93a7be9401: 0
+sem-Dog-f2bcfa3ef5f2494ca76cd3c14a882cc8: 0
+sem-Donkey-b09e0a52bd3b1b4eab2bd7322386ffd: 0
 sem-DrinkingUtensil-11705ed6a5b1ed37f83d00225df18677: 0
 sem-DrinkingUtensil-128ecbc10df5b05d96eaf1340564a4de: 0
 sem-DrinkingUtensil-159e56c18906830278d8f8c02c47cde0: 0
@@ -4531,68 +4531,68 @@ sem-DrinkingUtensil-f2a6dba44fcb7ca030612f5c0ef21eb8: 0
 sem-DrinkingUtensil-fad118b32085f3f2c2c72e575af174cd: 0
 sem-DrinkingUtensil-fbd39539ca4b2a124e23e9314af9ae57: 0
 sem-DrinkingUtensil-fc035f7d732166b97b6fd5468f603b31: 0
-sem-Elephant-41f793f8e68ec13ad59349122c0b3482: 
-sem-Elephant-7a3f9539418a3e00208be694d330e44e: 
-sem-Elephant-ea9abec0575c368c2849c1bb7e14c774: 
-sem-Eraser-15f3b5aaac0a62ddd81f0237e26901c3: 
-sem-Eraser-1abb4ccbe039353a546ea36237e6eeeb: 
-sem-Eraser-1becba69a6c26be02c0f5b5b20a5a506: 
-sem-Eraser-203ebd20b1546f318de5f815e8387cfc: 
-sem-Eraser-5624a19e813963ccc50bcbf8f9ed39a4: 
-sem-Eraser-710d1956e3cbcd8e9f691c76e6f0f71d: 
-sem-Eraser-8fd8bde573f8478f2c267af44846be1a: 
-sem-Eraser-a2c4b079ee4b2750bbda4bd2b976d8f7: 
-sem-Eraser-a829645a9e2957bb2fb534e18cb8cca: 
-sem-Eraser-c840d9dff65a24253cbb9b2355ce3eb8: 
-sem-Eraser-d31a4f15c244ba1557a32ddb3da67fb: 
-sem-Eraser-d9dd595ae6cae5bc9f4c3c326d704746: 
-sem-Eraser-e6e029826b929f481cf644619c59e0de: 
-sem-Eraser-ead4f85f3f76e91b651b30b5e1a16501: 
-sem-FileCabinet-1880ed173d662f92c78621ab7e0ef193: 
-sem-FileCabinet-1f13b46cbc4741b3c2e50348f23d3d: 
-sem-FileCabinet-2a9fe1253f9433d1a2651abaf391628e: 
-sem-FileCabinet-2f449bf1b7eade5772594f16694be05: 
-sem-FileCabinet-34e0bcd04523ae59d477567e8c8a6c59: 
-sem-FileCabinet-3711f7ae4f528f7963f393abca61510: 
-sem-FileCabinet-4eb71352a56f7771b64d8f926cb286b4: 
-sem-FileCabinet-6633b658534938ded02b906026bee536: 
-sem-FileCabinet-75fe06475f7b7241920de219c00d1c3b: 
-sem-FileCabinet-839996ad49bfe12aaee45fb27ad3a6fe: 
-sem-FileCabinet-976178c815f234b9df8fce61d01de43d: 
-sem-FileCabinet-9e201c878c2ea370696196068f29f233: 
-sem-FileCabinet-a44d92a6431afe516d907bf61e189d9d: 
-sem-FileCabinet-ae4c4273468905586ae3841175e518b2: 
-sem-FileCabinet-aeb08906aded103ad61a2ba1b75d9b90: 
-sem-FileCabinet-c227d03fbea989c6ef93db01ab079fcc: 
-sem-FileCabinet-dde9a107a1b3a3b7c78621ab7e0ef193: 
-sem-FileCabinet-ee8c6bdd41cb2f04c56f78d9daf213b: 
-sem-FileCabinet-f4e9f25443ff6f963b59eeb47ee49193: 
-sem-Fish-2f6c35724496931e4b794094c38db310: 
-sem-Fish-467293688a8ce5b31f6a5b0146bf3030: 
-sem-Fish-4829cc6d03ae190f9c5ef1b2c5cedd88: 
-sem-Fish-589d2eb42f3f66d83a042ac5fff3239b: 
-sem-Fish-5e6656b0f124e0f38af30108ea9ccb6c: 
-sem-Fish-6f1eb86e7e5c5dfdeeb8629a38fdd4b4: 
-sem-Fish-82d688dc2943b9fffc69f56958b7ca9d: 
-sem-Fish-8456c4a8189a91fb27eb00c151c6f711: 
-sem-Fish-8e08d0309eeaea3391837c6e444d6d63: 
-sem-Fish-aacfe11dc944cee2fb6607aaed47575: 
-sem-Fish-de6eea7bb0dfe79d8490cd7879c8bec1: 
-sem-Fish-efd0a30284addbd75429a46527d69a9a: 
-sem-Flashlight-20c138d9e8a6bf24d84b8ba651dfb8ac: 
-sem-Flashlight-5c7bf45b0f847489181be2d6e974dccd: 
-sem-Flashlight-614c2672926d86d96b84415a3f1393b: 
-sem-Flashlight-6182be9b916ade25dd25a522583661aa: 
-sem-Flashlight-70cfc22ffe0e9835fc3223d52c1f21a9: 
-sem-Flashlight-7981d1894a5b3c371b92a1339af2f7ce: 
-sem-Flashlight-915540c9c81ddc63a5901d93c937a07e: 
-sem-Flashlight-9ae9f213879cd73ebbe43d356df0e955: 
-sem-Flashlight-9b8eef439813d9945322b45f6e8d738b: 
-sem-Flashlight-b8a2d0816b4e4dd9be0355c8334334a8: 
-sem-Flashlight-bb688501cebfc06c723ede5cd5a5e220: 
-sem-Flashlight-d3afd0ef3bf3b87a2c4a81f1d7e1fb38: 
-sem-Flashlight-e65b2f77490365659840461069957c82: 
-sem-Flashlight-fbb6a1fb01f08eb1575f032b182448e5: 
+sem-Elephant-41f793f8e68ec13ad59349122c0b3482: 0
+sem-Elephant-7a3f9539418a3e00208be694d330e44e: 0
+sem-Elephant-ea9abec0575c368c2849c1bb7e14c774: 0
+sem-Eraser-15f3b5aaac0a62ddd81f0237e26901c3: 0
+sem-Eraser-1abb4ccbe039353a546ea36237e6eeeb: 0
+sem-Eraser-1becba69a6c26be02c0f5b5b20a5a506: 0
+sem-Eraser-203ebd20b1546f318de5f815e8387cfc: 0
+sem-Eraser-5624a19e813963ccc50bcbf8f9ed39a4: 0
+sem-Eraser-710d1956e3cbcd8e9f691c76e6f0f71d: 0
+sem-Eraser-8fd8bde573f8478f2c267af44846be1a: 0
+sem-Eraser-a2c4b079ee4b2750bbda4bd2b976d8f7: 0
+sem-Eraser-a829645a9e2957bb2fb534e18cb8cca: 0
+sem-Eraser-c840d9dff65a24253cbb9b2355ce3eb8: 0
+sem-Eraser-d31a4f15c244ba1557a32ddb3da67fb: 0
+sem-Eraser-d9dd595ae6cae5bc9f4c3c326d704746: 0
+sem-Eraser-e6e029826b929f481cf644619c59e0de: 0
+sem-Eraser-ead4f85f3f76e91b651b30b5e1a16501: 0
+sem-FileCabinet-1880ed173d662f92c78621ab7e0ef193: 0
+sem-FileCabinet-1f13b46cbc4741b3c2e50348f23d3d: 0
+sem-FileCabinet-2a9fe1253f9433d1a2651abaf391628e: 0
+sem-FileCabinet-2f449bf1b7eade5772594f16694be05: 0
+sem-FileCabinet-34e0bcd04523ae59d477567e8c8a6c59: 0
+sem-FileCabinet-3711f7ae4f528f7963f393abca61510: 0
+sem-FileCabinet-4eb71352a56f7771b64d8f926cb286b4: 0
+sem-FileCabinet-6633b658534938ded02b906026bee536: 0
+sem-FileCabinet-75fe06475f7b7241920de219c00d1c3b: 0
+sem-FileCabinet-839996ad49bfe12aaee45fb27ad3a6fe: 0
+sem-FileCabinet-976178c815f234b9df8fce61d01de43d: 0
+sem-FileCabinet-9e201c878c2ea370696196068f29f233: 0
+sem-FileCabinet-a44d92a6431afe516d907bf61e189d9d: 0
+sem-FileCabinet-ae4c4273468905586ae3841175e518b2: 0
+sem-FileCabinet-aeb08906aded103ad61a2ba1b75d9b90: 0
+sem-FileCabinet-c227d03fbea989c6ef93db01ab079fcc: 0
+sem-FileCabinet-dde9a107a1b3a3b7c78621ab7e0ef193: 0
+sem-FileCabinet-ee8c6bdd41cb2f04c56f78d9daf213b: 0
+sem-FileCabinet-f4e9f25443ff6f963b59eeb47ee49193: 0
+sem-Fish-2f6c35724496931e4b794094c38db310: 0
+sem-Fish-467293688a8ce5b31f6a5b0146bf3030: 0
+sem-Fish-4829cc6d03ae190f9c5ef1b2c5cedd88: 0
+sem-Fish-589d2eb42f3f66d83a042ac5fff3239b: 0
+sem-Fish-5e6656b0f124e0f38af30108ea9ccb6c: 0
+sem-Fish-6f1eb86e7e5c5dfdeeb8629a38fdd4b4: 0
+sem-Fish-82d688dc2943b9fffc69f56958b7ca9d: 0
+sem-Fish-8456c4a8189a91fb27eb00c151c6f711: 0
+sem-Fish-8e08d0309eeaea3391837c6e444d6d63: 0
+sem-Fish-aacfe11dc944cee2fb6607aaed47575: 0
+sem-Fish-de6eea7bb0dfe79d8490cd7879c8bec1: 0
+sem-Fish-efd0a30284addbd75429a46527d69a9a: 0
+sem-Flashlight-20c138d9e8a6bf24d84b8ba651dfb8ac: 0
+sem-Flashlight-5c7bf45b0f847489181be2d6e974dccd: 0
+sem-Flashlight-614c2672926d86d96b84415a3f1393b: 0
+sem-Flashlight-6182be9b916ade25dd25a522583661aa: 0
+sem-Flashlight-70cfc22ffe0e9835fc3223d52c1f21a9: 0
+sem-Flashlight-7981d1894a5b3c371b92a1339af2f7ce: 0
+sem-Flashlight-915540c9c81ddc63a5901d93c937a07e: 0
+sem-Flashlight-9ae9f213879cd73ebbe43d356df0e955: 0
+sem-Flashlight-9b8eef439813d9945322b45f6e8d738b: 0
+sem-Flashlight-b8a2d0816b4e4dd9be0355c8334334a8: 0
+sem-Flashlight-bb688501cebfc06c723ede5cd5a5e220: 0
+sem-Flashlight-d3afd0ef3bf3b87a2c4a81f1d7e1fb38: 0
+sem-Flashlight-e65b2f77490365659840461069957c82: 0
+sem-Flashlight-fbb6a1fb01f08eb1575f032b182448e5: 0
 sem-FoodItem-10a4e3c7c20cde9f3480e103b4cacefa: 0
 sem-FoodItem-118644ba80aa5048ac59fb466121cd17: 0
 sem-FoodItem-13add1d4cdcea59b73d0d75d212ea96b: 0
@@ -4733,241 +4733,241 @@ sem-Fruit-b095a1c41447e9da887d2d6e4a6617b3: 0
 sem-Fruit-cdaccd0978028eef6c80f6a5291c505: 0
 sem-Fruit-e36e008ee74c2ffcf338a37c4adf9d76: 0
 sem-Fruit-f6e6117261dca163713c042b393cc65b: 0
-sem-Gun-22f63b4d311339bc357baa13baa16351: 
-sem-Gun-370251fb9ab3240a2a23d93958262ccc: 
-sem-Gun-4030809eb34e18c6ffeb4ecfde76572d: 
-sem-Gun-414c390128a57fb1de0e2ea00b1b12dd: 
-sem-Gun-4745991e7c0c7966a93f1ea6ebdeec6f: 
-sem-Gun-4beaa2ddef83fdbb36d68c98a2069458: 
-sem-Gun-5b99d3c4f8c1af8124adc0b4355a9827: 
-sem-Gun-5dfed385de1d8d56eae5cab1248d1ec6: 
-sem-Gun-83e9b444f0c80f1b984073992e3ee8e4: 
-sem-Gun-8834a85c572d88802a23d93958262ccc: 
-sem-Gun-898424eaa40e821c2bf47341dbd96eb: 
-sem-Gun-a65ffa892dfc8897dd67d490a3e83d9e: 
-sem-Gun-bc5772efc1bfeda7ee3babb4d3025c8f: 
-sem-Gun-d70e0ff904cd998ec1b55d68d8aea7b7: 
-sem-Gun-d88c106c00384130fb5c1b0f759e2bc1: 
-sem-Gun-f7f945288a571090202be79d8b285c1e: 
-sem-Hammer-31340e691294a750d30ee0b5a9888c0b: 
-sem-Hammer-369593e48bdb2208419a349e9c699f76: 
-sem-Hammer-405f308492a6f40d2c3380317c2cc450: 
-sem-Hammer-4502bbd24057ac99c2ca1dbfbac7f449: 
-sem-Hammer-59baa2f1fbb371beafde329224c7ac14: 
-sem-Hammer-5d4da30b8c0eaae46d7014c7d6ce68fc: 
-sem-Hammer-6683cadf1d45d69a3a3cbcf1ae739c36: 
-sem-Hammer-6a78ea13e605452c8ee45bd8e008284e: 
-sem-Hammer-94dbb6874c576ee428bcb63ced82086c: 
-sem-Hammer-f39a52112040a4c3b90880542dbc824b: 
-sem-Harp-7cc130874942f2132e41f7ed9c5f7eed: 
-sem-Hat-5d4d91f11de1556a4e1245a3408a191: 
-sem-Hat-78ffdd0f1440161ca7591d4119c4254f: 
-sem-Hat-a8ddbd8c9cdb3088d2eebe596133133e: 
-sem-Hat-ada0226531f7affd45b86923d8b21783: 
-sem-Hat-d0919880bdf7eec8fe5dfc44db6ed8eb: 
-sem-Headphones-190fc461bd1e0759ee2a04c68bc263be: 
-sem-Headphones-2b28e2a5080101d245af43a64155c221: 
-sem-Headphones-53433f3e15014d831220240e825d0985: 
-sem-Headphones-63179fbdf2db65fff325ea98afcb29f9: 
-sem-Headphones-6475d0da1bfe0006c78df40cf2e9097a: 
-sem-Headphones-64c7ed011cb25eb5f9df692fb910a2fa: 
-sem-Headphones-6bf1559769018cbb354b166143712fb3: 
-sem-Headphones-8f000f5a05ebffc5275a90d0cd7aaf64: 
-sem-Headphones-937cdf200b33bdfd1aec2282dd8bc87a: 
-sem-Headphones-98eb96633935d994c38ed9bce4ed5d0f: 
-sem-Headphones-99a402291dee883145e2a4e5729b970d: 
-sem-Headphones-a3648a12281f5627da95f26923bb8547: 
-sem-Headphones-a959980585058ee42764cfba57a5de73: 
-sem-Headphones-aa87f1cb1632a08f2764cfba57a5de73: 
-sem-Headphones-af25a347397d422b59a6208793b9dfca: 
-sem-Headphones-bb2ea6e44847055d59a6208793b9dfca: 
-sem-Headphones-e17597ea42e1e18f3f1da4d22f591d97: 
-sem-Headphones-e3e3a16c5561908076ab32996e9bb920: 
-sem-Headphones-f3ee8236a6ea3dbd45f47151a4d2182a: 
-sem-Headphones-f46f30be3625300857dd908c302893fa: 
-sem-Horse-18277a2b26cce4945932aa8e4205e707: 
-sem-Horse-275ae350bed8f38470a43c2d978e502e: 
-sem-Horse-2a05d3998ba1582ce80df3c23687288a: 
-sem-Horse-41fa184c56e07387139f158558905250: 
-sem-Horse-4e301737d057917e25c70fb1df3f879b: 
-sem-Horse-7987a84c94c628ebc6a4becbc6f010a5: 
-sem-Horse-85f535b5ff34d58e452f233142155aa6: 
-sem-Horse-b00d28860f3611bde80df3c23687288a: 
-sem-Horse-b8b6d7374044b9f651917a251ae2982: 
-sem-Horse-bd880918b6c669cf5d4e52dd52abcb3d: 
-sem-Horse-de2eaf86f8ce18d68b3a450ac65b5b2d: 
-sem-Horse-df98cb748235d867f220c4e9a8cb807d: 
-sem-Horse-e0af5f1ed9ee818fd3e9b23535508184: 
-sem-Horse-fd7b095e9589cbaae80df3c23687288a: 
-sem-Ipad-18049cb71646955253d7642eccaa932a: 
-sem-Ipad-35f584cf8fd22794e4b68d3b17c43658: 
-sem-Ipad-474af011baf759749393793f9cf3dbea: 
-sem-Ipad-5a476554ce6f1b8bbd6868ef6592b424: 
-sem-Ipad-805a9bf3d265c408d9869786ff7f6a46: 
-sem-Ipad-834a37ff2966a7aab059c0a0cc66b765: 
-sem-Ipad-9c6434fe8f328812cdfafe3e224c6d1: 
-sem-Ipad-b4d5e6283a72759f68e67c91633baa10: 
-sem-Ipad-c195fc63cf5961c1561dce3fe08634b7: 
-sem-Ipad-d6a512373ed0cab27298d33994ff64ac: 
-sem-Ipod-197cd6122af749233cd2494a82e84da: 
-sem-Ipod-1b068453f00a45df79a3e6d653b9cf50: 
-sem-Ipod-1b770536109f699e3f99b006c29193b0: 
-sem-Ipod-20f7a7b5c9ab4bf95e014a070b5e3ea0: 
-sem-Ipod-26ef635a1dd041026960990b76be3cd: 
-sem-Ipod-2f72c12b95057e4debbef56ea25e4b3: 
-sem-Ipod-33502931b1dbbcc5153bcbf7454a9c: 
-sem-Ipod-3359a25b359f71c6591c6b1cab31f6b9: 
-sem-Ipod-387b38bb1959c658d091feadff64dbfd: 
-sem-Ipod-39318878f6e98ed2150eaf7a4ddb8bec: 
-sem-Ipod-39c3a58be774a6416c02de3cec685725: 
-sem-Ipod-3c20ca0e341ff0158776479dee8e77a: 
-sem-Ipod-4521175b100d29d539a4971adc53c51d: 
-sem-Ipod-460feae557ede090741e0ccc77f26dc0: 
-sem-Ipod-48196d9cf4fb9a1439a4971adc53c51d: 
-sem-Ipod-499ce6cfb033ca524dc43f9572c76629: 
-sem-Ipod-4a48ff3bdc8a48661fa9178506d3df13: 
-sem-Ipod-4b6c6248d5c01b3e4eee8d1cb32988b: 
-sem-Ipod-4d25b8a3c8f4e11640a92729068b6b39: 
-sem-Ipod-500ebda6d26180c5f548d6595c11226: 
-sem-Ipod-5556b24304907605bfac64b1ae78ad6e: 
-sem-Ipod-5604123bd8798b96f1bbc1fe641b4db7: 
-sem-Ipod-5fd95475524fc520c1dbab1d1ee81853: 
-sem-Ipod-6432e905bba81536983ec12a2b33f18b: 
-sem-Ipod-649f8749f868834c5e8f6c740cde1ca4: 
-sem-Ipod-66993624d8b4d2ebbb94613ebae491f: 
-sem-Ipod-6bed8d24f785a2b2998c00d102bcb284: 
-sem-Ipod-71b2adcc2261ba7caadb7997f5aa04c9: 
-sem-Ipod-754b57bb912119eccc9aef62469bcf3c: 
-sem-Ipod-887df6b1f5df91f11087f57fbbff1df3: 
-sem-Ipod-8dea72044977fed98b4ae5617b47ce83: 
-sem-Ipod-9a610cbd11b44029da7fbc266d41ec0e: 
-sem-Ipod-a4c32dbcb71076d5825732a29ddd146e: 
-sem-Ipod-a56a2084d631876fda7fbc266d41ec0e: 
-sem-Ipod-a6638386ef36bb79a3433a2494aec779: 
-sem-Ipod-ac00e79c78c266eba3b36c8802b3ab55: 
-sem-Ipod-acdd256a922c42651a8deb8a561a9e3c: 
-sem-Ipod-b48bcf93241f5bfdb9ad65086d99dd44: 
-sem-Ipod-b6d722928a6ac67d3bb496bfabcec230: 
-sem-Ipod-b9bd8749be494532f07fcce2f29a84ec: 
-sem-Ipod-bcee98cf7a7297bd265325e009860049: 
-sem-Ipod-c42613c1dd4dc524374eb4f2d2373ac0: 
-sem-Ipod-c99c308b81193d077f37580c7f79b9c6: 
-sem-Ipod-d6069ba76ee6d4b57a79dc2e5d99bded: 
-sem-Ipod-e27a0c4865bd3ed18d39f88600062ebd: 
-sem-Ipod-ec6f37b5bb4ec4fe90cfcd62331f983: 
-sem-Ipod-f144dee3502701d03b276da9ad7698c3: 
-sem-Ipod-f57907aee385b8407e71a60ea30bcf5: 
-sem-Ipod-f9f3d1db7650c142d2237bacec12d278: 
-sem-Kettle-9c5b0553b7a7088759ac5a8e79274552: 
-sem-Key-13ce46c3ba8951bf4fb6842b3610149: 
-sem-Key-41128930ff1e7a85763ffa228e9509c8: 
-sem-Key-82e7cf38cd8894fcfb9daed3fcd5f1b9: 
-sem-Knife-444e269649312fa20005c20ac894a3b: 
-sem-Knife-8d6ea5f31ad77a5581fbe2a60fd5a955: 
-sem-LightBulb-3e6a9ddc9159137e8191e9edf6f057a7: 
-sem-LightBulb-5df07d30abe9dcd3fa91d2d1ed04294c: 
-sem-LightBulb-73d4a23613b495536a0e6dae50b30045: 
-sem-LightBulb-8338a18d589c26d21c648623457982d0: 
-sem-LightBulb-9bc4b599b49a85f4cb1aec8410bf4988: 
-sem-LightBulb-b47923bd2dc4db91bcdcba55d507f72b: 
-sem-LightBulb-e19e45f9d13f05a4bfae4699de9cb91a: 
-sem-LightBulb-f16f59cbfaa7de05ff2eead8e091e281: 
-sem-LightBulb-f84d7f1f93824635445e8a9f7056c268: 
-sem-Lock-1b66cd553dc2ebf0cf5a37a70014c623: 
-sem-Lock-2036b7caa21802ae2a40bb58e14b2f89: 
-sem-Lock-5b4e505f85879e4baf0b75abe6dfe88a: 
-sem-Lock-648154d1f8113a502a40bb58e14b2f89: 
-sem-Lock-6d692e728f8f2a39cec31cf0a48f0eaf: 
-sem-Lock-705fb2b5cb4d5c012a40bb58e14b2f89: 
-sem-Lock-77491c6e16cbe9a8ea9b15e3702bc79: 
-sem-Lock-856b24cbdfb69fafcb0c0d433974e32b: 
-sem-Lock-b6b8011a945519cc20b5d66d1b626d9c: 
-sem-Lock-db38660f389cf70ecb0c0d433974e32b: 
-sem-Marker-220efd4f31815e176d445d819c3f9214: 
-sem-Marker-a5ebdd190b3cc8f125f2fde927e4b52e: 
-sem-MediaChest-9ac71997e9eee1c1af5ada3edc49839: 
-sem-MediaDiscs-51a2c9c96543daa5d4045ce83dea1af: 
-sem-MediaDiscs-949b5b3e53e1cf6340b559ef47048b86: 
-sem-MediaDiscs-bf93619ce0afeb987351883da7cc5907: 
-sem-MediaDiscs-c03989366097952a284d7307f93a6e6: 
-sem-MediaDiscs-ca05e4cfb246b6fe522fcc08b7c3238: 
-sem-MediaDiscs-ee0653d46effbe279041477a84c33d16: 
-sem-Microscope-3a6cd06d50e0f37e59ceafb827a4418d: 
-sem-Microscope-c111643047f34e8c84fc81a3117e11ad: 
-sem-MilkCarton-114f65a1635af7f862237730c52678c5: 
-sem-MilkCarton-1c30b1102303f27ef690049a092c5efc: 
-sem-MilkCarton-2546e080ae36044d25924baa64fe1af2: 
-sem-MilkCarton-313026b3dd934a8c66ab797924e689f7: 
-sem-MilkCarton-357348cf087fb03898feb9a919eb17de: 
-sem-MilkCarton-3c426552b9df786b3f7f3ed2c3c690fe: 
-sem-MilkCarton-49bdc6bed3f233eb3789e8d58849675c: 
-sem-MilkCarton-64018b545e9088303dd0d6160c4dfd18: 
-sem-MilkCarton-673d78d408bf142b9642f282fb76cb9: 
-sem-MilkCarton-6ea87d3f4498448b3571657dafc7119: 
-sem-MilkCarton-72110f88e2e51bf450e961cdc6fb5c30: 
-sem-MilkCarton-e403646bb3e1e75850e961cdc6fb5c30: 
-sem-MilkCarton-f5b5a24adc6826ace41b639931f9ca1: 
-sem-MilkCarton-fa98055f6f2d0dd916b3af7b23ac8a74: 
-sem-MilkCarton-fce427271b63011bfefca37858a6cef8: 
-sem-Motorcycle-68af758e75c830d22ba9876b378f34a6: 
-sem-Motorcycle-6d4ee0be5746095d7c088bd2a4124c69: 
-sem-Motorcycle-748e994cf5beeb7ec9e6d67e63729156: 
-sem-Motorcycle-97bb8c467f0efadaf2b5d20b1742ee75: 
-sem-Motorcycle-9dfb09bbadf812938640da3b661bbd47: 
-sem-Motorcycle-9f5286f2bd2abcaab4e8c1a281d48fc8: 
-sem-Motorcycle-b1bb49d472fa7a39e0dbf31b32c641d1: 
-sem-Mouse-35dc51b265375d8ec57264eb88d91b63: 
+sem-Gun-22f63b4d311339bc357baa13baa16351: 0
+sem-Gun-370251fb9ab3240a2a23d93958262ccc: 0
+sem-Gun-4030809eb34e18c6ffeb4ecfde76572d: 0
+sem-Gun-414c390128a57fb1de0e2ea00b1b12dd: 0
+sem-Gun-4745991e7c0c7966a93f1ea6ebdeec6f: 0
+sem-Gun-4beaa2ddef83fdbb36d68c98a2069458: 0
+sem-Gun-5b99d3c4f8c1af8124adc0b4355a9827: 0
+sem-Gun-5dfed385de1d8d56eae5cab1248d1ec6: 0
+sem-Gun-83e9b444f0c80f1b984073992e3ee8e4: 0
+sem-Gun-8834a85c572d88802a23d93958262ccc: 0
+sem-Gun-898424eaa40e821c2bf47341dbd96eb: 0
+sem-Gun-a65ffa892dfc8897dd67d490a3e83d9e: 0
+sem-Gun-bc5772efc1bfeda7ee3babb4d3025c8f: 0
+sem-Gun-d70e0ff904cd998ec1b55d68d8aea7b7: 0
+sem-Gun-d88c106c00384130fb5c1b0f759e2bc1: 0
+sem-Gun-f7f945288a571090202be79d8b285c1e: 0
+sem-Hammer-31340e691294a750d30ee0b5a9888c0b: 6
+sem-Hammer-369593e48bdb2208419a349e9c699f76: 2
+sem-Hammer-405f308492a6f40d2c3380317c2cc450: 0
+sem-Hammer-4502bbd24057ac99c2ca1dbfbac7f449: 2
+sem-Hammer-59baa2f1fbb371beafde329224c7ac14: 1
+sem-Hammer-5d4da30b8c0eaae46d7014c7d6ce68fc: 2
+sem-Hammer-6683cadf1d45d69a3a3cbcf1ae739c36: 0
+sem-Hammer-6a78ea13e605452c8ee45bd8e008284e: 0
+sem-Hammer-94dbb6874c576ee428bcb63ced82086c: 2
+sem-Hammer-f39a52112040a4c3b90880542dbc824b: 2
+sem-Harp-7cc130874942f2132e41f7ed9c5f7eed: 1
+sem-Hat-5d4d91f11de1556a4e1245a3408a191: 0
+sem-Hat-78ffdd0f1440161ca7591d4119c4254f: 1
+sem-Hat-a8ddbd8c9cdb3088d2eebe596133133e: 0
+sem-Hat-ada0226531f7affd45b86923d8b21783: 0
+sem-Hat-d0919880bdf7eec8fe5dfc44db6ed8eb: 0
+sem-Headphones-190fc461bd1e0759ee2a04c68bc263be: 4
+sem-Headphones-2b28e2a5080101d245af43a64155c221: 2
+sem-Headphones-53433f3e15014d831220240e825d0985: 3
+sem-Headphones-63179fbdf2db65fff325ea98afcb29f9: 1
+sem-Headphones-6475d0da1bfe0006c78df40cf2e9097a: 3
+sem-Headphones-64c7ed011cb25eb5f9df692fb910a2fa: 2
+sem-Headphones-6bf1559769018cbb354b166143712fb3: 1
+sem-Headphones-8f000f5a05ebffc5275a90d0cd7aaf64: 2
+sem-Headphones-937cdf200b33bdfd1aec2282dd8bc87a: 3
+sem-Headphones-98eb96633935d994c38ed9bce4ed5d0f: 2
+sem-Headphones-99a402291dee883145e2a4e5729b970d: 2
+sem-Headphones-a3648a12281f5627da95f26923bb8547: 2
+sem-Headphones-a959980585058ee42764cfba57a5de73: 4
+sem-Headphones-aa87f1cb1632a08f2764cfba57a5de73: 4
+sem-Headphones-af25a347397d422b59a6208793b9dfca: 4
+sem-Headphones-bb2ea6e44847055d59a6208793b9dfca: 5
+sem-Headphones-e17597ea42e1e18f3f1da4d22f591d97: 1
+sem-Headphones-e3e3a16c5561908076ab32996e9bb920: 1
+sem-Headphones-f3ee8236a6ea3dbd45f47151a4d2182a: 1
+sem-Headphones-f46f30be3625300857dd908c302893fa: 3
+sem-Horse-18277a2b26cce4945932aa8e4205e707: 0
+sem-Horse-275ae350bed8f38470a43c2d978e502e: 0
+sem-Horse-2a05d3998ba1582ce80df3c23687288a: 0
+sem-Horse-41fa184c56e07387139f158558905250: 0
+sem-Horse-4e301737d057917e25c70fb1df3f879b: 0
+sem-Horse-7987a84c94c628ebc6a4becbc6f010a5: 0
+sem-Horse-85f535b5ff34d58e452f233142155aa6: 0
+sem-Horse-b00d28860f3611bde80df3c23687288a: 0
+sem-Horse-b8b6d7374044b9f651917a251ae2982: 0
+sem-Horse-bd880918b6c669cf5d4e52dd52abcb3d: 0
+sem-Horse-de2eaf86f8ce18d68b3a450ac65b5b2d: 0
+sem-Horse-df98cb748235d867f220c4e9a8cb807d: 0
+sem-Horse-e0af5f1ed9ee818fd3e9b23535508184: 0
+sem-Horse-fd7b095e9589cbaae80df3c23687288a: 0
+sem-Ipad-18049cb71646955253d7642eccaa932a: 0
+sem-Ipad-35f584cf8fd22794e4b68d3b17c43658: 0
+sem-Ipad-474af011baf759749393793f9cf3dbea: 0
+sem-Ipad-5a476554ce6f1b8bbd6868ef6592b424: 0
+sem-Ipad-805a9bf3d265c408d9869786ff7f6a46: 0
+sem-Ipad-834a37ff2966a7aab059c0a0cc66b765: 0
+sem-Ipad-9c6434fe8f328812cdfafe3e224c6d1: 0
+sem-Ipad-b4d5e6283a72759f68e67c91633baa10: 0
+sem-Ipad-c195fc63cf5961c1561dce3fe08634b7: 0
+sem-Ipad-d6a512373ed0cab27298d33994ff64ac: 0
+sem-Ipod-197cd6122af749233cd2494a82e84da: 0
+sem-Ipod-1b068453f00a45df79a3e6d653b9cf50: 0
+sem-Ipod-1b770536109f699e3f99b006c29193b0: 0
+sem-Ipod-20f7a7b5c9ab4bf95e014a070b5e3ea0: 0
+sem-Ipod-26ef635a1dd041026960990b76be3cd: 0
+sem-Ipod-2f72c12b95057e4debbef56ea25e4b3: 0
+sem-Ipod-33502931b1dbbcc5153bcbf7454a9c: 0
+sem-Ipod-3359a25b359f71c6591c6b1cab31f6b9: 0
+sem-Ipod-387b38bb1959c658d091feadff64dbfd: 0
+sem-Ipod-39318878f6e98ed2150eaf7a4ddb8bec: 0
+sem-Ipod-39c3a58be774a6416c02de3cec685725: 0
+sem-Ipod-3c20ca0e341ff0158776479dee8e77a: 0
+sem-Ipod-4521175b100d29d539a4971adc53c51d: 0
+sem-Ipod-460feae557ede090741e0ccc77f26dc0: 0
+sem-Ipod-48196d9cf4fb9a1439a4971adc53c51d: 0
+sem-Ipod-499ce6cfb033ca524dc43f9572c76629: 0
+sem-Ipod-4a48ff3bdc8a48661fa9178506d3df13: 0
+sem-Ipod-4b6c6248d5c01b3e4eee8d1cb32988b: 0
+sem-Ipod-4d25b8a3c8f4e11640a92729068b6b39: 0
+sem-Ipod-500ebda6d26180c5f548d6595c11226: 0
+sem-Ipod-5556b24304907605bfac64b1ae78ad6e: 0
+sem-Ipod-5604123bd8798b96f1bbc1fe641b4db7: 0
+sem-Ipod-5fd95475524fc520c1dbab1d1ee81853: 0
+sem-Ipod-6432e905bba81536983ec12a2b33f18b: 0
+sem-Ipod-649f8749f868834c5e8f6c740cde1ca4: 0
+sem-Ipod-66993624d8b4d2ebbb94613ebae491f: 0
+sem-Ipod-6bed8d24f785a2b2998c00d102bcb284: 0
+sem-Ipod-71b2adcc2261ba7caadb7997f5aa04c9: 0
+sem-Ipod-754b57bb912119eccc9aef62469bcf3c: 0
+sem-Ipod-887df6b1f5df91f11087f57fbbff1df3: 0
+sem-Ipod-8dea72044977fed98b4ae5617b47ce83: 0
+sem-Ipod-9a610cbd11b44029da7fbc266d41ec0e: 0
+sem-Ipod-a4c32dbcb71076d5825732a29ddd146e: 0
+sem-Ipod-a56a2084d631876fda7fbc266d41ec0e: 0
+sem-Ipod-a6638386ef36bb79a3433a2494aec779: 0
+sem-Ipod-ac00e79c78c266eba3b36c8802b3ab55: 0
+sem-Ipod-acdd256a922c42651a8deb8a561a9e3c: 0
+sem-Ipod-b48bcf93241f5bfdb9ad65086d99dd44: 0
+sem-Ipod-b6d722928a6ac67d3bb496bfabcec230: 0
+sem-Ipod-b9bd8749be494532f07fcce2f29a84ec: 0
+sem-Ipod-bcee98cf7a7297bd265325e009860049: 0
+sem-Ipod-c42613c1dd4dc524374eb4f2d2373ac0: 0
+sem-Ipod-c99c308b81193d077f37580c7f79b9c6: 0
+sem-Ipod-d6069ba76ee6d4b57a79dc2e5d99bded: 0
+sem-Ipod-e27a0c4865bd3ed18d39f88600062ebd: 0
+sem-Ipod-ec6f37b5bb4ec4fe90cfcd62331f983: 0
+sem-Ipod-f144dee3502701d03b276da9ad7698c3: 0
+sem-Ipod-f57907aee385b8407e71a60ea30bcf5: 0
+sem-Ipod-f9f3d1db7650c142d2237bacec12d278: 0
+sem-Kettle-9c5b0553b7a7088759ac5a8e79274552: 0
+sem-Key-13ce46c3ba8951bf4fb6842b3610149: 1
+sem-Key-41128930ff1e7a85763ffa228e9509c8: 0
+sem-Key-82e7cf38cd8894fcfb9daed3fcd5f1b9: 0
+sem-Knife-444e269649312fa20005c20ac894a3b: 0
+sem-Knife-8d6ea5f31ad77a5581fbe2a60fd5a955: 1
+sem-LightBulb-3e6a9ddc9159137e8191e9edf6f057a7: 0
+sem-LightBulb-5df07d30abe9dcd3fa91d2d1ed04294c: 0
+sem-LightBulb-73d4a23613b495536a0e6dae50b30045: 0
+sem-LightBulb-8338a18d589c26d21c648623457982d0: 0
+sem-LightBulb-9bc4b599b49a85f4cb1aec8410bf4988: 0
+sem-LightBulb-b47923bd2dc4db91bcdcba55d507f72b: 0
+sem-LightBulb-e19e45f9d13f05a4bfae4699de9cb91a: 0
+sem-LightBulb-f16f59cbfaa7de05ff2eead8e091e281: 0
+sem-LightBulb-f84d7f1f93824635445e8a9f7056c268: 0
+sem-Lock-1b66cd553dc2ebf0cf5a37a70014c623: 0
+sem-Lock-2036b7caa21802ae2a40bb58e14b2f89: 0
+sem-Lock-5b4e505f85879e4baf0b75abe6dfe88a: 0
+sem-Lock-648154d1f8113a502a40bb58e14b2f89: 0
+sem-Lock-6d692e728f8f2a39cec31cf0a48f0eaf: 0
+sem-Lock-705fb2b5cb4d5c012a40bb58e14b2f89: 0
+sem-Lock-77491c6e16cbe9a8ea9b15e3702bc79: 0
+sem-Lock-856b24cbdfb69fafcb0c0d433974e32b: 0
+sem-Lock-b6b8011a945519cc20b5d66d1b626d9c: 0
+sem-Lock-db38660f389cf70ecb0c0d433974e32b: 0
+sem-Marker-220efd4f31815e176d445d819c3f9214: 0
+sem-Marker-a5ebdd190b3cc8f125f2fde927e4b52e: 0
+sem-MediaChest-9ac71997e9eee1c1af5ada3edc49839: 0
+sem-MediaDiscs-51a2c9c96543daa5d4045ce83dea1af: 0
+sem-MediaDiscs-949b5b3e53e1cf6340b559ef47048b86: 0
+sem-MediaDiscs-bf93619ce0afeb987351883da7cc5907: 0
+sem-MediaDiscs-c03989366097952a284d7307f93a6e6: 0
+sem-MediaDiscs-ca05e4cfb246b6fe522fcc08b7c3238: 0
+sem-MediaDiscs-ee0653d46effbe279041477a84c33d16: 0
+sem-Microscope-3a6cd06d50e0f37e59ceafb827a4418d: 0
+sem-Microscope-c111643047f34e8c84fc81a3117e11ad: 0
+sem-MilkCarton-114f65a1635af7f862237730c52678c5: 0
+sem-MilkCarton-1c30b1102303f27ef690049a092c5efc: 0
+sem-MilkCarton-2546e080ae36044d25924baa64fe1af2: 0
+sem-MilkCarton-313026b3dd934a8c66ab797924e689f7: 0
+sem-MilkCarton-357348cf087fb03898feb9a919eb17de: 0
+sem-MilkCarton-3c426552b9df786b3f7f3ed2c3c690fe: 0
+sem-MilkCarton-49bdc6bed3f233eb3789e8d58849675c: 0
+sem-MilkCarton-64018b545e9088303dd0d6160c4dfd18: 0
+sem-MilkCarton-673d78d408bf142b9642f282fb76cb9: 0
+sem-MilkCarton-6ea87d3f4498448b3571657dafc7119: 0
+sem-MilkCarton-72110f88e2e51bf450e961cdc6fb5c30: 0
+sem-MilkCarton-e403646bb3e1e75850e961cdc6fb5c30: 0
+sem-MilkCarton-f5b5a24adc6826ace41b639931f9ca1: 0
+sem-MilkCarton-fa98055f6f2d0dd916b3af7b23ac8a74: 0
+sem-MilkCarton-fce427271b63011bfefca37858a6cef8: 0
+sem-Motorcycle-68af758e75c830d22ba9876b378f34a6: 0
+sem-Motorcycle-6d4ee0be5746095d7c088bd2a4124c69: 0
+sem-Motorcycle-748e994cf5beeb7ec9e6d67e63729156: 0
+sem-Motorcycle-97bb8c467f0efadaf2b5d20b1742ee75: 0
+sem-Motorcycle-9dfb09bbadf812938640da3b661bbd47: 0
+sem-Motorcycle-9f5286f2bd2abcaab4e8c1a281d48fc8: 0
+sem-Motorcycle-b1bb49d472fa7a39e0dbf31b32c641d1: 0
+sem-Mouse-35dc51b265375d8ec57264eb88d91b63: 0
 sem-Mug-10f6e09036350e92b3f21f1137c3c347: 0
-sem-NintendoDS-91003d34def2ac4a8358026595a97ae9: 
-sem-Notepad-1ae8ed2f5bf117f067994ca435825ef: 
-sem-Notepad-491731fae7b58f4cc2e054c56e9a85a: 
-sem-Notepad-806a00311afae8e9397a5ce25ba881c1: 
-sem-Notepad-a20afd7d3f1c0f51e652fa812161367: 
-sem-Notepad-d2c752b71ef5a7fa58fe5738991208f7: 
-sem-Palette-992b09034e11bba395d70476ddcdc14: 
-sem-Palette-bfe01d3ec17f9ef7db4673379779bfbf: 
-sem-Pan-436e1ae9112384fbf4cc5d95933e54b: 
-sem-Pan-c8b06a6cb1a910c38e43a810a63361f0: 
-sem-Pan-d9560bfc0c051109f54e1b6f41fdd78a: 
-sem-Pan-e8cd2c495f1a33cdd068168ae86ef29a: 
-sem-Pan-f6710739e3bcab8250e961cdc6fb5c30: 
-sem-Pen-47e0235a83058335782611375da5ea9a: 
-sem-Pen-aaea1d42fe3de1b0eeed1ac073f42256: 
-sem-Pencil-370867e6cf6f4ef8b5f19880cadbe491: 
-sem-Pencil-4a06b2376ec1d05b3fd75834ebd059c4: 
-sem-Pencil-5db4780fb3202c845cf9a6bcc38ca7cc: 
-sem-Pencil-6f14cba33c58664eccaa71a506b07337: 
-sem-Pencil-839923a17af633dfb29a5ca18b250f3b: 
-sem-Pencil-8bf01717c0d166fd271f8bae2df0a074: 
-sem-Pencil-8c84c47315c6f4422e46c5f5500a7c31: 
-sem-Pencil-8e41e635833699d72eb0505088d40b01: 
-sem-Pencil-8fe50e032e11a11ec55ebd33a2e21af7: 
-sem-Pencil-a7787ba523465ea1ef2e227a41551d79: 
-sem-PersonStanding-123c5debc3bed09f1fdc97905708b8ea: 
-sem-PersonStanding-14e3023f03787b204a736b2733b8d89e: 
-sem-PersonStanding-158b64ae73f514045071967803b3d7cf: 
-sem-PersonStanding-1a0710af081df737c50a037462bade42: 
-sem-PersonStanding-4a6b7b8de43bf3925c8e7963449f8577: 
-sem-PersonStanding-4b611ee8e34d07bbb967dfac36a4949b: 
-sem-PersonStanding-6cfe8fd7ccf9134260cd62660d6a2c7d: 
-sem-PersonStanding-7a82cf87328b77b52ed153b7904cd067: 
-sem-PersonStanding-8123f469a08a88e7761dc3477e65a72: 
-sem-PersonStanding-84adb1e10894013b66e189d791440661: 
-sem-PersonStanding-909ecfe6cac53888e3c23160df45ea9: 
-sem-PersonStanding-942934260acc0317a3e9c423232171a1: 
-sem-PersonStanding-a0dfc28cdafc3be913497dd48d9d7c76: 
-sem-PersonStanding-aec0115e62c4b3aba363332b3a3f9b5f: 
-sem-PersonStanding-b1a1eea9bdd916d0bdf566b587d6b21: 
-sem-PersonStanding-c1625796497bfceaa3e9c423232171a1: 
-sem-PersonStanding-ca1427fc5d51c11c5cb00768929d1b87: 
-sem-PersonStanding-ccb97bb42531ef32720fafea2a58c17c: 
-sem-PersonStanding-e35c7e8c9f85cac42a2f0bc2931a19e: 
-sem-PersonStanding-ee059fc28f23b8234cde0c4922f7cbaf: 
-sem-Phonebooth-5f600251394fabe6808ca88aece2e3dc: 
-sem-Phonebooth-6da737a8cd2144f63b5480c483585b14: 
-sem-Phonebooth-9badf6421f292a1927eb00c151c6f711: 
-sem-Phonebooth-a5616ee37a8126a3b3389a2ff5594ee1: 
-sem-Phonebooth-b98ce5dc7c3a5594364b8778b9ddcd13: 
+sem-NintendoDS-91003d34def2ac4a8358026595a97ae9: 0
+sem-Notepad-1ae8ed2f5bf117f067994ca435825ef: 0
+sem-Notepad-491731fae7b58f4cc2e054c56e9a85a: 0
+sem-Notepad-806a00311afae8e9397a5ce25ba881c1: 0
+sem-Notepad-a20afd7d3f1c0f51e652fa812161367: 0
+sem-Notepad-d2c752b71ef5a7fa58fe5738991208f7: 0
+sem-Palette-992b09034e11bba395d70476ddcdc14: 0
+sem-Palette-bfe01d3ec17f9ef7db4673379779bfbf: 0
+sem-Pan-436e1ae9112384fbf4cc5d95933e54b: 0
+sem-Pan-c8b06a6cb1a910c38e43a810a63361f0: 0
+sem-Pan-d9560bfc0c051109f54e1b6f41fdd78a: 0
+sem-Pan-e8cd2c495f1a33cdd068168ae86ef29a: 0
+sem-Pan-f6710739e3bcab8250e961cdc6fb5c30: 0
+sem-Pen-47e0235a83058335782611375da5ea9a: 0
+sem-Pen-aaea1d42fe3de1b0eeed1ac073f42256: 0
+sem-Pencil-370867e6cf6f4ef8b5f19880cadbe491: 0
+sem-Pencil-4a06b2376ec1d05b3fd75834ebd059c4: 1
+sem-Pencil-5db4780fb3202c845cf9a6bcc38ca7cc: 0
+sem-Pencil-6f14cba33c58664eccaa71a506b07337: 0
+sem-Pencil-839923a17af633dfb29a5ca18b250f3b: 1
+sem-Pencil-8bf01717c0d166fd271f8bae2df0a074: 0
+sem-Pencil-8c84c47315c6f4422e46c5f5500a7c31: 1
+sem-Pencil-8e41e635833699d72eb0505088d40b01: 0
+sem-Pencil-8fe50e032e11a11ec55ebd33a2e21af7: 0
+sem-Pencil-a7787ba523465ea1ef2e227a41551d79: 0
+sem-PersonStanding-123c5debc3bed09f1fdc97905708b8ea: 0
+sem-PersonStanding-14e3023f03787b204a736b2733b8d89e: 0
+sem-PersonStanding-158b64ae73f514045071967803b3d7cf: 0
+sem-PersonStanding-1a0710af081df737c50a037462bade42: 0
+sem-PersonStanding-4a6b7b8de43bf3925c8e7963449f8577: 0
+sem-PersonStanding-4b611ee8e34d07bbb967dfac36a4949b: 0
+sem-PersonStanding-6cfe8fd7ccf9134260cd62660d6a2c7d: 0
+sem-PersonStanding-7a82cf87328b77b52ed153b7904cd067: 0
+sem-PersonStanding-8123f469a08a88e7761dc3477e65a72: 0
+sem-PersonStanding-84adb1e10894013b66e189d791440661: 0
+sem-PersonStanding-909ecfe6cac53888e3c23160df45ea9: 0
+sem-PersonStanding-942934260acc0317a3e9c423232171a1: 0
+sem-PersonStanding-a0dfc28cdafc3be913497dd48d9d7c76: 0
+sem-PersonStanding-aec0115e62c4b3aba363332b3a3f9b5f: 0
+sem-PersonStanding-b1a1eea9bdd916d0bdf566b587d6b21: 0
+sem-PersonStanding-c1625796497bfceaa3e9c423232171a1: 0
+sem-PersonStanding-ca1427fc5d51c11c5cb00768929d1b87: 0
+sem-PersonStanding-ccb97bb42531ef32720fafea2a58c17c: 0
+sem-PersonStanding-e35c7e8c9f85cac42a2f0bc2931a19e: 0
+sem-PersonStanding-ee059fc28f23b8234cde0c4922f7cbaf: 0
+sem-Phonebooth-5f600251394fabe6808ca88aece2e3dc: 0
+sem-Phonebooth-6da737a8cd2144f63b5480c483585b14: 0
+sem-Phonebooth-9badf6421f292a1927eb00c151c6f711: 0
+sem-Phonebooth-a5616ee37a8126a3b3389a2ff5594ee1: 0
+sem-Phonebooth-b98ce5dc7c3a5594364b8778b9ddcd13: 0
 sem-Piano-14755c2ee8e693aba508f621166382b0: 0
 sem-Piano-1b76644af9341db74a630b59d0e937b5: 0
 sem-Piano-1f7301bb64526ce9d4cdf759998ef5c2: 0
@@ -5018,161 +5018,161 @@ sem-Piano-ce7a03d645722d503f7e27638e63d848: 0
 sem-Piano-d3792400f18ba7d4e3f7a74e12a274ef: 0
 sem-Piano-e963ffa0699ae9e45e244aa0433fda37: 0
 sem-Piano-f7eda7a86151f31a1b23ead1cf59064b: 0
-sem-PicnicTableSet-27a6dc6d930db4bf5da6aef87fc49e72: 
-sem-PicnicTableSet-66add7facfc1942886b3f898d28dd325: 
-sem-PillBottle-11a0f60b9baaaf59968608843530f3d7: 
-sem-PillBottle-484648c451f60f6aff7cb57cb6633326: 
-sem-PillBottle-6230f6c8fb4987db4489e8d156e61135: 
-sem-PillBottle-6aba175c988c8bec9fac57ed2e044778: 
-sem-PillBottle-6bfcacdff00d57c633774da3deff863: 
-sem-PillBottle-776502db6e2e680e5e4f0d37557f3953: 
-sem-PillBottle-81bbf3134d1ca27a58449bd132e3a3fe: 
-sem-PillBottle-8e6277003de9770a7c35d3c5d3b1fcf7: 
-sem-PillBottle-bb234652525a68498d969821a85884b2: 
-sem-PillBottle-c02a6e68b14b86f2b4f9bce692e6278d: 
-sem-PillBottle-dd280525cf000bc3a608634464309a70: 
-sem-PillBottle-ec42773c595dc08e4d678187b8261d95: 
-sem-PillBottle-ef5893626d5048fd9d749aedd9392d68: 
-sem-PillBottle-f6de2a85da0e89b53f222a37719e9945: 
-sem-PillBottle-fdc47f5f8dff184830eaaf40a8a562c1: 
-sem-Pillow-15c98bfa322106a0d291861d5bc3e7c8: 
-sem-Pillow-2a385185a799fe08f2c0658ad22a9a9b: 
-sem-Pillow-343e3dedabdb067193e60794f9200b7: 
-sem-Pillow-359576c82de003cf96907985b34a7ba3: 
-sem-Pillow-361e0796bd364244741e88434245c899: 
-sem-Pillow-397d66329fcf4b862bf863b361489dad: 
-sem-Pillow-4c617e5be0596ee2685998681d42efb8: 
-sem-Pillow-4e201f6977ee4c046e64f74fd8a65f82: 
-sem-Pillow-57540783188a9cc98b424343280aeccb: 
-sem-Pillow-7600e8f31b6734dc32381107ee7a567e: 
-sem-Pillow-7d9cb088956a9c4993e60794f9200b7: 
-sem-Pillow-84693d928bbec2d18b14db3b83de9ff: 
-sem-Pillow-8b0c10a775c4c4edc1ebca21882cca5d: 
-sem-Pillow-953d16ed7eee84d32d7a27ffaafaaddb: 
-sem-Pillow-95973950e069c6b9b5b6422580b7846d: 
-sem-Pillow-9d183dcd7261cfffe6e130a30b5ed875: 
-sem-Pillow-a0903daa3dfa996837b2bb75885cfc44: 
-sem-Pillow-a136a79481238e046d3e11439c6c22c8: 
-sem-Pillow-b5cb58fb099204fea5c423249b53dbc4: 
-sem-Pillow-bb4e2c9e6c5b75a419bea36737d5c9cb: 
-sem-Pillow-bb720e7949efc9abe4406b3bf37e6ffe: 
-sem-Pillow-cf2ab5d9bff184ca6325569942918d9f: 
-sem-Pillow-f3815806340d0fededa761b10992452d: 
-sem-Pillow-f994caecd32d38ddc75ea4b124a227b: 
-sem-Pizza-2780abdb71c9db68f2c30c174d7b3e07: 
-sem-Pizza-29fe6bf8e9c364a545004a22a9d35958: 
-sem-Pizza-2b59988661c55c682e27d4b6979a4b81: 
-sem-Pizza-2d89a3594a33a4a8d81345019d0d7fb2: 
-sem-Pizza-2ec5cf929da01dbe829f996f73431f83: 
-sem-Pizza-5f980765137a083b2705e23c3b836e97: 
-sem-Pizza-6690bde1159376df33f2ccb4064f11c5: 
-sem-Pizza-6f95c4a222fe84b69de3846f6829ce95: 
-sem-Pizza-99dadb83b9bcf2498af30108ea9ccb6c: 
-sem-Pizza-b3a8ebcf6e9ca5852721058c5c629b05: 
-sem-Pizza-bbff331fad652f79449bde2352ba381a: 
-sem-Pizza-c2925e9fb9d6125d10fbfd499a09a517: 
-sem-Pizza-c508182852c9a85844608b3255ca1886: 
-sem-Pizza-caca4c8d409cddc66b04c0f74e5b376e: 
-sem-Pizza-da23c34e0d56e85e13b7121b4583dd12: 
-sem-Pizza-da6b56ef88f6088e3d45b70645f74c5c: 
-sem-Pizza-df62f7b84fd210ba82cabcc4d06ff984: 
-sem-Planet-2435588dc03652d7b6253bd44e1abf33: 
-sem-Planet-28d7d4d42ce2b4c46dc49355f7db19ae: 
-sem-Planet-3c61c97d97f1848972fdb400fad0978d: 
-sem-Planet-3e97d91fda31a1c56ab57877a8c22e14: 
-sem-Planet-474bb9237d276f5d6a12484fa9d9be10: 
-sem-Planet-5685e23e5e3d78b2936ffc5dabd7b5ce: 
-sem-Planet-65929d262a58d9e8fdaa51cdb5785d22: 
-sem-Planet-72bb6e0148b63b4eecdb9c9d1f5570fd: 
-sem-Planet-84457e1cd572678623f8c03ebe588da7: 
-sem-Planet-9d2b057fcac1b7f29298f4102a91aef2: 
-sem-Planet-a15b44e411d52b847a21c004f8eb277: 
-sem-Planet-bd9f89aee82128c470f2165d290a716b: 
-sem-Planet-bfec7da9a972ac6a844dece8f8f0b137: 
-sem-Planet-ece86402b73bf2bb717cfc835feabb3: 
-sem-Plate-1389e932a2c776d83c143af07c12991a: 
-sem-Plate-17079f40cfdc719a3f7d5255ff865380: 
-sem-Plate-17e958fa60740e4c3c143af07c12991a: 
-sem-Plate-3b8cd62e5842a4c98870030ed2672a1d: 
-sem-Plate-49675b82efc7dd0536c38c6865b8d471: 
-sem-Plate-6372c4d2e046d0fd7d3aa3bae1f7b494: 
-sem-Plate-6907973366e2d8ca7f181d2694cd239b: 
-sem-Plate-9969f6178dcd67101c75d484f9069623: 
-sem-Plate-cc87e29afe238126e20e92c5b8147e4a: 
-sem-Plate-f151b5b32400054bebe0518a81e2c5c8: 
-sem-Plate-fbc3702c344581fc5dca6305fb9f97ca: 
-sem-PowerStrip-6cb9ba94a63ff60888bf39e10d433fc8: 
-sem-PowerStrip-c3f1944d562738f7daaccab222ac90bc: 
-sem-PSP-3695689074ea272ad9a849102f04049e: 
-sem-Radio-215ce10da9e958ae4c40f34de8f3bdb8: 
-sem-Radio-21983e6ee8a6992c9d151674c6eace6c: 
-sem-Radio-278964940bbd742bf260956be71b3917: 
-sem-Radio-4bc977c07357c3be452f233142155aa6: 
-sem-Radio-52fbb082b3d28d369715146e52a0621c: 
-sem-Radio-7d1f7561729128f41f8d5edb17ddb332: 
-sem-Radio-ab673912c47afe0afb8c9814b98c66d7: 
-sem-Radio-bcd74bede1defe392b67f63784d6db5b: 
-sem-Radio-cd2d11cd92ee82589ebe905ef4009f84: 
-sem-Radio-e713415e4a6b3307ddc7cb5aa929cbf: 
-sem-RiceCooker-1f00a773e33908a3abb564bb0657e0d6: 
-sem-RiceCooker-5aa24fc0f25b61abb564bb0657e0d6: 
-sem-RiceCooker-86175eb31a23a452757a72d9e80d1698: 
-sem-RiceCooker-b3bbd60c89f54f1231a50841704a69bf: 
-sem-Rock-386c91ddd48b956f85b5e1f7eb9f2b9c: 
-sem-Rock-f7b2c1368b2c6f9a8b43e675a8d9c006: 
-sem-RubiksCube-1e3d89eb3b5427053bdd31f1cd9eec98: 
-sem-RubiksCube-2b78edd5bc31b19ae0681a1280473149: 
-sem-RubiksCube-4e7bd9db2fcdc6e01a092e6cb6aaf525: 
-sem-RubiksCube-4e9447dfd2b56527fc7a8e315c9ddc8: 
-sem-RubiksCube-519c4e78191acdcae2a5d596858e729c: 
-sem-RubiksCube-549a209480960894fd1b46bc39a18482: 
-sem-RubiksCube-cdda3ea70d829d5baa9ba8e71ae84fd3: 
-sem-RubiksCube-d060362a42a3ef0af0a72b757e578a97: 
-sem-RubiksCube-d7d3dc14748ec6d347cd142fcccd1cc2: 
-sem-RubiksCube-dba37de1080c048f4f32009f59473bea: 
-sem-RubiksCube-f449ec743900234bb7f39bf08785db2f: 
-sem-Scale-47edf107b3ac00aae43969badba53c7b: 
-sem-Scale-c8c28c8b9ca64290118ddfdb81cc6068: 
-sem-Scale-cae39ade25a37c3c67964ba700cd97f5: 
-sem-Scale-d57586d19f114143f7f3ed2c3c690fe: 
-sem-Shampoo-2956aa89a775941267510767535a263a: 
-sem-Shampoo-2ba1891e2b354b219617cbc6647fc553: 
-sem-Shampoo-f483d21f78a9d355ca6af78bbbd6d20: 
-sem-Shampoo-f919431276935ea05d8eba92952b9366: 
-sem-Sheep-554db91bf0835764fbb35151afcb9cd5: 
-sem-Ship-3f31208bf7adf03610aa1fb812b74966: 
-sem-Ship-426dad839f0b0ce8cad9e942409f4e39: 
-sem-Ship-59a52738f436b3c39b1ee006baec41ea: 
-sem-Ship-876a4bea4fc35db067fd6c1ab7f8324: 
-sem-Ship-87e1eda2a99c713d4fbe64e9d0fe42b6: 
-sem-Ship-aac3a05346084a9a500068134ac23942: 
-sem-Showerhead-1522e8a4da7c05bd76d20e73c57c9a03: 
-sem-Showerhead-24e539b4aafc1ac476d20e73c57c9a03: 
-sem-Showerhead-6b940f85e82457d28a1b73194a8a176f: 
-sem-Showerhead-a07befe4a4173cc33321831d2245cf06: 
-sem-Showerhead-ab2ff40742ca8e589a4bfcf0c77e631c: 
-sem-Showerhead-ac2cca058aadcea43321831d2245cf06: 
-sem-Showerhead-c04fd0df2310b7653321831d2245cf06: 
-sem-SkateBoard-689fe527c10a9618c27eeaf34d145098: 
-sem-SkateBoard-6e76a333d9fc9a2972e15b580d9a5b3: 
-sem-SkateBoard-b140249e4615f0db6d8b6ba513969afe: 
-sem-SkateBoard-d31aaca67fd8ef1827d17dabad15093: 
-sem-Snowman-2595386004cec68b80a3636218306f06: 
-sem-Snowman-56e9167d8d9c2b8416cec6679796546: 
-sem-Snowman-7f61e44bc06805a6902fd4061dc1e02d: 
-sem-Snowman-a9c5a1150d8e2bfe79f0be73913de469: 
-sem-Snowman-bf2384e841ca61805b2ecd212557fda0: 
-sem-Snowman-dee9e56b9946037a226eabe1cca3e850: 
-sem-Snowman-def36b8e4538fb74d449cd634c927922: 
-sem-Snowman-e57005090a392849320d4939a0975e7d: 
-sem-SoapBar-351dec75ac0619b1827473663798726a: 
-sem-SoapBar-5aba32dba149598911f4f6c1a9b8e604: 
-sem-SoapBar-8da3c818adf836fcf2c4595240954986: 
-sem-SoapBar-b3718bdc7025004813f5ec8466b8a488: 
-sem-SoapBar-c96bfdeccb6d92d141b965cb8ba50814: 
-sem-SoapBottle-43762b28fb40088f724d867867ccd9fb: 
-sem-SoapBottle-657c79b83ab8d3079a85260e38aed309: 
-sem-SoapBottle-a5912dff7ed43650cf6ede117dc51e3d: 
+sem-PicnicTableSet-27a6dc6d930db4bf5da6aef87fc49e72: 0
+sem-PicnicTableSet-66add7facfc1942886b3f898d28dd325: 0
+sem-PillBottle-11a0f60b9baaaf59968608843530f3d7: 0
+sem-PillBottle-484648c451f60f6aff7cb57cb6633326: 0
+sem-PillBottle-6230f6c8fb4987db4489e8d156e61135: 0
+sem-PillBottle-6aba175c988c8bec9fac57ed2e044778: 0
+sem-PillBottle-6bfcacdff00d57c633774da3deff863: 0
+sem-PillBottle-776502db6e2e680e5e4f0d37557f3953: 0
+sem-PillBottle-81bbf3134d1ca27a58449bd132e3a3fe: 0
+sem-PillBottle-8e6277003de9770a7c35d3c5d3b1fcf7: 0
+sem-PillBottle-bb234652525a68498d969821a85884b2: 0
+sem-PillBottle-c02a6e68b14b86f2b4f9bce692e6278d: 0
+sem-PillBottle-dd280525cf000bc3a608634464309a70: 0
+sem-PillBottle-ec42773c595dc08e4d678187b8261d95: 0
+sem-PillBottle-ef5893626d5048fd9d749aedd9392d68: 0
+sem-PillBottle-f6de2a85da0e89b53f222a37719e9945: 0
+sem-PillBottle-fdc47f5f8dff184830eaaf40a8a562c1: 0
+sem-Pillow-15c98bfa322106a0d291861d5bc3e7c8: 0
+sem-Pillow-2a385185a799fe08f2c0658ad22a9a9b: 0
+sem-Pillow-343e3dedabdb067193e60794f9200b7: 0
+sem-Pillow-359576c82de003cf96907985b34a7ba3: 0
+sem-Pillow-361e0796bd364244741e88434245c899: 0
+sem-Pillow-397d66329fcf4b862bf863b361489dad: 0
+sem-Pillow-4c617e5be0596ee2685998681d42efb8: 0
+sem-Pillow-4e201f6977ee4c046e64f74fd8a65f82: 0
+sem-Pillow-57540783188a9cc98b424343280aeccb: 0
+sem-Pillow-7600e8f31b6734dc32381107ee7a567e: 0
+sem-Pillow-7d9cb088956a9c4993e60794f9200b7: 0
+sem-Pillow-84693d928bbec2d18b14db3b83de9ff: 0
+sem-Pillow-8b0c10a775c4c4edc1ebca21882cca5d: 0
+sem-Pillow-953d16ed7eee84d32d7a27ffaafaaddb: 0
+sem-Pillow-95973950e069c6b9b5b6422580b7846d: 0
+sem-Pillow-9d183dcd7261cfffe6e130a30b5ed875: 0
+sem-Pillow-a0903daa3dfa996837b2bb75885cfc44: 0
+sem-Pillow-a136a79481238e046d3e11439c6c22c8: 0
+sem-Pillow-b5cb58fb099204fea5c423249b53dbc4: 0
+sem-Pillow-bb4e2c9e6c5b75a419bea36737d5c9cb: 0
+sem-Pillow-bb720e7949efc9abe4406b3bf37e6ffe: 0
+sem-Pillow-cf2ab5d9bff184ca6325569942918d9f: 0
+sem-Pillow-f3815806340d0fededa761b10992452d: 0
+sem-Pillow-f994caecd32d38ddc75ea4b124a227b: 0
+sem-Pizza-2780abdb71c9db68f2c30c174d7b3e07: 0
+sem-Pizza-29fe6bf8e9c364a545004a22a9d35958: 0
+sem-Pizza-2b59988661c55c682e27d4b6979a4b81: 0
+sem-Pizza-2d89a3594a33a4a8d81345019d0d7fb2: 0
+sem-Pizza-2ec5cf929da01dbe829f996f73431f83: 0
+sem-Pizza-5f980765137a083b2705e23c3b836e97: 0
+sem-Pizza-6690bde1159376df33f2ccb4064f11c5: 0
+sem-Pizza-6f95c4a222fe84b69de3846f6829ce95: 0
+sem-Pizza-99dadb83b9bcf2498af30108ea9ccb6c: 0
+sem-Pizza-b3a8ebcf6e9ca5852721058c5c629b05: 0
+sem-Pizza-bbff331fad652f79449bde2352ba381a: 0
+sem-Pizza-c2925e9fb9d6125d10fbfd499a09a517: 0
+sem-Pizza-c508182852c9a85844608b3255ca1886: 0
+sem-Pizza-caca4c8d409cddc66b04c0f74e5b376e: 0
+sem-Pizza-da23c34e0d56e85e13b7121b4583dd12: 0
+sem-Pizza-da6b56ef88f6088e3d45b70645f74c5c: 0
+sem-Pizza-df62f7b84fd210ba82cabcc4d06ff984: 0
+sem-Planet-2435588dc03652d7b6253bd44e1abf33: 0
+sem-Planet-28d7d4d42ce2b4c46dc49355f7db19ae: 0
+sem-Planet-3c61c97d97f1848972fdb400fad0978d: 0
+sem-Planet-3e97d91fda31a1c56ab57877a8c22e14: 0
+sem-Planet-474bb9237d276f5d6a12484fa9d9be10: 0
+sem-Planet-5685e23e5e3d78b2936ffc5dabd7b5ce: 0
+sem-Planet-65929d262a58d9e8fdaa51cdb5785d22: 0
+sem-Planet-72bb6e0148b63b4eecdb9c9d1f5570fd: 0
+sem-Planet-84457e1cd572678623f8c03ebe588da7: 0
+sem-Planet-9d2b057fcac1b7f29298f4102a91aef2: 0
+sem-Planet-a15b44e411d52b847a21c004f8eb277: 0
+sem-Planet-bd9f89aee82128c470f2165d290a716b: 0
+sem-Planet-bfec7da9a972ac6a844dece8f8f0b137: 0
+sem-Planet-ece86402b73bf2bb717cfc835feabb3: 0
+sem-Plate-1389e932a2c776d83c143af07c12991a: 0
+sem-Plate-17079f40cfdc719a3f7d5255ff865380: 0
+sem-Plate-17e958fa60740e4c3c143af07c12991a: 0
+sem-Plate-3b8cd62e5842a4c98870030ed2672a1d: 0
+sem-Plate-49675b82efc7dd0536c38c6865b8d471: 0
+sem-Plate-6372c4d2e046d0fd7d3aa3bae1f7b494: 0
+sem-Plate-6907973366e2d8ca7f181d2694cd239b: 0
+sem-Plate-9969f6178dcd67101c75d484f9069623: 0
+sem-Plate-cc87e29afe238126e20e92c5b8147e4a: 0
+sem-Plate-f151b5b32400054bebe0518a81e2c5c8: 0
+sem-Plate-fbc3702c344581fc5dca6305fb9f97ca: 0
+sem-PowerStrip-6cb9ba94a63ff60888bf39e10d433fc8: 0
+sem-PowerStrip-c3f1944d562738f7daaccab222ac90bc: 0
+sem-PSP-3695689074ea272ad9a849102f04049e: 0
+sem-Radio-215ce10da9e958ae4c40f34de8f3bdb8: 0
+sem-Radio-21983e6ee8a6992c9d151674c6eace6c: 0
+sem-Radio-278964940bbd742bf260956be71b3917: 0
+sem-Radio-4bc977c07357c3be452f233142155aa6: 0
+sem-Radio-52fbb082b3d28d369715146e52a0621c: 0
+sem-Radio-7d1f7561729128f41f8d5edb17ddb332: 0
+sem-Radio-ab673912c47afe0afb8c9814b98c66d7: 0
+sem-Radio-bcd74bede1defe392b67f63784d6db5b: 0
+sem-Radio-cd2d11cd92ee82589ebe905ef4009f84: 0
+sem-Radio-e713415e4a6b3307ddc7cb5aa929cbf: 0
+sem-RiceCooker-1f00a773e33908a3abb564bb0657e0d6: 0
+sem-RiceCooker-5aa24fc0f25b61abb564bb0657e0d6: 0
+sem-RiceCooker-86175eb31a23a452757a72d9e80d1698: 0
+sem-RiceCooker-b3bbd60c89f54f1231a50841704a69bf: 0
+sem-Rock-386c91ddd48b956f85b5e1f7eb9f2b9c: 0
+sem-Rock-f7b2c1368b2c6f9a8b43e675a8d9c006: 0
+sem-RubiksCube-1e3d89eb3b5427053bdd31f1cd9eec98: 0
+sem-RubiksCube-2b78edd5bc31b19ae0681a1280473149: 0
+sem-RubiksCube-4e7bd9db2fcdc6e01a092e6cb6aaf525: 0
+sem-RubiksCube-4e9447dfd2b56527fc7a8e315c9ddc8: 0
+sem-RubiksCube-519c4e78191acdcae2a5d596858e729c: 0
+sem-RubiksCube-549a209480960894fd1b46bc39a18482: 0
+sem-RubiksCube-cdda3ea70d829d5baa9ba8e71ae84fd3: 0
+sem-RubiksCube-d060362a42a3ef0af0a72b757e578a97: 0
+sem-RubiksCube-d7d3dc14748ec6d347cd142fcccd1cc2: 0
+sem-RubiksCube-dba37de1080c048f4f32009f59473bea: 0
+sem-RubiksCube-f449ec743900234bb7f39bf08785db2f: 0
+sem-Scale-47edf107b3ac00aae43969badba53c7b: 0
+sem-Scale-c8c28c8b9ca64290118ddfdb81cc6068: 0
+sem-Scale-cae39ade25a37c3c67964ba700cd97f5: 0
+sem-Scale-d57586d19f114143f7f3ed2c3c690fe: 0
+sem-Shampoo-2956aa89a775941267510767535a263a: 0
+sem-Shampoo-2ba1891e2b354b219617cbc6647fc553: 0
+sem-Shampoo-f483d21f78a9d355ca6af78bbbd6d20: 0
+sem-Shampoo-f919431276935ea05d8eba92952b9366: 0
+sem-Sheep-554db91bf0835764fbb35151afcb9cd5: 0
+sem-Ship-3f31208bf7adf03610aa1fb812b74966: 0
+sem-Ship-426dad839f0b0ce8cad9e942409f4e39: 0
+sem-Ship-59a52738f436b3c39b1ee006baec41ea: 0
+sem-Ship-876a4bea4fc35db067fd6c1ab7f8324: 0
+sem-Ship-87e1eda2a99c713d4fbe64e9d0fe42b6: 0
+sem-Ship-aac3a05346084a9a500068134ac23942: 0
+sem-Showerhead-1522e8a4da7c05bd76d20e73c57c9a03: 0
+sem-Showerhead-24e539b4aafc1ac476d20e73c57c9a03: 1
+sem-Showerhead-6b940f85e82457d28a1b73194a8a176f: 4
+sem-Showerhead-a07befe4a4173cc33321831d2245cf06: 2
+sem-Showerhead-ab2ff40742ca8e589a4bfcf0c77e631c: 2
+sem-Showerhead-ac2cca058aadcea43321831d2245cf06: 2
+sem-Showerhead-c04fd0df2310b7653321831d2245cf06: 2
+sem-SkateBoard-689fe527c10a9618c27eeaf34d145098: 0
+sem-SkateBoard-6e76a333d9fc9a2972e15b580d9a5b3: 0
+sem-SkateBoard-b140249e4615f0db6d8b6ba513969afe: 0
+sem-SkateBoard-d31aaca67fd8ef1827d17dabad15093: 0
+sem-Snowman-2595386004cec68b80a3636218306f06: 0
+sem-Snowman-56e9167d8d9c2b8416cec6679796546: 0
+sem-Snowman-7f61e44bc06805a6902fd4061dc1e02d: 0
+sem-Snowman-a9c5a1150d8e2bfe79f0be73913de469: 0
+sem-Snowman-bf2384e841ca61805b2ecd212557fda0: 0
+sem-Snowman-dee9e56b9946037a226eabe1cca3e850: 0
+sem-Snowman-def36b8e4538fb74d449cd634c927922: 0
+sem-Snowman-e57005090a392849320d4939a0975e7d: 0
+sem-SoapBar-351dec75ac0619b1827473663798726a: 0
+sem-SoapBar-5aba32dba149598911f4f6c1a9b8e604: 0
+sem-SoapBar-8da3c818adf836fcf2c4595240954986: 0
+sem-SoapBar-b3718bdc7025004813f5ec8466b8a488: 0
+sem-SoapBar-c96bfdeccb6d92d141b965cb8ba50814: 0
+sem-SoapBottle-43762b28fb40088f724d867867ccd9fb: 0
+sem-SoapBottle-657c79b83ab8d3079a85260e38aed309: 0
+sem-SoapBottle-a5912dff7ed43650cf6ede117dc51e3d: 0
 sem-SodaCan-16526d147e837c386829bf9ee210f5e7: 0
 sem-SodaCan-1b36df7ed7ddd974c538fbfc1e40dbe0: 0
 sem-SodaCan-295be2a01cb9f29b716714dd1fd945b7: 0
@@ -5235,9 +5235,9 @@ sem-Stapler-d9378f9a4a7d6514602a101aa41a6f48: 0
 sem-Stapler-dbd993a1e538ad05a465092f77585928: 0
 sem-Stapler-eb6646d3590c467f1cf3fe6240494178: 0
 sem-Stapler-f39912a4f0516fb897371d1e7cc637f3: 0
-sem-Statue-114aff55d9933650a83967b36ab91a2e: 
-sem-Statue-5843ac18799f8970f9fced92afcb9866: 
-sem-Statue-c2f594f29b86cb8fcad6a699dd685278: 
+sem-Statue-114aff55d9933650a83967b36ab91a2e: 0
+sem-Statue-5843ac18799f8970f9fced92afcb9866: 0
+sem-Statue-c2f594f29b86cb8fcad6a699dd685278: 0
 sem-TableClock-1d5a354ee3e977d7ce57d3de4658a486: 0
 sem-TableClock-1d693a6c9c67857f86d9ac00cacf663a: 0
 sem-TableClock-24b5dbb43ebc21d351a3cde61844b03f: 0
@@ -5271,92 +5271,92 @@ sem-TableClock-c9dd71db5e6713937d0fed3563de13d: 0
 sem-TableClock-cebb0e2be3b2cc1b474465268b958bdc: 0
 sem-TableClock-e8c8090792a48c08b045cbdf51c133cd: 0
 sem-TableClock-fc5e57ba9bade79a86a499d1a4d80ea4: 0
-sem-Tank-187b8cfebe4e9257ccec770873355bd5: 
-sem-Tank-46b4d1c0ee560d6f68090cded41dd5cd: 
-sem-Tank-52eb26e5a71f2c8fc36c7821ad0d5a86: 
-sem-Tank-681ab828f572596716b34c3751bc447d: 
-sem-Tank-79abfbd42cb5a78f0985368fed75674: 
-sem-Tank-9037fb8643165a0f543fc9b228fa4afd: 
-sem-Tank-971582976064edab2c4683dd00deec1: 
-sem-Tank-9fa6e6c5e5ea5821e86077f6afe582d2: 
-sem-Tank-ca1190ff827af8c4dbe62544818af5a6: 
-sem-Tank-cca0b9a74f1e341386459c315bdea98e: 
-sem-Tank-d37c053308410f08f7a0a2f21341b9c5: 
-sem-Tank-ffb4046e7b34813f9fa437cfeba70c2: 
-sem-Tape-81fd4ab44df90d8ad84b8ba651dfb8ac: 
-sem-Tape-de31538db6b382cc1c0f52f4ec8b820b: 
-sem-TapeDispenser-4674032e53b9fd37c1935c9110af1bff: 
-sem-TapeDispenser-495b0f006c6133ef4f782ac57aea97b: 
-sem-TapeDispenser-52ea6fedbd33a6ae6a6ce77a145d1d18: 
-sem-TapeDispenser-66b281a91f4da81d749d52b3e269018: 
-sem-TapeDispenser-844516b6fe304dafe36f6f37ca7926: 
-sem-TapeDispenser-b5f9032272607f5e635f2989c7524167: 
-sem-TapeDispenser-c8fa10f7ae935b042825656dc457df78: 
-sem-TapeDispenser-cd4b3d3c0882d34c55fa258228485acf: 
-sem-TapeDispenser-e888f8a58bcc4d0d5ae27c0a612d86c1: 
-sem-TapeMeasure-2a56903c620c0ea8214eb5a22e115fe: 
-sem-TapeMeasure-68c411e8b84a6f16ca6895dabdbc0ada: 
-sem-TapeMeasure-8e032ae0d6bf11795b8aa067abf14878: 
-sem-TapeMeasure-8f0a948bdcf8a65d43a73aba20837492: 
-sem-TapeMeasure-948850694831c2644fdfafc90a1f296: 
-sem-TapeMeasure-ab9253297bfa8db3724d867867ccd9fb: 
-sem-TapeMeasure-d7ae45c05243250fb85d7b26e23c80bf: 
-sem-TapeMeasure-e8951611e2c25ac1314b44839465ec00: 
-sem-Teapot-139af10e719186bddaa266217a65f9d7: 
-sem-Teapot-3d2cafbf9a6a2da44212ff51b27f0221: 
-sem-Teapot-5a471458da447600fea9cf313bd7758b: 
-sem-Teapot-93c6553dc3f2ad11012cc02986a86c3: 
-sem-Teapot-c7a70db33a8c900dab5b523beb03efcd: 
-sem-Teapot-ef16485d8a6750e84212ff51b27f0221: 
-sem-Telephone-1b1969121f2d099b27192dc5dc6ab252: 
-sem-Telephone-1be8addaf7585689216c1a3231f5bcb1: 
-sem-Telephone-202fd2497d2e85f0dd6c14adedcbd4c3: 
-sem-Telephone-2216e78a43c5d587b8e1b99345a5afd4: 
-sem-Telephone-26f4aa1be6ff59ecc77d45d65dc3714: 
-sem-Telephone-283e3f79ecc4b74d1e4e60ebd003a0c9: 
-sem-Telephone-2af54326431866e8c47a35332c17cce2: 
-sem-Telephone-2def1b8f8dfb298f5c351e299b24e355: 
-sem-Telephone-34ee6b5a1403ef4a261fdcb864bca54a: 
-sem-Telephone-3f95b3ecbe55c83e9c3a7294039d408: 
-sem-Telephone-4185eb13a6f35bccb75e01624252de22: 
-sem-Telephone-48751d0180d21905f91af49d62136752: 
-sem-Telephone-49cb33eee420dbd9ea35d893b8dc1ba5: 
-sem-Telephone-4daa7c0f1d640f0375aa7f24a9b6003a: 
-sem-Telephone-4e31c3e9575d744b916bc112690303c9: 
-sem-Telephone-4f3c487c54ca29f2439292e4b8fd557e: 
-sem-Telephone-5148da752bcd11884ce243cdbc967ce2: 
-sem-Telephone-585f02091286a7a82b7045644a6897b2: 
-sem-Telephone-6909da0ff58823615a82137b384b94e: 
-sem-Telephone-76fe3adde9339e36e86faa3d042d8b31: 
-sem-Telephone-9cd99229ce4dc71ac00fd1150223027: 
-sem-Telephone-c117b031376d3c12cd5cc02ebe46ffbd: 
-sem-Telephone-c628e08d90856d8175047675df2d5300: 
-sem-Telephone-e1207056cc6c10f4980a39e0273687b1: 
-sem-Telephone-ec8862892eb0a2d3f29d5ee6f0286998: 
-sem-Telephone-ed52bccead5926dfa9fe1734a6086750: 
-sem-Telephone-f73493b7c8a78000b594bbf2c494ab81: 
-sem-Telephone-fb040b309c45cf3e85d624cfcd9a37a7: 
-sem-Telephone-fb050aca4d5f2573cf1d3d11d6121bb4: 
-sem-Telephone-fed335202963b8d3fbeef84a1ff2df7f: 
-sem-Telescope-4789d91c52c2847a79c0e593f920268b: 
-sem-Telescope-95658a9218dd8fd2c313565ece0cdda: 
-sem-Telescope-a230fd500f22980ea4e0807819d752ad: 
-sem-Telescope-a682f5f91e0821fccc34b900bb2492e: 
-sem-Telescope-b1acf9192edcc9e8c6762ceda62c6ff0: 
-sem-Thermostat-c2b73966ca4024ef38b28f94c165f833: 
-sem-Thermostat-e5a96400ffb51cc464c33a5741e8e076: 
-sem-Thumbtack-17aa537d3f70e0998c5d696f6e844329: 
-sem-Thumbtack-234178eff23a44a9f93949907e492e5e: 
-sem-Thumbtack-42ece945238a9f7a8877c667ba5c2021: 
-sem-Thumbtack-58823e7be75befa9b2b6352649b85133: 
-sem-Thumbtack-673393cb60908c9da909cd1ba5751669: 
-sem-Thumbtack-6e8faa670023eca66b3e7713f8f94dd8: 
-sem-Thumbtack-720e0967d45b10692233c3c1e9cf18e1: 
-sem-Thumbtack-7796072d01d00f173d1894dacd1107d7: 
-sem-Thumbtack-85b5858701c7103ceb1b1cfd9c64ee4: 
-sem-Thumbtack-87ced92ffec180dece2fdea99c5936e8: 
-sem-Thumbtack-b8c2e7e881d98f26442de31b45342233: 
-sem-Thumbtack-e17459082748cdbae8cf9cc1958b4a62: 
+sem-Tank-187b8cfebe4e9257ccec770873355bd5: 0
+sem-Tank-46b4d1c0ee560d6f68090cded41dd5cd: 0
+sem-Tank-52eb26e5a71f2c8fc36c7821ad0d5a86: 0
+sem-Tank-681ab828f572596716b34c3751bc447d: 0
+sem-Tank-79abfbd42cb5a78f0985368fed75674: 0
+sem-Tank-9037fb8643165a0f543fc9b228fa4afd: 0
+sem-Tank-971582976064edab2c4683dd00deec1: 0
+sem-Tank-9fa6e6c5e5ea5821e86077f6afe582d2: 0
+sem-Tank-ca1190ff827af8c4dbe62544818af5a6: 0
+sem-Tank-cca0b9a74f1e341386459c315bdea98e: 0
+sem-Tank-d37c053308410f08f7a0a2f21341b9c5: 0
+sem-Tank-ffb4046e7b34813f9fa437cfeba70c2: 0
+sem-Tape-81fd4ab44df90d8ad84b8ba651dfb8ac: 0
+sem-Tape-de31538db6b382cc1c0f52f4ec8b820b: 0
+sem-TapeDispenser-4674032e53b9fd37c1935c9110af1bff: 0
+sem-TapeDispenser-495b0f006c6133ef4f782ac57aea97b: 0
+sem-TapeDispenser-52ea6fedbd33a6ae6a6ce77a145d1d18: 0
+sem-TapeDispenser-66b281a91f4da81d749d52b3e269018: 0
+sem-TapeDispenser-844516b6fe304dafe36f6f37ca7926: 0
+sem-TapeDispenser-b5f9032272607f5e635f2989c7524167: 0
+sem-TapeDispenser-c8fa10f7ae935b042825656dc457df78: 0
+sem-TapeDispenser-cd4b3d3c0882d34c55fa258228485acf: 0
+sem-TapeDispenser-e888f8a58bcc4d0d5ae27c0a612d86c1: 0
+sem-TapeMeasure-2a56903c620c0ea8214eb5a22e115fe: 0
+sem-TapeMeasure-68c411e8b84a6f16ca6895dabdbc0ada: 0
+sem-TapeMeasure-8e032ae0d6bf11795b8aa067abf14878: 0
+sem-TapeMeasure-8f0a948bdcf8a65d43a73aba20837492: 0
+sem-TapeMeasure-948850694831c2644fdfafc90a1f296: 0
+sem-TapeMeasure-ab9253297bfa8db3724d867867ccd9fb: 0
+sem-TapeMeasure-d7ae45c05243250fb85d7b26e23c80bf: 0
+sem-TapeMeasure-e8951611e2c25ac1314b44839465ec00: 0
+sem-Teapot-139af10e719186bddaa266217a65f9d7: 0
+sem-Teapot-3d2cafbf9a6a2da44212ff51b27f0221: 0
+sem-Teapot-5a471458da447600fea9cf313bd7758b: 0
+sem-Teapot-93c6553dc3f2ad11012cc02986a86c3: 0
+sem-Teapot-c7a70db33a8c900dab5b523beb03efcd: 0
+sem-Teapot-ef16485d8a6750e84212ff51b27f0221: 0
+sem-Telephone-1b1969121f2d099b27192dc5dc6ab252: 0
+sem-Telephone-1be8addaf7585689216c1a3231f5bcb1: 0
+sem-Telephone-202fd2497d2e85f0dd6c14adedcbd4c3: 0
+sem-Telephone-2216e78a43c5d587b8e1b99345a5afd4: 2
+sem-Telephone-26f4aa1be6ff59ecc77d45d65dc3714: 0
+sem-Telephone-283e3f79ecc4b74d1e4e60ebd003a0c9: 0
+sem-Telephone-2af54326431866e8c47a35332c17cce2: 0
+sem-Telephone-2def1b8f8dfb298f5c351e299b24e355: 0
+sem-Telephone-34ee6b5a1403ef4a261fdcb864bca54a: 0
+sem-Telephone-3f95b3ecbe55c83e9c3a7294039d408: 0
+sem-Telephone-4185eb13a6f35bccb75e01624252de22: 0
+sem-Telephone-48751d0180d21905f91af49d62136752: 0
+sem-Telephone-49cb33eee420dbd9ea35d893b8dc1ba5: 0
+sem-Telephone-4daa7c0f1d640f0375aa7f24a9b6003a: 0
+sem-Telephone-4e31c3e9575d744b916bc112690303c9: 0
+sem-Telephone-4f3c487c54ca29f2439292e4b8fd557e: 0
+sem-Telephone-5148da752bcd11884ce243cdbc967ce2: 0
+sem-Telephone-585f02091286a7a82b7045644a6897b2: 0
+sem-Telephone-6909da0ff58823615a82137b384b94e: 0
+sem-Telephone-76fe3adde9339e36e86faa3d042d8b31: 0
+sem-Telephone-9cd99229ce4dc71ac00fd1150223027: 0
+sem-Telephone-c117b031376d3c12cd5cc02ebe46ffbd: 0
+sem-Telephone-c628e08d90856d8175047675df2d5300: 0
+sem-Telephone-e1207056cc6c10f4980a39e0273687b1: 0
+sem-Telephone-ec8862892eb0a2d3f29d5ee6f0286998: 2
+sem-Telephone-ed52bccead5926dfa9fe1734a6086750: 1
+sem-Telephone-f73493b7c8a78000b594bbf2c494ab81: 0
+sem-Telephone-fb040b309c45cf3e85d624cfcd9a37a7: 2
+sem-Telephone-fb050aca4d5f2573cf1d3d11d6121bb4: 0
+sem-Telephone-fed335202963b8d3fbeef84a1ff2df7f: 0
+sem-Telescope-4789d91c52c2847a79c0e593f920268b: 1
+sem-Telescope-95658a9218dd8fd2c313565ece0cdda: 1
+sem-Telescope-a230fd500f22980ea4e0807819d752ad: 0
+sem-Telescope-a682f5f91e0821fccc34b900bb2492e: 0
+sem-Telescope-b1acf9192edcc9e8c6762ceda62c6ff0: 0
+sem-Thermostat-c2b73966ca4024ef38b28f94c165f833: 1
+sem-Thermostat-e5a96400ffb51cc464c33a5741e8e076: 1
+sem-Thumbtack-17aa537d3f70e0998c5d696f6e844329: 1
+sem-Thumbtack-234178eff23a44a9f93949907e492e5e: 0
+sem-Thumbtack-42ece945238a9f7a8877c667ba5c2021: 1
+sem-Thumbtack-58823e7be75befa9b2b6352649b85133: 0
+sem-Thumbtack-673393cb60908c9da909cd1ba5751669: 1
+sem-Thumbtack-6e8faa670023eca66b3e7713f8f94dd8: 1
+sem-Thumbtack-720e0967d45b10692233c3c1e9cf18e1: 1
+sem-Thumbtack-7796072d01d00f173d1894dacd1107d7: 1
+sem-Thumbtack-85b5858701c7103ceb1b1cfd9c64ee4: 1
+sem-Thumbtack-87ced92ffec180dece2fdea99c5936e8: 1
+sem-Thumbtack-b8c2e7e881d98f26442de31b45342233: 1
+sem-Thumbtack-e17459082748cdbae8cf9cc1958b4a62: 1
 sem-TissueBox-13a913b33fb29f7741f9f28bc4fa9522: 0
 sem-TissueBox-266911058f9345d8c6e01b363ae6db1b: 0
 sem-TissueBox-5128910785490905c58e834f0b160845: 0
@@ -5378,10 +5378,10 @@ sem-TissueBox-ead04620c411e80e6c3c5100db3288c: 0
 sem-TissueBox-f9cf0ccfcb21c2e7899c1686868c4bc: 0
 sem-TissueBox-fd9c40cd2ff2aab4a843bb865a04c01a: 0
 sem-TissueBox-ffb4e07d613b6a62bbfa57fc7493b378: 0
-sem-Toaster-2fb52b43697b9341b785a4ac4a0dbd73: 
-sem-Toaster-3ffbb0ab0f8da32f86271197b958e3d5: 
-sem-ToasterOven-3c357d1352d2d1811fddae104d1cd00e: 
-sem-ToasterOven-95b4eee44e668dfb87a77620548f66e9: 
+sem-Toaster-2fb52b43697b9341b785a4ac4a0dbd73: 0
+sem-Toaster-3ffbb0ab0f8da32f86271197b958e3d5: 0
+sem-ToasterOven-3c357d1352d2d1811fddae104d1cd00e: 0
+sem-ToasterOven-95b4eee44e668dfb87a77620548f66e9: 0
 sem-ToiletPaper-176c87aa66fcf8116ea2d79f658bbae7: 0
 sem-ToiletPaper-1f272d022ffe6e79fccf04aa26d69912: 3
 sem-ToiletPaper-260949513aaba2eb90cadbd65232985b: 4
@@ -5411,7 +5411,7 @@ sem-ToiletPaper-dbe344f40aae59e6a9944a6bf3d6e5a2: 0
 sem-ToiletPaper-f7cd7da83f3e045d3321831d2245cf06: 2
 sem-ToiletPaper-fa87861f8333297552abbce631b92308: 2
 sem-ToiletPaper-fe2973e2edc0ab7c3fbe480a485feffd: 0
-sem-Toothbrush-3fd2220368ddb07112c1524f812438c7: 
+sem-Toothbrush-3fd2220368ddb07112c1524f812438c7: 0
 sem-ToyFigure-12ddd9e1fa8912ae1bfccceeaa1b7669: 0
 sem-ToyFigure-1a5327b328cd97d084c3569473be6c23: 0
 sem-ToyFigure-1e23d88e517b711567ff608a5fbe6aa8: 0
@@ -5487,52 +5487,52 @@ sem-ToyFigure-f1c11e37a51eacccf8208b6313b1ffa0: 0
 sem-ToyFigure-f2f397733f14198115c3f92f810cab08: 0
 sem-ToyFigure-f3e1d1174cb311e3e3fdf9a381029f42: 0
 sem-ToyFigure-fc5e95c0339aebe3f22ebff72a57eff4: 0
-sem-Truck-1771bb5839afabd712b362dc2411f439: 
-sem-Truck-31118f4245343b70c84b95bddf75b22d: 
-sem-Truck-353262788fa31d485e8d9410f9a74fa5: 
-sem-Truck-40597e0ca3a8eca9a1cba95c26616410: 
-sem-Truck-47f92f099bea6f2b2c75f7ae6d27015e: 
-sem-Truck-5502f76ce18c9059578b14cd14f51f45: 
-sem-Truck-623f58e97b32cd9bce27281f3b76d1f5: 
-sem-Truck-6a87e2fda2b22030bc2f4fd97ddfb2e6: 
-sem-Truck-6c8707d2fd87946937e5d0c5b4892f98: 
-sem-Truck-929b988c79fcc34a8b9c5bfdb1fdd04e: 
-sem-Truck-953dad33689d4c339fd98f69b4e5ae4e: 
-sem-Truck-ac456ecedaaf35129e0514c338f86927: 
-sem-Truck-acb1617efd51854339ad6b48a26028ff: 
-sem-Truck-c39657b19417a5165194b1845116f6e1: 
-sem-Truck-d24588a6a6b27f4f914c738e92faad58: 
-sem-Truck-d599ebc510db1b886ba1b127e65435ae: 
-sem-USBStick-1342351a82465eeef2cdad303f49c9f9: 
-sem-USBStick-191d35d8b238316dbe938435307744f3: 
-sem-USBStick-1baa93373407c8924315bea999e66ce3: 
-sem-USBStick-27721f92f4f94ae2c5243a0ab191990d: 
-sem-USBStick-353fe70ec5633fc5e05878fff8971272: 
-sem-USBStick-3718e003ccc6bea69089ddf94eaf510e: 
-sem-USBStick-3d15f0b93dc94909ce92f6b720939174: 
-sem-USBStick-46e3e18fd10b6fb3c5eb3ae2e8bb1ef5: 
-sem-USBStick-56f49e3cd0d16824b2bf4f773fe0e622: 
-sem-USBStick-612b2d68208011b35bda1d8d3c2c6b0a: 
-sem-USBStick-6145695d2e143621be027938c6b77491: 
-sem-USBStick-625e5d4a97a46afb19406a58279c37db: 
-sem-USBStick-6484ba8442fc7c8829545ddc91df1dc1: 
-sem-USBStick-6de307ddb4317eae1c816f27d2a33b03: 
-sem-USBStick-858862a2b1a8f3bc9fd64f3f4b1fc8a1: 
-sem-USBStick-8da9e6262ad99eeea67a3c356e68e463: 
-sem-USBStick-9a9508597dee231d4e205745311c3a: 
-sem-USBStick-a2d20c909ed9c6d85d723f8969b531b: 
-sem-USBStick-a432dacac26ad0f7ef90d4b0a8f1b812: 
-sem-USBStick-a6e61919f049acd42e4dcc14ebed8963: 
-sem-USBStick-a88aa8a6fa1e2e60d61a52fabbee0e9c: 
-sem-USBStick-aad9d9e21483e449498d1fb5502f7750: 
-sem-USBStick-ab82d56cf9cc2476d154e1b098031d39: 
-sem-USBStick-ac053395ad9eb8e23adb21a59d529cb8: 
-sem-USBStick-bd57a7d69b159b51fd1b668c95727d0: 
-sem-USBStick-c2bdb22813683d8efd53700213e7632d: 
-sem-USBStick-c484d712f9e5f7eddeb8736b6b7dc5f5: 
-sem-USBStick-d1d5e86583e0e5f950648c342f01b361: 
-sem-USBStick-e2e75212fefa0ecf30e9a79a761377a4: 
-sem-USBStick-ebb3555c3b4a950279a0850c41875f3c: 
+sem-Truck-1771bb5839afabd712b362dc2411f439: 0
+sem-Truck-31118f4245343b70c84b95bddf75b22d: 0
+sem-Truck-353262788fa31d485e8d9410f9a74fa5: 0
+sem-Truck-40597e0ca3a8eca9a1cba95c26616410: 0
+sem-Truck-47f92f099bea6f2b2c75f7ae6d27015e: 0
+sem-Truck-5502f76ce18c9059578b14cd14f51f45: 0
+sem-Truck-623f58e97b32cd9bce27281f3b76d1f5: 0
+sem-Truck-6a87e2fda2b22030bc2f4fd97ddfb2e6: 0
+sem-Truck-6c8707d2fd87946937e5d0c5b4892f98: 0
+sem-Truck-929b988c79fcc34a8b9c5bfdb1fdd04e: 0
+sem-Truck-953dad33689d4c339fd98f69b4e5ae4e: 0
+sem-Truck-ac456ecedaaf35129e0514c338f86927: 0
+sem-Truck-acb1617efd51854339ad6b48a26028ff: 0
+sem-Truck-c39657b19417a5165194b1845116f6e1: 0
+sem-Truck-d24588a6a6b27f4f914c738e92faad58: 0
+sem-Truck-d599ebc510db1b886ba1b127e65435ae: 0
+sem-USBStick-1342351a82465eeef2cdad303f49c9f9: 1
+sem-USBStick-191d35d8b238316dbe938435307744f3: 2
+sem-USBStick-1baa93373407c8924315bea999e66ce3: 3
+sem-USBStick-27721f92f4f94ae2c5243a0ab191990d: 3
+sem-USBStick-353fe70ec5633fc5e05878fff8971272: 3
+sem-USBStick-3718e003ccc6bea69089ddf94eaf510e: 3
+sem-USBStick-3d15f0b93dc94909ce92f6b720939174: 2
+sem-USBStick-46e3e18fd10b6fb3c5eb3ae2e8bb1ef5: 1
+sem-USBStick-56f49e3cd0d16824b2bf4f773fe0e622: 3
+sem-USBStick-612b2d68208011b35bda1d8d3c2c6b0a: 3
+sem-USBStick-6145695d2e143621be027938c6b77491: 4
+sem-USBStick-625e5d4a97a46afb19406a58279c37db: 0
+sem-USBStick-6484ba8442fc7c8829545ddc91df1dc1: 1
+sem-USBStick-6de307ddb4317eae1c816f27d2a33b03: 2
+sem-USBStick-858862a2b1a8f3bc9fd64f3f4b1fc8a1: 3
+sem-USBStick-8da9e6262ad99eeea67a3c356e68e463: 5
+sem-USBStick-9a9508597dee231d4e205745311c3a: 1
+sem-USBStick-a2d20c909ed9c6d85d723f8969b531b: 1
+sem-USBStick-a432dacac26ad0f7ef90d4b0a8f1b812: 3
+sem-USBStick-a6e61919f049acd42e4dcc14ebed8963: 1
+sem-USBStick-a88aa8a6fa1e2e60d61a52fabbee0e9c: 3
+sem-USBStick-aad9d9e21483e449498d1fb5502f7750: 3
+sem-USBStick-ab82d56cf9cc2476d154e1b098031d39: 1
+sem-USBStick-ac053395ad9eb8e23adb21a59d529cb8: 3
+sem-USBStick-bd57a7d69b159b51fd1b668c95727d0: 3
+sem-USBStick-c2bdb22813683d8efd53700213e7632d: 1
+sem-USBStick-c484d712f9e5f7eddeb8736b6b7dc5f5: 1
+sem-USBStick-d1d5e86583e0e5f950648c342f01b361: 3
+sem-USBStick-e2e75212fefa0ecf30e9a79a761377a4: 0
+sem-USBStick-ebb3555c3b4a950279a0850c41875f3c: 0
 sem-Vase-1654250bf1bc5a0131fef20bb2ae787e: 0
 sem-Vase-1666ce5ced647ed25d878ba9ec3c0d6a: 0
 sem-Vase-1a8f9295b44b48895e8c5748ca5ef3ea: 0
@@ -5657,95 +5657,95 @@ sem-VideoGameConsole-eaa8098b84b96511facb3969777cc1cb: 0
 sem-VideoGameConsole-eabea01e420a96a3c55b18f95951c1e1: 0
 sem-VideoGameConsole-f0f4ca54e47196d052fe235c4b978954: 0
 sem-VideoGameConsole-f732c387a9edad30998b772595cc99e5: 0
-sem-VideoGameController-1046b3d5a381a8902e5ae31c6c631a39: 
-sem-VideoGameController-1684b58103c2f3cb1e85aace27a943de: 
-sem-VideoGameController-1b6ba5a1d8498ff223330fbe0ef32590: 
-sem-VideoGameController-1b971a37985c66c2605859953aa3a288: 
-sem-VideoGameController-1cacad634bbf93595e02677d620b73fd: 
-sem-VideoGameController-1ce1db5e6f9b9accf3ddd47627ca960: 
-sem-VideoGameController-1ddf7826d6dff2cccffdc5bf87b1e5e2: 
-sem-VideoGameController-2581265a7c81684b9141c153bb8dff6e: 
-sem-VideoGameController-25d7e6f3a56202aa872865ea0c4f831: 
-sem-VideoGameController-29e9ba2e86a2fd8ecf3ddd47627ca960: 
-sem-VideoGameController-37dee4c7174754508394f037467060c4: 
-sem-VideoGameController-4b4973bb15b2d1c766973efe1c67dd46: 
-sem-VideoGameController-594bf8ec9ff15a97ec6bc90f1be5fb1f: 
-sem-VideoGameController-5ae9e17a7f90db1f200c856a4ef1939f: 
-sem-VideoGameController-6ec5528fb04c5b8e9a9bf2cd62bd4fba: 
-sem-VideoGameController-6f790be92e6e44659bd828aa88bf7e51: 
-sem-VideoGameController-72a49bdc044e28bb6b5f9f512f90f50: 
-sem-VideoGameController-7a59da5b8fef527126400389fa18a999: 
-sem-VideoGameController-91a55991c78fb72486ee580772ac6d53: 
-sem-VideoGameController-988c75e746230c8ee2a961da0ba4c636: 
-sem-VideoGameController-a0b126315ac274ba040aed0c3e87e91: 
-sem-VideoGameController-a23e5dcfe34892ea4cc8ca1e1f7e5af1: 
-sem-VideoGameController-a47a94157cc6adbaf60ee1f3195828a5: 
-sem-VideoGameController-a84a773bba0d87caa4f91d3b3237de5c: 
-sem-VideoGameController-b9cc669597085c028766390809048ebc: 
-sem-VideoGameController-bde4419d49641d1a4452974e2a3ce49e: 
-sem-VideoGameController-bf64ea371dab78f0f183602b3f819644: 
-sem-VideoGameController-c17873ebacc5476e1ee2b36e795b09b7: 
-sem-VideoGameController-c5d14b600ba28289ef2d91f96fdec842: 
-sem-VideoGameController-c906b5644fe468a2b61fb7ca6803b7a5: 
-sem-VideoGameController-cf0e5283da2305632e5ae31c6c631a39: 
-sem-VideoGameController-d35f3e4b13fcc3f31f769745506a7c94: 
-sem-VideoGameController-d645548db9bac0d06c83d4fe30a8041b: 
-sem-VideoGameController-d6c3544683587aee785e66156846bcb1: 
-sem-VideoGameController-dd4e96db89cc5ceed6b02c5f099ea354: 
-sem-VideoGameController-ed27bf4f15ad49ee200c856a4ef1939f: 
-sem-VideoGameController-ef0eefeefe7b2b2ec19c30aa3956807a: 
-sem-VideoGameController-fe5011b98f1b483c892931701806670a: 
-sem-VideoGameController-ff046c0abae97cd026f42816cc41d614: 
-sem-WallClock-1e2ea05e566e315c35836c728d324152: 
-sem-WallClock-247ca61022a4f47e8a94168388287ad5: 
-sem-WallClock-2eac0b7ef110349235836c728d324152: 
-sem-WallClock-3521751471b748ff2846fa729d90e125: 
-sem-WallClock-4e979d296586eeb880aaaa0b0a5c59dc: 
-sem-WallClock-51b07fb2a039850c384368499a680cf1: 
-sem-WallClock-5bbaf43f2f86ba638b33d3087add7a4c: 
-sem-WallClock-646bad2b62b63a4320bac12279fdf33e: 
-sem-WallClock-67a508f171d450b735836c728d324152: 
-sem-WallClock-686a205c36f5c85443ee5a34155b4f2b: 
-sem-WallClock-68fc29533c292d3535836c728d324152: 
-sem-WallClock-6d2f8c13005c05abedf0adca85d84acc: 
-sem-WallClock-71bf8d678caec58735836c728d324152: 
-sem-WallClock-772f1ed7779459e8d835a15bbfa33167: 
-sem-WallClock-7af418de6847137d2ea98d69e91ba870: 
-sem-WallClock-83215aac91958278ee2b478fec745c0a: 
-sem-WallClock-83260a9b58d7bbfc35836c728d324152: 
-sem-WallClock-88565e0eb863eb31426db14e2702705d: 
-sem-WallClock-97734a7ab8ab7cbd35836c728d324152: 
-sem-WallClock-a883792a4f1d76613bac5db195d5c0cc: 
-sem-WallClock-b029b05ae3761f0b582ed853b74eeebb: 
-sem-WallClock-c07b92d1d7930faab594bbf2c494ab81: 
-sem-WallClock-d8e27d8d60a9a0c091aca0a9b5efd2ce: 
-sem-WallClock-d999e84be5ff346e983ec12a2b33f18b: 
-sem-WallClock-de988e19f0a6fa1749c34f2eb33d9b8d: 
-sem-WallClock-e133ca5fa7e49536fc5a6a6856432614: 
-sem-WallClock-e26485c0a14a90867903707764646db: 
-sem-WallClock-e67f610cafeb2c0dbf93f50e43a43f7e: 
-sem-WallClock-ebb7e54b68ffcf2c3ee5ff7ba8322f9f: 
-sem-WallClock-f3d5c4eeb6cd4f1bad6f91c948f3a295: 
-sem-WallClock-f612519bd51699c2ffc7c3dbc2a86ed3: 
-sem-WallClock-f82e90f8a6d49827e8784f880dac0f61: 
-sem-WallClock-fac633a56e88786559d14889fe22f10: 
-sem-WallClock-fc51a35ac0399c457dc65f24011042f1: 
-sem-Wallet-52431cf438b7a1c5606b049766a67fa3: 
-sem-Watch-3a5351666689a7b2b788559e93c74a0f: 
-sem-Watch-9f7be3718a4ce14fa9b896e91fe8701d: 
-sem-Watch-e743856943ce4fa49a9248bc70f7492: 
-sem-Watch-f57628258e99f63c5cd95682b31d27c1: 
-sem-Wii-246fe9e6391b8ab1d6ceefe6d23b06bb: 
-sem-Wii-84f45a5c3f9de48ae1c30bc7caf261be: 
-sem-Wii-effdc659515ff747eb2c6725049f8f: 
-sem-WineBottle-1c79735033726294724d5ee7f09ab66b: 
-sem-WineBottle-f331ad8d0e6654ef8f992b1fe7075c8f: 
-sem-Xbox360-14e5dba73b283dc7fe0939859a0b15ea: 
-sem-Xbox360-33c76a59e0f2a38cbf4723a8638af381: 
-sem-Xbox360-435f39e98d2260f0d6e21b8525c3f8bb: 
-sem-Xbox360-51dffafed887361d5c1d98e8ba18818b: 
-sem-Xbox360-605f66221c1da5c53b1ca30c6f5a0300: 
-sem-Xbox360-65fa6b739bf4ad8aa85cfef42aa9df43: 
-sem-Xbox360-72e4d858c9356150a8db05c665c242d0: 
-sem-Xbox360-b3f2ab41ab5458364df9841039a93756: 
-sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2: 
+sem-VideoGameController-1046b3d5a381a8902e5ae31c6c631a39: 2
+sem-VideoGameController-1684b58103c2f3cb1e85aace27a943de: 0
+sem-VideoGameController-1b6ba5a1d8498ff223330fbe0ef32590: 0
+sem-VideoGameController-1b971a37985c66c2605859953aa3a288: 3
+sem-VideoGameController-1cacad634bbf93595e02677d620b73fd: 4
+sem-VideoGameController-1ce1db5e6f9b9accf3ddd47627ca960: 0
+sem-VideoGameController-1ddf7826d6dff2cccffdc5bf87b1e5e2: 1
+sem-VideoGameController-2581265a7c81684b9141c153bb8dff6e: 0
+sem-VideoGameController-25d7e6f3a56202aa872865ea0c4f831: 1
+sem-VideoGameController-29e9ba2e86a2fd8ecf3ddd47627ca960: 4
+sem-VideoGameController-37dee4c7174754508394f037467060c4: 1
+sem-VideoGameController-4b4973bb15b2d1c766973efe1c67dd46: 0
+sem-VideoGameController-594bf8ec9ff15a97ec6bc90f1be5fb1f: 3
+sem-VideoGameController-5ae9e17a7f90db1f200c856a4ef1939f: 4
+sem-VideoGameController-6ec5528fb04c5b8e9a9bf2cd62bd4fba: 1
+sem-VideoGameController-6f790be92e6e44659bd828aa88bf7e51: 5
+sem-VideoGameController-72a49bdc044e28bb6b5f9f512f90f50: 4
+sem-VideoGameController-7a59da5b8fef527126400389fa18a999: 4
+sem-VideoGameController-91a55991c78fb72486ee580772ac6d53: 0
+sem-VideoGameController-988c75e746230c8ee2a961da0ba4c636: 1
+sem-VideoGameController-a0b126315ac274ba040aed0c3e87e91: 0
+sem-VideoGameController-a23e5dcfe34892ea4cc8ca1e1f7e5af1: 0
+sem-VideoGameController-a47a94157cc6adbaf60ee1f3195828a5: 0
+sem-VideoGameController-a84a773bba0d87caa4f91d3b3237de5c: 1
+sem-VideoGameController-b9cc669597085c028766390809048ebc: 0
+sem-VideoGameController-bde4419d49641d1a4452974e2a3ce49e: 0
+sem-VideoGameController-bf64ea371dab78f0f183602b3f819644: 0
+sem-VideoGameController-c17873ebacc5476e1ee2b36e795b09b7: 0
+sem-VideoGameController-c5d14b600ba28289ef2d91f96fdec842: 0
+sem-VideoGameController-c906b5644fe468a2b61fb7ca6803b7a5: 5
+sem-VideoGameController-cf0e5283da2305632e5ae31c6c631a39: 2
+sem-VideoGameController-d35f3e4b13fcc3f31f769745506a7c94: 0
+sem-VideoGameController-d645548db9bac0d06c83d4fe30a8041b: 0
+sem-VideoGameController-d6c3544683587aee785e66156846bcb1: 0
+sem-VideoGameController-dd4e96db89cc5ceed6b02c5f099ea354: 3
+sem-VideoGameController-ed27bf4f15ad49ee200c856a4ef1939f: 6
+sem-VideoGameController-ef0eefeefe7b2b2ec19c30aa3956807a: 2
+sem-VideoGameController-fe5011b98f1b483c892931701806670a: 3
+sem-VideoGameController-ff046c0abae97cd026f42816cc41d614: 1
+sem-WallClock-1e2ea05e566e315c35836c728d324152: 5
+sem-WallClock-247ca61022a4f47e8a94168388287ad5: 1
+sem-WallClock-2eac0b7ef110349235836c728d324152: 5
+sem-WallClock-3521751471b748ff2846fa729d90e125: 0
+sem-WallClock-4e979d296586eeb880aaaa0b0a5c59dc: 0
+sem-WallClock-51b07fb2a039850c384368499a680cf1: 0
+sem-WallClock-5bbaf43f2f86ba638b33d3087add7a4c: 1
+sem-WallClock-646bad2b62b63a4320bac12279fdf33e: 0
+sem-WallClock-67a508f171d450b735836c728d324152: 5
+sem-WallClock-686a205c36f5c85443ee5a34155b4f2b: 2
+sem-WallClock-68fc29533c292d3535836c728d324152: 5
+sem-WallClock-6d2f8c13005c05abedf0adca85d84acc: 0
+sem-WallClock-71bf8d678caec58735836c728d324152: 5
+sem-WallClock-772f1ed7779459e8d835a15bbfa33167: 1
+sem-WallClock-7af418de6847137d2ea98d69e91ba870: 0
+sem-WallClock-83215aac91958278ee2b478fec745c0a: 1
+sem-WallClock-83260a9b58d7bbfc35836c728d324152: 5
+sem-WallClock-88565e0eb863eb31426db14e2702705d: 3
+sem-WallClock-97734a7ab8ab7cbd35836c728d324152: 0
+sem-WallClock-a883792a4f1d76613bac5db195d5c0cc: 5
+sem-WallClock-b029b05ae3761f0b582ed853b74eeebb: 0
+sem-WallClock-c07b92d1d7930faab594bbf2c494ab81: 3
+sem-WallClock-d8e27d8d60a9a0c091aca0a9b5efd2ce: 0
+sem-WallClock-d999e84be5ff346e983ec12a2b33f18b: 3
+sem-WallClock-de988e19f0a6fa1749c34f2eb33d9b8d: 3
+sem-WallClock-e133ca5fa7e49536fc5a6a6856432614: 1
+sem-WallClock-e26485c0a14a90867903707764646db: 0
+sem-WallClock-e67f610cafeb2c0dbf93f50e43a43f7e: 1
+sem-WallClock-ebb7e54b68ffcf2c3ee5ff7ba8322f9f: 0
+sem-WallClock-f3d5c4eeb6cd4f1bad6f91c948f3a295: 1
+sem-WallClock-f612519bd51699c2ffc7c3dbc2a86ed3: 0
+sem-WallClock-f82e90f8a6d49827e8784f880dac0f61: 0
+sem-WallClock-fac633a56e88786559d14889fe22f10: 0
+sem-WallClock-fc51a35ac0399c457dc65f24011042f1: 1
+sem-Wallet-52431cf438b7a1c5606b049766a67fa3: 3
+sem-Watch-3a5351666689a7b2b788559e93c74a0f: 3
+sem-Watch-9f7be3718a4ce14fa9b896e91fe8701d: 3
+sem-Watch-e743856943ce4fa49a9248bc70f7492: 0
+sem-Watch-f57628258e99f63c5cd95682b31d27c1: 2
+sem-Wii-246fe9e6391b8ab1d6ceefe6d23b06bb: 3
+sem-Wii-84f45a5c3f9de48ae1c30bc7caf261be: 0
+sem-Wii-effdc659515ff747eb2c6725049f8f: 0
+sem-WineBottle-1c79735033726294724d5ee7f09ab66b: 0
+sem-WineBottle-f331ad8d0e6654ef8f992b1fe7075c8f: 0
+sem-Xbox360-14e5dba73b283dc7fe0939859a0b15ea: 0
+sem-Xbox360-33c76a59e0f2a38cbf4723a8638af381: 0
+sem-Xbox360-435f39e98d2260f0d6e21b8525c3f8bb: 0
+sem-Xbox360-51dffafed887361d5c1d98e8ba18818b: 0
+sem-Xbox360-605f66221c1da5c53b1ca30c6f5a0300: 0
+sem-Xbox360-65fa6b739bf4ad8aa85cfef42aa9df43: 0
+sem-Xbox360-72e4d858c9356150a8db05c665c242d0: 0
+sem-Xbox360-b3f2ab41ab5458364df9841039a93756: 0
+sem-Xbox360-d0dff348985d4f8e65ca1b579a4b8d2: 0
