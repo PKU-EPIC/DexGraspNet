@@ -332,8 +332,9 @@ class IsaacValidator:
         # All objs are assumed to be centered in a bounding box, with the max width being 2.0m (unscaled)
         # Thus max extent from origin is 1.0m (unscaled)
         # So we want to place the obj above the table a bit more then rescale
+        # TODO: Make this better by reading bounding box
         OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0
-        BUFFER = 1.1
+        BUFFER = 1.2
         y_above_table = OBJ_MAX_EXTENT_FROM_ORIGIN * obj_scale * BUFFER
 
         obj_pose = gymapi.Transform()
@@ -546,7 +547,7 @@ class IsaacValidator:
         # Set obj shape props
         obj_shape_props = gym.get_actor_rigid_shape_properties(env, obj_actor_handle)
         for i in range(len(obj_shape_props)):
-            obj_shape_props[i].friction = 1.0
+            obj_shape_props[i].friction = 0.7
         gym.set_actor_rigid_shape_properties(env, obj_actor_handle, obj_shape_props)
         return
 

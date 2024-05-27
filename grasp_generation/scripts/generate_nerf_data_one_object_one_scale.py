@@ -44,7 +44,7 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
 
     # Create sim
     with loop_timer.add_section_timer("create sim"):
-        DEBUG_WITH_GUI = True
+        DEBUG_WITH_GUI = False
         sim = IsaacValidator(
             gpu=args.gpu,
             # validation_type=ValidationType.NO_GRAVITY_SHAKING,  # Floating object, no table
