@@ -358,7 +358,7 @@ class IsaacValidator:
             bounds = mesh.bounds
             assert bounds.shape == (2, 3)
             min_y = bounds[0, 1]
-            BUFFER = 0.01
+            BUFFER = 0.02
             y_above_table = -min_y + BUFFER
 
         obj_pose = gymapi.Transform()
@@ -1555,7 +1555,7 @@ class IsaacValidator:
             raise ValueError(f"Unknown validation type: {self.validation_type}")
 
     def run_sim_till_object_settles(
-        self, max_sim_steps: int = 1000, n_consecutive_steps_to_settle: int = 10
+        self, max_sim_steps: int = 1000, n_consecutive_steps_to_settle: int = 60
     ) -> Tuple[bool, str]:
         gym.prepare_sim(self.sim)
 
