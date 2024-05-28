@@ -56,9 +56,6 @@ def load_assets(gym, sim, start_idx=0, end_idx=350) -> list:
     )
     selected_urdf_paths = []
     for x in tqdm(selected_object_paths, desc="Finding URDFs"):
-        if "hammer" not in x.name:
-            print(f"Skipping non hammer")
-            continue
         urdf_path = x / "coacd" / "coacd.urdf"
         if not urdf_path.exists():
             print(f"WARNING: {urdf_path} does not exist")
