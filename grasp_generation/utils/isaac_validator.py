@@ -354,6 +354,7 @@ class IsaacValidator:
             # Get bounds and use -min_y
             # For example: if min_y = -0.1, then y_above_table = 0.11
             mesh = trimesh.load_mesh(obj_path)
+            mesh.apply_scale(obj_scale)
             bounds = mesh.bounds
             assert bounds.shape == (2, 3)
             min_y = bounds[0, 1]
@@ -1579,7 +1580,7 @@ class IsaacValidator:
 
             is_object_settled = (
                 # TUNE
-                quat_w >= 0.95 and object_speed < 1e-2 and object_angspeed < 2e-2
+                quat_w >= 0.95 and object_speed < 1e-2 and object_angspeed < 1e-1
             )
 
             # Object settled if it has been settled for N_CONSECUTIVE_SETTLED_STEPS
@@ -1602,10 +1603,6 @@ class IsaacValidator:
                 gym.step_graphics(self.sim)
                 gym.draw_viewer(self.viewer, self.sim, False)
                 sleep(0.05)
-
-                print(f"quat_wxyz: {quat_wxyz}")
-                print(f"object_speed: {object_speed}")
-                print(f"object_angspeed: {object_angspeed}")
             pbar.set_description(
                 f"n_consec_steps: {num_consecutive_settled_steps}, q_wxyz: {np.round(quat_wxyz.tolist(), 4)}, v: {object_speed:.4f}, w: {object_angspeed:.4f}"
             )
