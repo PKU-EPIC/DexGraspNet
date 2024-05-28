@@ -6,6 +6,7 @@ Description: Class IsaacValidator
 
 from isaacgym import gymapi, torch_utils, gymutil, gymtorch
 import math
+import trimesh
 from time import sleep
 from tqdm import tqdm
 from utils.hand_model_type import (
@@ -175,7 +176,7 @@ class IsaacValidator:
         self.sim_params = gymapi.SimParams()
 
         # set common parameters
-        self.sim_params.dt = 1 / 100
+        self.sim_params.dt = 1 / 60
         self.sim_params.substeps = 2
         self.sim_params.gravity = gymapi.Vec3(0.0, -9.8, 0)
 
@@ -262,6 +263,8 @@ class IsaacValidator:
         self.obj_asset = gym.load_asset(
             self.sim, obj_root, obj_file, self.obj_asset_options
         )
+        self.obj_root = obj_root
+        self.obj_file = obj_file
 
     ########## ENV SETUP START ##########
     def add_env(
@@ -329,13 +332,33 @@ class IsaacValidator:
             self._setup_camera(env)
 
     def _compute_init_obj_pose_above_table(self, obj_scale: float) -> gymapi.Transform:
-        # All objs are assumed to be centered in a bounding box, with the max width being 2.0m (unscaled)
-        # Thus max extent from origin is 1.0m (unscaled)
-        # So we want to place the obj above the table a bit more then rescale
-        # TODO: Make this better by reading bounding box
-        OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0
-        BUFFER = 1.2
-        y_above_table = OBJ_MAX_EXTENT_FROM_ORIGIN * obj_scale * BUFFER
+        USE_HARDCODED_MAX_EXTENT = False
+        if USE_HARDCODED_MAX_EXTENT:
+            # All objs are assumed to be centered in a bounding box, with the max width being 2.0m (unscaled)
+            # Thus max extent from origin is 1.0m (unscaled)
+            # So we want to place the obj above the table a bit more then rescale
+            # TODO: Make this better by reading bounding box
+            OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0
+            BUFFER_SCALE = 1.2
+            y_above_table = OBJ_MAX_EXTENT_FROM_ORIGIN * obj_scale * BUFFER_SCALE
+        else:
+            assert self.obj_root is not None
+            assert self.obj_file is not None
+            obj_root = pathlib.Path(self.obj_root)
+            assert obj_root.exists()
+
+            # obj_file is a urdf, but we want a obj
+            obj_path = obj_root / "decomposed.obj"
+            assert obj_path.exists(), f"{obj_path} does not exist"
+
+            # Get bounds and use -min_y
+            # For example: if min_y = -0.1, then y_above_table = 0.11
+            mesh = trimesh.load_mesh(obj_path)
+            bounds = mesh.bounds
+            assert bounds.shape == (2, 3)
+            min_y = bounds[0, 1]
+            BUFFER = 0.01
+            y_above_table = -min_y + BUFFER
 
         obj_pose = gymapi.Transform()
         obj_pose.p = gymapi.Vec3(0.0, y_above_table, 0.0)
@@ -1451,6 +1474,8 @@ class IsaacValidator:
         self.camera_properties_list = []
         self.video_frames = []
         self.obj_asset = None
+        self.obj_root = None
+        self.obj_file = None
 
     ########## RESET END ##########
 
@@ -1535,10 +1560,10 @@ class IsaacValidator:
         root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
         self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
 
-        MAX_SIM_STEPS = 1000
+        MAX_SIM_STEPS = 1000  # TODO: make this lower
         N_CONSECUTIVE_SETTLED_STEPS = 10
         num_consecutive_settled_steps = 0
-        pbar = tqdm(total=MAX_SIM_STEPS, dynamic_ncols=True)
+        pbar = tqdm(range(MAX_SIM_STEPS), dynamic_ncols=True)
         for sim_step_idx in pbar:
             # Check if object has settled
             object_indices = self._get_actor_indices(
@@ -1553,7 +1578,8 @@ class IsaacValidator:
             object_angspeed = object_states[:, 10:13].squeeze(dim=0).norm(dim=-1)
 
             is_object_settled = (
-                quat_w >= 0.95 and object_speed < 5e-3 and object_angspeed < 1e-1
+                # TUNE
+                quat_w >= 0.95 and object_speed < 1e-2 and object_angspeed < 2e-2
             )
 
             # Object settled if it has been settled for N_CONSECUTIVE_SETTLED_STEPS
@@ -1580,7 +1606,9 @@ class IsaacValidator:
                 print(f"quat_wxyz: {quat_wxyz}")
                 print(f"object_speed: {object_speed}")
                 print(f"object_angspeed: {object_angspeed}")
-            pbar.set_description(f"q_wxyz: {quat_wxyz}, v: {object_speed}, w: {object_angspeed}, abs_rpy: {abs_rpy}")
+            pbar.set_description(
+                f"n_consec_steps: {num_consecutive_settled_steps}, q_wxyz: {np.round(quat_wxyz.tolist(), 4)}, v: {object_speed:.4f}, w: {object_angspeed:.4f}"
+            )
 
         log_text = f"Object did not settle after max steps {MAX_SIM_STEPS}, quat_wxyz: {quat_wxyz}, object_speed: {object_speed}, object_angspeed: {object_angspeed}, abs_rpy: {abs_rpy}"
         print(log_text)
