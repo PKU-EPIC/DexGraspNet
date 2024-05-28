@@ -1563,31 +1563,44 @@ class IsaacValidator:
         root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
         self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
 
-        num_consecutive_settled_steps = 0
+        n_consecutive_settled_steps = 0
         pbar = tqdm(range(max_sim_steps), dynamic_ncols=True)
+        xyzs, rpys, speeds, angspeeds = [], [], [], []
         for sim_step_idx in pbar:
             # Check if object has settled
             object_indices = self._get_actor_indices(
                 envs=self.envs, actors=self.obj_handles
             ).to(self.root_state_tensor.device)
             object_states = self.root_state_tensor[object_indices, :13].clone()
+
+            xyz = object_states[:, :3].squeeze(dim=0)
             quat_xyzw = object_states[:, 3:7].squeeze(dim=0)
             quat_wxyz = quat_xyzw[[3, 0, 1, 2]]
-            abs_rpy = np.abs(transforms3d.euler.quat2euler(quat_wxyz))
+            rpy = torch.tensor(transforms3d.euler.quat2euler(quat_wxyz)).to(device=xyz.device, dtype=xyz.dtype)
             quat_w = quat_wxyz[0]
             object_speed = object_states[:, 7:10].squeeze(dim=0).norm(dim=-1)
             object_angspeed = object_states[:, 10:13].squeeze(dim=0).norm(dim=-1)
 
-            is_object_settled = (
-                quat_w >= 0.95 and object_speed < 1e-2 and object_angspeed < 1e-1
-            )
+            xyzs.append(xyz)
+            rpys.append(rpy)
+            speeds.append(object_speed)
+            angspeeds.append(object_angspeed)
 
-            # Object settled if it has been settled for n_consecutive_steps_to_settle
-            num_consecutive_settled_steps = (
-                num_consecutive_settled_steps + 1 if is_object_settled else 0
-            )
+            if len(xyzs) >= n_consecutive_steps_to_settle:
+                recent_xyzs = torch.stack(xyzs[-n_consecutive_steps_to_settle:])
+                recent_rpys = torch.stack(rpys[-n_consecutive_steps_to_settle:])
+                assert recent_xyzs.shape == (n_consecutive_steps_to_settle, 3), recent_xyzs.shape
+                assert recent_rpys.shape == (n_consecutive_steps_to_settle, 3), recent_rpys.shape
 
-            if num_consecutive_settled_steps >= n_consecutive_steps_to_settle:
+                is_object_settled = (
+                    quat_w >= 0.95 and (torch.abs(recent_xyzs - xyz) < 1e-3).all() and (torch.abs(recent_rpys - rpy) < 1e-3).all()
+                )
+                print(f"torch.abs(recent_xyzs - xyz): {torch.abs(recent_xyzs - xyz).max()}")
+                print(f"torch.abs(recent_rpys - rpy): {torch.abs(recent_rpys - rpy).max()}")
+            else:
+                is_object_settled = False
+
+            if is_object_settled:
                 log_text = f"Object settled at step {sim_step_idx}"
                 print(log_text)
                 return True, log_text
@@ -1603,7 +1616,7 @@ class IsaacValidator:
                 gym.draw_viewer(self.viewer, self.sim, False)
                 sleep(0.05)
             pbar.set_description(
-                f"n_consec_steps: {num_consecutive_settled_steps}, q_wxyz: {np.round(quat_wxyz.tolist(), 4)}, v: {object_speed:.4f}, w: {object_angspeed:.4f}"
+                f"n_consec_steps: {n_consecutive_settled_steps}, q_wxyz: {np.round(quat_wxyz.tolist(), 4)}, v: {object_speed:.4f}, w: {object_angspeed:.4f}"
             )
 
         log_text = f"Object did not settle after max steps {max_sim_steps}, quat_wxyz: {quat_wxyz}, object_speed: {object_speed}, object_angspeed: {object_angspeed}, abs_rpy: {abs_rpy}"
