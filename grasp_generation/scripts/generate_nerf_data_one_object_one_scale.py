@@ -25,6 +25,7 @@ class GenerateNerfDataOneObjectOneScaleArgumentParser(Tap):
     generate_seg: bool = False
     generate_depth: bool = False
     num_cameras: int = 250
+    debug_with_gui: bool = False
 
 
 def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
@@ -48,6 +49,7 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
             gpu=args.gpu,
             # validation_type=ValidationType.NO_GRAVITY_SHAKING,  # Floating object, no table
             validation_type=ValidationType.GRAVITY_AND_TABLE,  # Object on table
+            mode="gui" if args.debug_with_gui else "headless",
         )
 
     with loop_timer.add_section_timer("set obj asset"):
@@ -63,8 +65,8 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
             obj_scale=args.object_scale,
         )
 
-    with loop_timer.add_section_timer("run sim till object settles"):
-        is_valid, log_text = sim.run_sim_till_object_settles()
+    with loop_timer.add_section_timer("run_sim_till_object_settles_upright"):
+        is_valid, log_text = sim.run_sim_till_object_settles_upright()
         if not is_valid:
             log_failures_path = pathlib.Path(
                 str(args.output_nerfdata_path) + "_failures.txt"

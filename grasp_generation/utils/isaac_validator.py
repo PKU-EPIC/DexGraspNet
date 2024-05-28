@@ -6,6 +6,7 @@ Description: Class IsaacValidator
 
 from isaacgym import gymapi, torch_utils, gymutil, gymtorch
 import math
+import trimesh
 from time import sleep
 from tqdm import tqdm
 from utils.hand_model_type import (
@@ -130,7 +131,7 @@ class IsaacValidator:
     def __init__(
         self,
         hand_model_type: HandModelType = HandModelType.ALLEGRO_HAND,
-        mode: str = "direct",
+        mode: str = "headless",
         gpu: int = 0,
         start_with_step_mode: bool = False,
         validation_type: ValidationType = ValidationType.NO_GRAVITY_SHAKING,
@@ -255,11 +256,15 @@ class IsaacValidator:
             self.sim, self.hand_root, self.hand_file, self.hand_asset_options
         )
 
-    def set_obj_asset(self, obj_root: str, obj_file: str, vhacd_enabled: bool = True) -> None:
+    def set_obj_asset(
+        self, obj_root: str, obj_file: str, vhacd_enabled: bool = True
+    ) -> None:
         self.obj_asset_options.vhacd_enabled = vhacd_enabled  # Convex decomposition is better than convex hull, but slower, not 100% sure why it's not working
         self.obj_asset = gym.load_asset(
             self.sim, obj_root, obj_file, self.obj_asset_options
         )
+        self.obj_root = obj_root
+        self.obj_file = obj_file
 
     ########## ENV SETUP START ##########
     def add_env(
@@ -327,12 +332,34 @@ class IsaacValidator:
             self._setup_camera(env)
 
     def _compute_init_obj_pose_above_table(self, obj_scale: float) -> gymapi.Transform:
-        # All objs are assumed to be centered in a bounding box, with the max width being 2.0m (unscaled)
-        # Thus max extent from origin is 1.0m (unscaled)
-        # So we want to place the obj above the table a bit more then rescale
-        OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0
-        BUFFER = 1.2
-        y_above_table = OBJ_MAX_EXTENT_FROM_ORIGIN * obj_scale * BUFFER
+        USE_HARDCODED_MAX_EXTENT = False
+        if USE_HARDCODED_MAX_EXTENT:
+            # All objs are assumed to be centered in a bounding box, with the max width being 2.0m (unscaled)
+            # Thus max extent from origin is 1.0m (unscaled)
+            # So we want to place the obj above the table a bit more then rescale
+            # TODO: Make this better by reading bounding box
+            OBJ_MAX_EXTENT_FROM_ORIGIN = 1.0
+            BUFFER_SCALE = 1.2
+            y_above_table = OBJ_MAX_EXTENT_FROM_ORIGIN * obj_scale * BUFFER_SCALE
+        else:
+            assert self.obj_root is not None
+            assert self.obj_file is not None
+            obj_root = pathlib.Path(self.obj_root)
+            assert obj_root.exists()
+
+            # obj_file is a urdf, but we want a obj
+            obj_path = obj_root / "decomposed.obj"
+            assert obj_path.exists(), f"{obj_path} does not exist"
+
+            # Get bounds and use -min_y
+            # For example: if min_y = -0.1, then y_above_table = 0.11
+            mesh = trimesh.load_mesh(obj_path)
+            mesh.apply_scale(obj_scale)
+            bounds = mesh.bounds
+            assert bounds.shape == (2, 3)
+            min_y = bounds[0, 1]
+            BUFFER = 0.02
+            y_above_table = -min_y + BUFFER
 
         obj_pose = gymapi.Transform()
         obj_pose.p = gymapi.Vec3(0.0, y_above_table, 0.0)
@@ -1448,6 +1475,8 @@ class IsaacValidator:
         self.camera_properties_list = []
         self.video_frames = []
         self.obj_asset = None
+        self.obj_root = None
+        self.obj_file = None
 
     ########## RESET END ##########
 
@@ -1525,32 +1554,59 @@ class IsaacValidator:
         else:
             raise ValueError(f"Unknown validation type: {self.validation_type}")
 
-    def run_sim_till_object_settles(self) -> Tuple[bool, str]:
+    def run_sim_till_object_settles_upright(
+        self, max_sim_steps: int = 200, n_consecutive_steps: int = 15
+    ) -> Tuple[bool, str]:
         gym.prepare_sim(self.sim)
 
         # Prepare tensors
         root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
         self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
 
-        MAX_SIM_STEPS = 100
-        sim_step_idx = 0
-        while sim_step_idx < MAX_SIM_STEPS:
+        pbar = tqdm(range(max_sim_steps), dynamic_ncols=True)
+        xyzs, rpys = [], []
+        for sim_step_idx in pbar:
+            # Get object state
             object_indices = self._get_actor_indices(
                 envs=self.envs, actors=self.obj_handles
             ).to(self.root_state_tensor.device)
             object_states = self.root_state_tensor[object_indices, :13].clone()
+
+            xyz = object_states[:, :3].squeeze(dim=0)
             quat_xyzw = object_states[:, 3:7].squeeze(dim=0)
             quat_wxyz = quat_xyzw[[3, 0, 1, 2]]
-            abs_rpy = np.abs(transforms3d.euler.quat2euler(quat_wxyz))
-            quat_w = quat_wxyz[0]
-            object_speed = object_states[:, 7:10].squeeze(dim=0).norm(dim=-1)
-            object_angspeed = object_states[:, 10:13].squeeze(dim=0).norm(dim=-1)
-            is_object_settled = (
-                quat_w >= 0.95 and object_speed < 5e-3 and object_angspeed < 1e-2
+            rpy = torch.tensor(transforms3d.euler.quat2euler(quat_wxyz)).to(
+                device=xyz.device, dtype=xyz.dtype
             )
+            xyzs.append(xyz)
+            rpys.append(rpy)
 
-            MIN_NUM_STEPS = 5
-            if sim_step_idx > MIN_NUM_STEPS and is_object_settled:
+            # Check if object has settled for n_consecutive_steps steps
+            if len(xyzs) >= n_consecutive_steps:
+                recent_xyzs = torch.stack(xyzs[-n_consecutive_steps:])
+                recent_rpys = torch.stack(rpys[-n_consecutive_steps:])
+                assert recent_xyzs.shape == (
+                    n_consecutive_steps,
+                    3,
+                ), recent_xyzs.shape
+                assert recent_rpys.shape == (
+                    n_consecutive_steps,
+                    3,
+                ), recent_rpys.shape
+
+                max_xyz_diff = torch.abs(recent_xyzs - xyz).max().item()
+                max_rpy_diff = torch.abs(recent_rpys - rpy).max().item()
+                is_object_settled = max_xyz_diff < 1e-3 and max_rpy_diff < 1e-2
+            else:
+                max_xyz_diff = np.inf
+                max_rpy_diff = np.inf
+                is_object_settled = False
+
+            # Check if object is upright
+            quat_w = quat_wxyz[0]
+            is_object_upright = quat_w >= 0.95
+
+            if is_object_settled and is_object_upright:
                 log_text = f"Object settled at step {sim_step_idx}"
                 print(log_text)
                 return True, log_text
@@ -1559,10 +1615,17 @@ class IsaacValidator:
             gym.simulate(self.sim)
             gym.fetch_results(self.sim, True)
             gym.refresh_actor_root_state_tensor(self.sim)
-            # gym.step_graphics(self.sim)  # No need to step graphics until we need to render
-            sim_step_idx += 1
+            if self.has_viewer:
+                # No need to step graphics until we need to render
+                # Unless we are using viewer
+                gym.step_graphics(self.sim)
+                gym.draw_viewer(self.viewer, self.sim, False)
+                sleep(0.05)
+            pbar.set_description(
+                f"q_wxyz: {np.round(quat_wxyz.tolist(), 4)}, xyz_diff: {max_xyz_diff:.4f}, rpy_diff: {max_rpy_diff:.4f}"
+            )
 
-        log_text = f"Object did not settle after max steps {MAX_SIM_STEPS}, quat_wxyz: {quat_wxyz}, object_speed: {object_speed}, object_angspeed: {object_angspeed}, abs_rpy: {abs_rpy}"
+        log_text = f"Object did not settle after max steps {max_sim_steps}, quat_wxyz: {quat_wxyz}, xyz_diff: {max_xyz_diff}, rpy_diff: {max_rpy_diff}"
         print(log_text)
         return False, log_text
 
