@@ -1554,17 +1554,17 @@ class IsaacValidator:
         else:
             raise ValueError(f"Unknown validation type: {self.validation_type}")
 
-    def run_sim_till_object_settles(self) -> Tuple[bool, str]:
+    def run_sim_till_object_settles(
+        self, max_sim_steps: int = 1000, n_consecutive_steps_to_settle: int = 10
+    ) -> Tuple[bool, str]:
         gym.prepare_sim(self.sim)
 
         # Prepare tensors
         root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
         self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
 
-        MAX_SIM_STEPS = 1000  # TODO: make this lower
-        N_CONSECUTIVE_SETTLED_STEPS = 10
         num_consecutive_settled_steps = 0
-        pbar = tqdm(range(MAX_SIM_STEPS), dynamic_ncols=True)
+        pbar = tqdm(range(max_sim_steps), dynamic_ncols=True)
         for sim_step_idx in pbar:
             # Check if object has settled
             object_indices = self._get_actor_indices(
@@ -1579,16 +1579,15 @@ class IsaacValidator:
             object_angspeed = object_states[:, 10:13].squeeze(dim=0).norm(dim=-1)
 
             is_object_settled = (
-                # TUNE
                 quat_w >= 0.95 and object_speed < 1e-2 and object_angspeed < 1e-1
             )
 
-            # Object settled if it has been settled for N_CONSECUTIVE_SETTLED_STEPS
+            # Object settled if it has been settled for n_consecutive_steps_to_settle
             num_consecutive_settled_steps = (
                 num_consecutive_settled_steps + 1 if is_object_settled else 0
             )
 
-            if num_consecutive_settled_steps >= N_CONSECUTIVE_SETTLED_STEPS:
+            if num_consecutive_settled_steps >= n_consecutive_steps_to_settle:
                 log_text = f"Object settled at step {sim_step_idx}"
                 print(log_text)
                 return True, log_text
@@ -1607,7 +1606,7 @@ class IsaacValidator:
                 f"n_consec_steps: {num_consecutive_settled_steps}, q_wxyz: {np.round(quat_wxyz.tolist(), 4)}, v: {object_speed:.4f}, w: {object_angspeed:.4f}"
             )
 
-        log_text = f"Object did not settle after max steps {MAX_SIM_STEPS}, quat_wxyz: {quat_wxyz}, object_speed: {object_speed}, object_angspeed: {object_angspeed}, abs_rpy: {abs_rpy}"
+        log_text = f"Object did not settle after max steps {max_sim_steps}, quat_wxyz: {quat_wxyz}, object_speed: {object_speed}, object_angspeed: {object_angspeed}, abs_rpy: {abs_rpy}"
         print(log_text)
         return False, log_text
 
