@@ -65,8 +65,8 @@ def main(args: GenerateNerfDataOneObjectOneScaleArgumentParser):
             obj_scale=args.object_scale,
         )
 
-    with loop_timer.add_section_timer("run sim till object settles"):
-        is_valid, log_text = sim.run_sim_till_object_settles()
+    with loop_timer.add_section_timer("run_sim_till_object_settles_upright"):
+        is_valid, log_text = sim.run_sim_till_object_settles_upright()
         if not is_valid:
             log_failures_path = pathlib.Path(
                 str(args.output_nerfdata_path) + "_failures.txt"
