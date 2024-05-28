@@ -1554,8 +1554,8 @@ class IsaacValidator:
         else:
             raise ValueError(f"Unknown validation type: {self.validation_type}")
 
-    def run_sim_till_object_settles(
-        self, max_sim_steps: int = 1000, n_consecutive_steps_to_settle: int = 60
+    def run_sim_till_object_settles_upright(
+        self, max_sim_steps: int = 200, n_consecutive_steps: int = 15
     ) -> Tuple[bool, str]:
         gym.prepare_sim(self.sim)
 
@@ -1563,7 +1563,6 @@ class IsaacValidator:
         root_state_tensor = gym.acquire_actor_root_state_tensor(self.sim)
         self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
 
-        n_consecutive_settled_steps = 0
         pbar = tqdm(range(max_sim_steps), dynamic_ncols=True)
         xyzs, rpys = [], []
         for sim_step_idx in pbar:
@@ -1579,33 +1578,35 @@ class IsaacValidator:
             rpy = torch.tensor(transforms3d.euler.quat2euler(quat_wxyz)).to(
                 device=xyz.device, dtype=xyz.dtype
             )
-            quat_w = quat_wxyz[0]
-
             xyzs.append(xyz)
             rpys.append(rpy)
 
-            # Check if object has settled for n_consecutive_steps_to_settle steps
-            if len(xyzs) >= n_consecutive_steps_to_settle:
-                recent_xyzs = torch.stack(xyzs[-n_consecutive_steps_to_settle:])
-                recent_rpys = torch.stack(rpys[-n_consecutive_steps_to_settle:])
+            # Check if object has settled for n_consecutive_steps steps
+            if len(xyzs) >= n_consecutive_steps:
+                recent_xyzs = torch.stack(xyzs[-n_consecutive_steps:])
+                recent_rpys = torch.stack(rpys[-n_consecutive_steps:])
                 assert recent_xyzs.shape == (
-                    n_consecutive_steps_to_settle,
+                    n_consecutive_steps,
                     3,
                 ), recent_xyzs.shape
                 assert recent_rpys.shape == (
-                    n_consecutive_steps_to_settle,
+                    n_consecutive_steps,
                     3,
                 ), recent_rpys.shape
 
                 max_xyz_diff = torch.abs(recent_xyzs - xyz).max().item()
                 max_rpy_diff = torch.abs(recent_rpys - rpy).max().item()
-                is_object_settled = (
-                    quat_w >= 0.95 and max_xyz_diff < 1e-3 and max_rpy_diff < 1e-2
-                )
+                is_object_settled = max_xyz_diff < 1e-3 and max_rpy_diff < 1e-2
             else:
+                max_xyz_diff = np.inf
+                max_rpy_diff = np.inf
                 is_object_settled = False
 
-            if is_object_settled:
+            # Check if object is upright
+            quat_w = quat_wxyz[0]
+            is_object_upright = quat_w >= 0.95
+
+            if is_object_settled and is_object_upright:
                 log_text = f"Object settled at step {sim_step_idx}"
                 print(log_text)
                 return True, log_text
