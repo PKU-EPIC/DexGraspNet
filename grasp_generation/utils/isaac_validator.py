@@ -1536,8 +1536,11 @@ class IsaacValidator:
         self.root_state_tensor = gymtorch.wrap_tensor(root_state_tensor)
 
         MAX_SIM_STEPS = 1000
-        sim_step_idx = 0
-        while sim_step_idx < MAX_SIM_STEPS:
+        N_CONSECUTIVE_SETTLED_STEPS = 10
+        num_consecutive_settled_steps = 0
+        pbar = tqdm(total=MAX_SIM_STEPS, dynamic_ncols=True)
+        for sim_step_idx in pbar:
+            # Check if object has settled
             object_indices = self._get_actor_indices(
                 envs=self.envs, actors=self.obj_handles
             ).to(self.root_state_tensor.device)
@@ -1548,12 +1551,17 @@ class IsaacValidator:
             quat_w = quat_wxyz[0]
             object_speed = object_states[:, 7:10].squeeze(dim=0).norm(dim=-1)
             object_angspeed = object_states[:, 10:13].squeeze(dim=0).norm(dim=-1)
+
             is_object_settled = (
-                quat_w >= 0.95 and object_speed < 5e-3 and object_angspeed < 1e-2
+                quat_w >= 0.95 and object_speed < 5e-3 and object_angspeed < 1e-1
             )
 
-            MIN_NUM_STEPS = 5
-            if sim_step_idx > MIN_NUM_STEPS and is_object_settled:
+            # Object settled if it has been settled for N_CONSECUTIVE_SETTLED_STEPS
+            num_consecutive_settled_steps = (
+                num_consecutive_settled_steps + 1 if is_object_settled else 0
+            )
+
+            if num_consecutive_settled_steps >= N_CONSECUTIVE_SETTLED_STEPS:
                 log_text = f"Object settled at step {sim_step_idx}"
                 print(log_text)
                 return True, log_text
@@ -1572,10 +1580,7 @@ class IsaacValidator:
                 print(f"quat_wxyz: {quat_wxyz}")
                 print(f"object_speed: {object_speed}")
                 print(f"object_angspeed: {object_angspeed}")
-                if sim_step_idx == 100:
-                    breakpoint()
-
-            sim_step_idx += 1
+            pbar.set_description(f"q_wxyz: {quat_wxyz}, v: {object_speed}, w: {object_angspeed}, abs_rpy: {abs_rpy}")
 
         log_text = f"Object did not settle after max steps {MAX_SIM_STEPS}, quat_wxyz: {quat_wxyz}, object_speed: {object_speed}, object_angspeed: {object_angspeed}, abs_rpy: {abs_rpy}"
         print(log_text)
