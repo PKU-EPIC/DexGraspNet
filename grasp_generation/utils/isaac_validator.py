@@ -491,8 +491,8 @@ class IsaacValidator:
             joint_idx = gym.find_actor_dof_index(
                 env, hand_actor_handle, joint, gymapi.DOMAIN_ACTOR
             )
-            hand_props["stiffness"][joint_idx] = 5.0
-            hand_props["damping"][joint_idx] = 0.1
+            hand_props["stiffness"][joint_idx] = 5.0 * 10
+            hand_props["damping"][joint_idx] = 0.1 * 10
 
         # Virtual joints
         for joint in self.virtual_joint_names:
@@ -530,7 +530,7 @@ class IsaacValidator:
         # Set hand shape props
         hand_shape_props = gym.get_actor_rigid_shape_properties(env, hand_actor_handle)
         for i in range(len(hand_shape_props)):
-            hand_shape_props[i].friction = 0.7
+            hand_shape_props[i].friction = 0.9
         gym.set_actor_rigid_shape_properties(env, hand_actor_handle, hand_shape_props)
         return
 
@@ -571,7 +571,7 @@ class IsaacValidator:
         # Set obj shape props
         obj_shape_props = gym.get_actor_rigid_shape_properties(env, obj_actor_handle)
         for i in range(len(obj_shape_props)):
-            obj_shape_props[i].friction = 0.7
+            obj_shape_props[i].friction = 0.9
         gym.set_actor_rigid_shape_properties(env, obj_actor_handle, obj_shape_props)
         return
 
