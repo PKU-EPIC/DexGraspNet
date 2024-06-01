@@ -96,53 +96,6 @@ print(f"Mean passed_simulation for config2_dicts: {config2_dict_mean_sim}")
 print(f"Mean passed_simulation for noisy_config2_dicts: {noisy_config2_dict_mean_sim}")
 
 # %%
-
-all_passed_evals = ([x for config_dict in npy_file_to_config_dict.values() for x in config_dict["passed_eval"]] +
-[x for config_dict in npy_file_to_noisy_config_dict.values() for x in config_dict["passed_eval"]] +
-[x for config_dict in npy_file_to_config_dict2.values() for x in config_dict["passed_eval"]] +
-[x for config_dict in npy_file_to_noisy_config_dict2.values() for x in config_dict["passed_eval"]])
-
-# %%
-print(f"Mean passed_eval for all: {np.mean(all_passed_evals)}")
-
-# %%
-import matplotlib.pyplot as plt
-
-plt.hist(all_passed_evals, bins=20)
-
-
-# %%
-
-all_passed_simulations = ([x for config_dict in npy_file_to_config_dict.values() for x in config_dict["passed_simulation"]] +
-[x for config_dict in npy_file_to_noisy_config_dict.values() for x in config_dict["passed_simulation"]] +
-[x for config_dict in npy_file_to_config_dict2.values() for x in config_dict["passed_simulation"]] +
-[x for config_dict in npy_file_to_noisy_config_dict2.values() for x in config_dict["passed_simulation"]])
-
-# %%
-print(f"Mean passed_simulation for all: {np.mean(all_passed_simulations)}")
-
-# %%
-import matplotlib.pyplot as plt
-
-plt.hist(all_passed_simulations, bins=20)
-
-# %%
-all_passed_new_penetration_tests = ([x for config_dict in npy_file_to_config_dict.values() for x in config_dict["passed_new_penetration_test"]] +
-[x for config_dict in npy_file_to_noisy_config_dict.values() for x in config_dict["passed_new_penetration_test"]] +
-[x for config_dict in npy_file_to_config_dict2.values() for x in config_dict["passed_new_penetration_test"]] +
-[x for config_dict in npy_file_to_noisy_config_dict2.values() for x in config_dict["passed_new_penetration_test"]])
-
-# %%
-print(f"Mean passed_new_penetration_test for all: {np.mean(all_passed_new_penetration_tests)}")
-
-# %%
-(np.array(all_passed_evals) == 1).sum(), (np.array(all_passed_evals) >= 0.8).sum()
-
-# %%
-import matplotlib.pyplot as plt
-plt.hist(all_passed_new_penetration_tests, bins=20)
-
-# %%
 from collections import defaultdict
 npy_file_to_all_config_dict = defaultdict(list)
 for npy_file, config_dict in npy_file_to_config_dict.items():
@@ -213,6 +166,10 @@ print(f"Filtered {len(all_npy_files) - len(filtered_all_npy_files)} npy files")
 print(f"Now have {len(filtered_all_npy_files)} npy files and {len(filtered_all_config_dicts)} config dicts")
 
 # %%
+print(f"Filtered {len(all_nonoise_npy_files) - len(filtered_all_nonoise_npy_files)} npy files")
+print(f"Now have {len(filtered_all_nonoise_npy_files)} npy files and {len(filtered_all_nonoise_config_dicts)} config dicts")
+
+# %%
 1700*3 + 3000
 
 # %%
@@ -237,33 +194,33 @@ print(f"num_all_nonoise_grasps = {num_all_nonoise_grasps}")
 num_all_nonoise_grasps_v2 = 0
 for d in filtered_all_nonoise_config_dicts:
     num_all_nonoise_grasps_v2 += d['passed_eval'].shape[0]
+print(f"num_all_nonoise_grasps_v2 = {num_all_nonoise_grasps_v2}")
 
 # %%
-filtered_objs = [x.stem for x in filtered_all_npy_files]
-filtered_object_codes = [
+filtered_object_code_and_scale_strs = list(set([x.stem for x in filtered_all_npy_files]))
+filtered_object_codes = list(set([
     obj[:obj.index("_0_")]
-    for obj in filtered_objs
-]
-print(f"Found {len(filtered_object_codes)} object codes")
-unique_filtered_object_codes = set(filtered_object_codes)
-print(f"Unique object codes: {len(unique_filtered_object_codes)}")
+    for obj in filtered_object_code_and_scale_strs
+]))
+print(f"Found {len(filtered_object_code_and_scale_strs)} unique object code and scale strs")
+print(f"Unique object codes: {len(filtered_object_codes)}")
 print(f"filtered_object_codes[:10] = {filtered_object_codes[:10]}")
-print(f"filtered_objs[:10] = {filtered_objs[:10]}")
+print(f"filtered_object_code_and_scale_strs[:10] = {filtered_object_code_and_scale_strs[:10]}")
 
 # %%
-for obj in filtered_objs:
+for obj in filtered_object_code_and_scale_strs:
     if "core-bottle-908e85e13c6fbde0a1ca08763d503f0e" in obj:
         print(obj)
 
 
 # %%
-for obj in unique_filtered_object_codes:
+for obj in filtered_object_codes:
     if "core-bottle-908e85e13c6fbde0a1ca08763d503f0e" in obj:
         print(obj)
 
 # %%
 import localscope
-@localscope.mfc
+@localscope.localscope.mfc
 def get_one_good_config_dict(npy_file_to_config_dict):
     good_config_dicts = []
     for npy_file, config_dict in npy_file_to_config_dict.items():
@@ -282,7 +239,7 @@ def get_one_good_config_dict(npy_file_to_config_dict):
     }
     return good_config_dict
 
-@localscope.mfc
+@localscope.localscope.mfc
 def get_all_good_config_dict(npy_file_to_config_dict):
     good_config_dicts = []
     for npy_file, config_dict in npy_file_to_config_dict.items():
@@ -335,6 +292,14 @@ for npy_file, config_dict in tqdm(filtered_npy_file_to_all_config_dict.items(), 
     np.save(ALL_DIR / f"{npy_file.stem}.npy", config_dict)
 
 # %%
+ALL_NONOISE_DIR = OUTPUT_DIR / "all_nonoise"
+ALL_NONOISE_DIR.mkdir(exist_ok=True, parents=True)
+
+# %%
+for npy_file, config_dict in tqdm(filtered_npy_file_to_all_nonoise_config_dict.items(), total=len(filtered_npy_file_to_all_nonoise_config_dict)):
+    np.save(ALL_NONOISE_DIR / f"{npy_file.stem}.npy", config_dict)
+
+# %%
 INFERENCE_DIR = OUTPUT_DIR / "inference"
 INFERENCE_DIR.mkdir(exist_ok=True, parents=True)
 
@@ -365,3 +330,26 @@ for npy_file, config_dict in tqdm(filtered_npy_file_to_all_nonoise_config_dict.i
         print(config_dict["passed_eval"].shape)
         print(f"passed_eval = {config_dict['passed_eval'].mean()}")
         print(f"passed_eval = {config_dict['passed_eval'].max()}")
+
+# %%
+all_passed_evals = [x for config_dict in filtered_npy_file_to_all_config_dict.values() for x in config_dict["passed_eval"]]
+all_passed_simulations = [x for config_dict in filtered_npy_file_to_all_config_dict.values() for x in config_dict["passed_simulation"]]
+all_passed_new_penetration_tests = [x for config_dict in filtered_npy_file_to_all_config_dict.values() for x in config_dict["passed_new_penetration_test"]]
+
+# %%
+print(f"Mean passed_eval for all: {np.mean(all_passed_evals)}")
+print(f"Mean passed_simulation for all: {np.mean(all_passed_simulations)}")
+print(f"Mean passed_new_penetration_test for all: {np.mean(all_passed_new_penetration_tests)}")
+
+# %%
+import matplotlib.pyplot as plt
+plt.hist(all_passed_evals, bins=20, alpha=0.5, label="passed_eval")
+plt.hist(all_passed_simulations, bins=20, alpha=0.5, label="passed_simulation")
+plt.hist(all_passed_new_penetration_tests, bins=20, alpha=0.5, label="passed_new_penetration_test")
+plt.legend()
+plt.show()
+
+# %%
+(np.array(all_passed_evals) == 1).sum(), (np.array(all_passed_evals) > 0.8).sum()
+
+# %%
