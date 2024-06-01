@@ -1,5 +1,5 @@
 from utils.hand_model import HandModel
-from utils.object_model import ObjectModel
+# from utils.object_model import ObjectModel
 import torch
 from typing import Dict, Tuple, Optional
 from collections import defaultdict
@@ -110,92 +110,92 @@ def compute_fingertip_mean_contact_positions(
     return fingertip_mean_positions
 
 
-def compute_closest_contact_point_info(
-    joint_angles: torch.Tensor,
-    hand_model: HandModel,
-    object_model: ObjectModel,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Big function to compute the closest contact point on the object for each fingertip and return relevant info"""
-    # For each link, find the closest point on the object
-    link_name_to_contact_candidates = _compute_link_name_to_contact_candidates(
-        joint_angles=joint_angles,
-        hand_model=hand_model,
-    )
+# def compute_closest_contact_point_info(
+#     joint_angles: torch.Tensor,
+#     hand_model: HandModel,
+#     object_model: ObjectModel,
+# ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+#     """Big function to compute the closest contact point on the object for each fingertip and return relevant info"""
+#     # For each link, find the closest point on the object
+#     link_name_to_contact_candidates = _compute_link_name_to_contact_candidates(
+#         joint_angles=joint_angles,
+#         hand_model=hand_model,
+#     )
 
-    # Merge links associated with same fingertip
-    fingertip_name_to_contact_candidates = (
-        _compute_fingertip_name_to_contact_candidates(
-            link_name_to_contact_candidates=link_name_to_contact_candidates,
-        )
-    )
+#     # Merge links associated with same fingertip
+#     fingertip_name_to_contact_candidates = (
+#         _compute_fingertip_name_to_contact_candidates(
+#             link_name_to_contact_candidates=link_name_to_contact_candidates,
+#         )
+#     )
 
-    # To be populated
-    num_fingers = len(fingertip_name_to_contact_candidates)
-    batch_size = joint_angles.shape[0]
-    all_hand_contact_nearest_points = torch.zeros((batch_size, num_fingers, 3)).to(
-        joint_angles.device
-    )
-    all_nearest_object_to_hand_directions = torch.zeros(
-        (batch_size, num_fingers, 3)
-    ).to(joint_angles.device)
-    all_nearest_distances = torch.zeros((batch_size, num_fingers)).to(
-        joint_angles.device
-    )
-    all_hand_contact_nearest_point_indices = (
-        torch.zeros((batch_size, num_fingers)).long().to(joint_angles.device)
-    )
+#     # To be populated
+#     num_fingers = len(fingertip_name_to_contact_candidates)
+#     batch_size = joint_angles.shape[0]
+#     all_hand_contact_nearest_points = torch.zeros((batch_size, num_fingers, 3)).to(
+#         joint_angles.device
+#     )
+#     all_nearest_object_to_hand_directions = torch.zeros(
+#         (batch_size, num_fingers, 3)
+#     ).to(joint_angles.device)
+#     all_nearest_distances = torch.zeros((batch_size, num_fingers)).to(
+#         joint_angles.device
+#     )
+#     all_hand_contact_nearest_point_indices = (
+#         torch.zeros((batch_size, num_fingers)).long().to(joint_angles.device)
+#     )
 
-    fingertip_names = FINGERTIP_KEYWORDS
-    for i, fingertip_name in enumerate(fingertip_names):
-        contact_candidates = fingertip_name_to_contact_candidates[fingertip_name]
-        n_contact_candidates = contact_candidates.shape[1]
-        assert contact_candidates.shape == (batch_size, n_contact_candidates, 3)
+#     fingertip_names = FINGERTIP_KEYWORDS
+#     for i, fingertip_name in enumerate(fingertip_names):
+#         contact_candidates = fingertip_name_to_contact_candidates[fingertip_name]
+#         n_contact_candidates = contact_candidates.shape[1]
+#         assert contact_candidates.shape == (batch_size, n_contact_candidates, 3)
 
-        # From cal_distance, interiors are positive dist, exteriors are negative dist
-        # Normals point from object to hand
-        (
-            distances_interior_positive,
-            object_to_hand_directions,
-        ) = object_model.cal_distance(contact_candidates)
-        distances_interior_negative = (
-            -distances_interior_positive
-        )  # Large positive distance => far away
-        nearest_point_index = distances_interior_negative.argmin(dim=1)
-        nearest_distances = torch.gather(
-            input=distances_interior_negative,
-            dim=1,
-            index=nearest_point_index.unsqueeze(1),
-        )
-        hand_contact_nearest_points = torch.gather(
-            input=contact_candidates,
-            dim=1,
-            index=nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3),
-        )
-        nearest_object_to_hand_directions = torch.gather(
-            input=object_to_hand_directions,
-            dim=1,
-            index=nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3),
-        )
+#         # From cal_distance, interiors are positive dist, exteriors are negative dist
+#         # Normals point from object to hand
+#         (
+#             distances_interior_positive,
+#             object_to_hand_directions,
+#         ) = object_model.cal_distance(contact_candidates)
+#         distances_interior_negative = (
+#             -distances_interior_positive
+#         )  # Large positive distance => far away
+#         nearest_point_index = distances_interior_negative.argmin(dim=1)
+#         nearest_distances = torch.gather(
+#             input=distances_interior_negative,
+#             dim=1,
+#             index=nearest_point_index.unsqueeze(1),
+#         )
+#         hand_contact_nearest_points = torch.gather(
+#             input=contact_candidates,
+#             dim=1,
+#             index=nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3),
+#         )
+#         nearest_object_to_hand_directions = torch.gather(
+#             input=object_to_hand_directions,
+#             dim=1,
+#             index=nearest_point_index.reshape(-1, 1, 1).expand(-1, 1, 3),
+#         )
 
-        assert hand_contact_nearest_points.shape == (batch_size, 1, 3)
-        assert nearest_object_to_hand_directions.shape == (batch_size, 1, 3)
-        assert nearest_distances.shape == (batch_size, 1)
-        assert nearest_point_index.shape == (batch_size,)
+#         assert hand_contact_nearest_points.shape == (batch_size, 1, 3)
+#         assert nearest_object_to_hand_directions.shape == (batch_size, 1, 3)
+#         assert nearest_distances.shape == (batch_size, 1)
+#         assert nearest_point_index.shape == (batch_size,)
 
-        # Update tensors
-        all_hand_contact_nearest_points[:, i : i + 1, :] = hand_contact_nearest_points
-        all_nearest_object_to_hand_directions[:, i : i + 1, :] = (
-            nearest_object_to_hand_directions
-        )
-        all_nearest_distances[:, i : i + 1] = nearest_distances
-        all_hand_contact_nearest_point_indices[:, i] = nearest_point_index
+#         # Update tensors
+#         all_hand_contact_nearest_points[:, i : i + 1, :] = hand_contact_nearest_points
+#         all_nearest_object_to_hand_directions[:, i : i + 1, :] = (
+#             nearest_object_to_hand_directions
+#         )
+#         all_nearest_distances[:, i : i + 1] = nearest_distances
+#         all_hand_contact_nearest_point_indices[:, i] = nearest_point_index
 
-    return (
-        all_hand_contact_nearest_points,
-        all_nearest_object_to_hand_directions,
-        all_nearest_distances,
-        all_hand_contact_nearest_point_indices,
-    )
+#     return (
+#         all_hand_contact_nearest_points,
+#         all_nearest_object_to_hand_directions,
+#         all_nearest_distances,
+#         all_hand_contact_nearest_point_indices,
+#     )
 
 
 def compute_fingertip_dirs(
@@ -271,66 +271,66 @@ def compute_fingertip_dirs(
     return center_to_right_dirs, center_to_tip_dirs
 
 
-def compute_grasp_orientations(
-    joint_angles_start: torch.Tensor,
-    hand_model: HandModel,
-    object_model: ObjectModel,
-) -> torch.Tensor:
-    # Can't just compute_grasp_dirs because we need to know the orientation of the fingers
-    # Each finger has a rotation matrix [x, y, z] where x y z are column vectors
-    #    * z is direction the fingertip moves
-    #    * y is direction "up" along finger (from finger center to fingertip), modified to be perpendicular to z
-    #    * x is direction "right" along finger (from finger center to fingertip), modified to be perpendicular to z and y
-    # if y.cross(z) == 0, then need backup
-    batch_size = joint_angles_start.shape[0]
+# def compute_grasp_orientations(
+#     joint_angles_start: torch.Tensor,
+#     hand_model: HandModel,
+#     object_model: ObjectModel,
+# ) -> torch.Tensor:
+#     # Can't just compute_grasp_dirs because we need to know the orientation of the fingers
+#     # Each finger has a rotation matrix [x, y, z] where x y z are column vectors
+#     #    * z is direction the fingertip moves
+#     #    * y is direction "up" along finger (from finger center to fingertip), modified to be perpendicular to z
+#     #    * x is direction "right" along finger (from finger center to fingertip), modified to be perpendicular to z and y
+#     # if y.cross(z) == 0, then need backup
+#     batch_size = joint_angles_start.shape[0]
 
-    (
-        hand_contact_nearest_points,
-        nearest_object_to_hand_directions,
-        _,
-        _,
-    ) = compute_closest_contact_point_info(
-        joint_angles=joint_angles_start,
-        hand_model=hand_model,
-        object_model=object_model,
-    )
-    nearest_hand_to_object_directions = -nearest_object_to_hand_directions
-    z_dirs = nearest_hand_to_object_directions
-    assert z_dirs.shape == (batch_size, hand_model.num_fingers, 3)
+#     (
+#         hand_contact_nearest_points,
+#         nearest_object_to_hand_directions,
+#         _,
+#         _,
+#     ) = compute_closest_contact_point_info(
+#         joint_angles=joint_angles_start,
+#         hand_model=hand_model,
+#         object_model=object_model,
+#     )
+#     nearest_hand_to_object_directions = -nearest_object_to_hand_directions
+#     z_dirs = nearest_hand_to_object_directions
+#     assert z_dirs.shape == (batch_size, hand_model.num_fingers, 3)
 
-    if torch.any(z_dirs.norm(dim=-1) == 0):
-        bad_inds = torch.where(z_dirs.norm(dim=-1) == 0)
-        z_dirs[bad_inds] = -hand_contact_nearest_points[bad_inds]
-        print(
-            f"WARNING: {len(bad_inds)} z_dirs have 0 norm, using hand_contact_nearest_points instead"
-        )
+#     if torch.any(z_dirs.norm(dim=-1) == 0):
+#         bad_inds = torch.where(z_dirs.norm(dim=-1) == 0)
+#         z_dirs[bad_inds] = -hand_contact_nearest_points[bad_inds]
+#         print(
+#             f"WARNING: {len(bad_inds)} z_dirs have 0 norm, using hand_contact_nearest_points instead"
+#         )
 
-    assert (z_dirs.norm(dim=-1).min() > 0).all()
-    z_dirs = z_dirs / z_dirs.norm(dim=-1, keepdim=True)
+#     assert (z_dirs.norm(dim=-1).min() > 0).all()
+#     z_dirs = z_dirs / z_dirs.norm(dim=-1, keepdim=True)
 
-    (center_to_right_dirs, center_to_tip_dirs) = compute_fingertip_dirs(
-        joint_angles=joint_angles_start,
-        hand_model=hand_model,
-    )
-    option_1_ok = torch.cross(center_to_tip_dirs, z_dirs).norm(dim=-1, keepdim=True) > 0
+#     (center_to_right_dirs, center_to_tip_dirs) = compute_fingertip_dirs(
+#         joint_angles=joint_angles_start,
+#         hand_model=hand_model,
+#     )
+#     option_1_ok = torch.cross(center_to_tip_dirs, z_dirs).norm(dim=-1, keepdim=True) > 0
 
-    y_dirs = torch.where(
-        option_1_ok,
-        center_to_tip_dirs
-        - (center_to_tip_dirs * z_dirs).sum(dim=-1, keepdim=True) * z_dirs,
-        center_to_right_dirs
-        - (center_to_right_dirs * z_dirs).sum(dim=-1, keepdim=True) * z_dirs,
-    )
-    assert (y_dirs.norm(dim=-1).min() > 0).all()
-    y_dirs = y_dirs / y_dirs.norm(dim=-1, keepdim=True)
+#     y_dirs = torch.where(
+#         option_1_ok,
+#         center_to_tip_dirs
+#         - (center_to_tip_dirs * z_dirs).sum(dim=-1, keepdim=True) * z_dirs,
+#         center_to_right_dirs
+#         - (center_to_right_dirs * z_dirs).sum(dim=-1, keepdim=True) * z_dirs,
+#     )
+#     assert (y_dirs.norm(dim=-1).min() > 0).all()
+#     y_dirs = y_dirs / y_dirs.norm(dim=-1, keepdim=True)
 
-    x_dirs = torch.cross(y_dirs, z_dirs)
-    assert (x_dirs.norm(dim=-1).min() > 0).all()
-    x_dirs = x_dirs / x_dirs.norm(dim=-1, keepdim=True)
-    grasp_orientations = torch.stack([x_dirs, y_dirs, z_dirs], dim=-1)
+#     x_dirs = torch.cross(y_dirs, z_dirs)
+#     assert (x_dirs.norm(dim=-1).min() > 0).all()
+#     x_dirs = x_dirs / x_dirs.norm(dim=-1, keepdim=True)
+#     grasp_orientations = torch.stack([x_dirs, y_dirs, z_dirs], dim=-1)
 
-    assert grasp_orientations.shape == (batch_size, hand_model.num_fingers, 3, 3)
-    return grasp_orientations
+#     assert grasp_orientations.shape == (batch_size, hand_model.num_fingers, 3, 3)
+#     return grasp_orientations
 
 
 def compute_fingertip_init_targets(

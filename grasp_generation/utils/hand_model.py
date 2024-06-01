@@ -12,10 +12,7 @@ import torch
 from utils.rot6d import robust_compute_rotation_matrix_from_ortho6d
 import pytorch_kinematics as pk
 import plotly.graph_objects as go
-import pytorch3d.structures
-import pytorch3d.ops
 import trimesh as tm
-from torchsdf import index_vertices_by_faces, compute_sdf
 
 import transforms3d
 from urdf_parser_py.urdf import Robot, Box, Sphere
@@ -193,9 +190,13 @@ class HandModel:
                 }
             )
             if "radius" not in self.mesh[link.name]:
-                self.mesh[link.name]["face_verts"] = index_vertices_by_faces(
-                    vertices, faces
-                )
+                # ########################### #
+                # DEBUG: comment this for now #
+                # ########################### #
+                print("WARNING: COMMENTING OUT THE INDEX VERTICES BY FACES FUNC")
+                # self.mesh[link.name]["face_verts"] = index_vertices_by_faces(
+                #     vertices, faces
+                # )
 
             # load visual mesh
             visual = link.visual
@@ -392,6 +393,7 @@ class HandModel:
                     "robot0:palm_child",
                     "robot0:lfmetacarpal_child",
                 ]:
+                    from torchsdf import index_vertices_by_faces, compute_sdf
                     link_face_verts = index_vertices_by_faces(link_vertices, link_faces)
                     self.mesh[link_name]["face_verts"] = link_face_verts
                 else:
@@ -424,6 +426,10 @@ class HandModel:
         self._sample_surface_points(n_surface_points)
 
     def _sample_surface_points(self, n_surface_points):
+        if n_surface_points == 0:
+            return
+        import pytorch3d.structures
+        import pytorch3d.ops
         device = self.device
 
         total_area = sum(self.areas.values())
@@ -616,6 +622,7 @@ class HandModel:
             x_local = x_local.reshape(-1, 3)  # (total_batch_size * num_samples, 3)
             if "geom_param" not in self.mesh[link_name]:
                 face_verts = self.mesh[link_name]["face_verts"]
+                from torchsdf import index_vertices_by_faces, compute_sdf
                 dis_local, dis_signs, _, _ = compute_sdf(x_local, face_verts)
                 dis_local = torch.sqrt(dis_local + 1e-8)
                 dis_local = dis_local * (-dis_signs)
@@ -631,6 +638,8 @@ class HandModel:
         return dis
 
     def _cal_distance_allegro(self, x):
+        from torchsdf import index_vertices_by_faces, compute_sdf
+
         # x: (total_batch_size, num_samples, 3)
         # 单独考虑每个link
         # 先把x变换到link的局部坐标系里面，得到x_local: (total_batch_size, num_samples, 3)

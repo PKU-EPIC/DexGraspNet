@@ -201,7 +201,8 @@ class IsaacValidator:
         self.sim_params.physx.default_buffer_size_multiplier = 20.0  # Default is 2.0
 
         self.sim_params.use_gpu_pipeline = False
-        self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
+        # self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
+        self.sim = gym.create_sim(self.gpu, -1, gymapi.SIM_PHYSX, self.sim_params)
         self.camera_props = gymapi.CameraProperties()
         self.camera_props.width = 800
         self.camera_props.height = 600
@@ -1440,7 +1441,8 @@ class IsaacValidator:
         if self.has_viewer:
             self.viewer = gym.create_viewer(self.sim, self.camera_props)
 
-        self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
+        # self.sim = gym.create_sim(self.gpu, self.gpu, gymapi.SIM_PHYSX, self.sim_params)
+        self.sim = gym.create_sim(self.gpu, -1, gymapi.SIM_PHYSX, self.sim_params)
 
         # Recreate hand asset in new sim.
         self.hand_asset = gym.load_asset(

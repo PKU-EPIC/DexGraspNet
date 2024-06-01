@@ -22,7 +22,7 @@ from utils.hand_model_type import (
 from utils.pose_conversion import (
     hand_config_to_pose,
 )
-from pytorch3d.transforms import matrix_to_quaternion
+
 from typing import List, Optional, Dict, Any
 import math
 from utils.seed import set_seed
@@ -33,8 +33,8 @@ from utils.joint_angle_targets import (
 from utils.parse_object_code_and_scale import (
     parse_object_code_and_scale,
 )
-from utils.energy import _cal_hand_object_penetration
-from utils.object_model import ObjectModel
+# from utils.energy import _cal_hand_object_penetration
+# from utils.object_model import ObjectModel
 import pathlib
 
 
@@ -125,6 +125,64 @@ def compute_init_joint_angles(
 
     return init_joint_angles.detach().cpu().numpy()
 
+# [HACK]
+#################################################################
+def _sqrt_positive_part(x: torch.Tensor) -> torch.Tensor:
+    """
+    Returns torch.sqrt(torch.max(0, x))
+    subgradient is zero where x is 0.
+    """
+    ret = torch.zeros_like(x)
+    positive_mask = x > 0
+    ret[positive_mask] = torch.sqrt(x[positive_mask])
+    return ret
+
+def matrix_to_quat_wxyz(matrix: torch.Tensor) -> torch.Tensor:
+    """
+    Convert rotations given as rotation matrices to quat_wxyz.
+    Args:
+        matrix: Rotation matrices as tensor of shape (..., 3, 3).
+    Returns:
+        quat_wxyz with real part first, as tensor of shape (..., 4).
+    """
+    if matrix.size(-1) != 3 or matrix.size(-2) != 3:
+        raise ValueError(f"Invalid rotation matrix shape {matrix.shape}.")
+
+    batch_dim = matrix.shape[:-2]
+    m00, m01, m02, m10, m11, m12, m20, m21, m22 = torch.unbind(
+        matrix.reshape(batch_dim + (9,)), dim=-1
+    )
+
+    q_abs = _sqrt_positive_part(
+        torch.stack(
+            [
+                1.0 + m00 + m11 + m22,
+                1.0 + m00 - m11 - m22,
+                1.0 - m00 + m11 - m22,
+                1.0 - m00 - m11 + m22,
+            ],
+            dim=-1,
+        )
+    )
+
+    quat_by_rijk = torch.stack(
+        [
+            torch.stack([q_abs[..., 0] ** 2, m21 - m12, m02 - m20, m10 - m01], dim=-1),
+            torch.stack([m21 - m12, q_abs[..., 1] ** 2, m10 + m01, m02 + m20], dim=-1),
+            torch.stack([m02 - m20, m10 + m01, q_abs[..., 2] ** 2, m12 + m21], dim=-1),
+            torch.stack([m10 - m01, m20 + m02, m21 + m12, q_abs[..., 3] ** 2], dim=-1),
+        ],
+        dim=-2,
+    )
+
+    flr = torch.tensor(0.1).to(dtype=q_abs.dtype, device=q_abs.device)
+    quat_candidates = quat_by_rijk / (2.0 * q_abs[..., None].max(flr))
+
+    return quat_candidates[
+        torch.nn.functional.one_hot(q_abs.argmax(dim=-1), num_classes=4) > 0.5, :
+    ].reshape(batch_dim + (4,))
+#################################################################
+
 
 def main(args: EvalGraspConfigDictArgumentParser):
     print("=" * 80)
@@ -154,7 +212,17 @@ def main(args: EvalGraspConfigDictArgumentParser):
     grasp_orientations: np.ndarray = grasp_config_dict["grasp_orientations"]
 
     # Compute hand pose
-    quat_wxyz = matrix_to_quaternion(torch.from_numpy(rot)).numpy()
+    # [OLD]
+    ###############################################################
+    # from pytorch3d.transforms import matrix_to_quaternion
+    # quat_wxyz = matrix_to_quaternion(torch.from_numpy(rot)).numpy()
+    ###############################################################
+
+    # [NEW] no pytorch3d dependency
+    ###############################################################
+    quat_wxyz = matrix_to_quat_wxyz(torch.from_numpy(rot)).numpy()
+    ###############################################################
+
     hand_pose = hand_config_to_pose(trans, rot, joint_angles).to(device)
 
     # Compute joint angle targets
@@ -242,7 +310,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
     passed_penetration_object_test_array = []
     passed_penetration_table_test_array = []
     object_states_before_grasp_array = []
-    E_pen_array = []
+    # E_pen_array = []
     max_grasps_per_batch = (
         args.max_grasps_per_batch
         if args.num_random_pose_noise_samples_per_grasp is None
@@ -302,19 +370,19 @@ def main(args: EvalGraspConfigDictArgumentParser):
 
         hand_model.set_parameters(hand_pose[start_index:end_index])
 
-        object_model = ObjectModel(
-            meshdata_root_path=str(args.meshdata_root_path),
-            batch_size_each=end_index - start_index,
-            num_samples=2000,
-            device=device,
-        )
-        object_model.initialize(object_code, object_scale)
+        # object_model = ObjectModel(
+        #     meshdata_root_path=str(args.meshdata_root_path),
+        #     batch_size_each=end_index - start_index,
+        #     num_samples=2000,
+        #     device=device,
+        # )
+        # object_model.initialize(object_code, object_scale)
 
         # TODO: Do we need to use thres_pen param here? Does threshold change? Do we even need passed_penetration_threshold now?
-        batch_E_pen_array = _cal_hand_object_penetration(
-            hand_model=hand_model, object_model=object_model, reduction="max"
-        )
-        E_pen_array.extend(batch_E_pen_array.flatten().tolist())
+        # batch_E_pen_array = _cal_hand_object_penetration(
+        #     hand_model=hand_model, object_model=object_model, reduction="max"
+        # )
+        # E_pen_array.extend(batch_E_pen_array.flatten().tolist())
 
     # Aggregate results
     passed_simulation_array = np.array(passed_simulation_array)
@@ -323,7 +391,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
     )
     passed_penetration_table_test_array = np.array(passed_penetration_table_test_array)
     object_states_before_grasp_array = np.concatenate(object_states_before_grasp_array, axis=0)
-    E_pen_array = np.array(E_pen_array)
+    # E_pen_array = np.array(E_pen_array)
 
     if args.num_random_pose_noise_samples_per_grasp is not None:
         passed_simulation_array = passed_simulation_array.reshape(
@@ -376,7 +444,7 @@ def main(args: EvalGraspConfigDictArgumentParser):
     assert passed_simulation_array.shape == (batch_size,)
     assert passed_penetration_object_test_array.shape == (batch_size,)
     assert passed_penetration_table_test_array.shape == (batch_size,)
-    assert E_pen_array.shape == (batch_size,)
+    # assert E_pen_array.shape == (batch_size,)
 
     object_states_before_grasp_array = object_states_before_grasp_array.reshape(
         batch_size,
@@ -388,13 +456,13 @@ def main(args: EvalGraspConfigDictArgumentParser):
         13,
     )
 
-    if args.penetration_threshold is None:
-        print("WARNING: penetration check skipped")
-        OLD_passed_penetration_threshold_array = np.ones(batch_size, dtype=np.bool8)
-    else:
-        OLD_passed_penetration_threshold_array = (
-            E_pen_array < args.penetration_threshold
-        )
+    # if args.penetration_threshold is None:
+    #     print("WARNING: penetration check skipped")
+    #     OLD_passed_penetration_threshold_array = np.ones(batch_size, dtype=np.bool8)
+    # else:
+    #     OLD_passed_penetration_threshold_array = (
+    #         E_pen_array < args.penetration_threshold
+    #     )
 
     passed_new_penetration_test_array = (
         passed_penetration_object_test_array * passed_penetration_table_test_array
@@ -432,19 +500,19 @@ def main(args: EvalGraspConfigDictArgumentParser):
         print(
             f"passed_new_penetration_test_array_idxs = {np.where(passed_new_penetration_test_array > 0.5)[0]}"
         )
-        print(
-            f"OLD_passed_penetration_threshold_array = {OLD_passed_penetration_threshold_array} ({OLD_passed_penetration_threshold_array.mean() * 100:.2f}%)"
-        )
-        print(
-            f"OLD_passed_penetration_threshold_array_idxs = {np.where(OLD_passed_penetration_threshold_array > 0.5)[0]}"
-        )
-        print(f"E_pen_array = {E_pen_array}")
+        # print(
+        #     f"OLD_passed_penetration_threshold_array = {OLD_passed_penetration_threshold_array} ({OLD_passed_penetration_threshold_array.mean() * 100:.2f}%)"
+        # )
+        # print(
+        #     f"OLD_passed_penetration_threshold_array_idxs = {np.where(OLD_passed_penetration_threshold_array > 0.5)[0]}"
+        # )
+        # print(f"E_pen_array = {E_pen_array}")
         print(f"passed_eval = {passed_eval}")
         print(f"passed_eval_idxs = {np.where(passed_eval > 0.5)[0]}")
 
     sim_frac = np.mean(passed_simulation_array)
     new_pen_frac = np.mean(passed_new_penetration_test_array)
-    pen_frac = np.mean(OLD_passed_penetration_threshold_array)
+    # pen_frac = np.mean(OLD_passed_penetration_threshold_array)
     eval_frac = np.mean(passed_eval)
     print("=" * 80)
     print(
@@ -461,11 +529,11 @@ def main(args: EvalGraspConfigDictArgumentParser):
     #  3. And it with OLD_passed_penetration_threshold_array
     evaled_grasp_config_dict = {
         **grasp_config_dict,
-        "OLD_passed_penetration_threshold": OLD_passed_penetration_threshold_array,
+        # "OLD_passed_penetration_threshold": OLD_passed_penetration_threshold_array,
         "passed_new_penetration_test": passed_new_penetration_test_array,
         "passed_simulation": passed_simulation_array,
         "passed_eval": passed_eval,
-        "penetration": E_pen_array,
+        # "penetration": E_pen_array,
         "object_states_before_grasp": object_states_before_grasp_array,
     }
 
