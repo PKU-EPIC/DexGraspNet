@@ -278,6 +278,7 @@ Non-exhaustive hints/things to try/install related to above:
 
 ```
 conda create -n dexgraspnet_env python=3.8
+conda activate dexgraspnet_env
 conda install pytorch=1.10 torchvision torchaudio cudatoolkit=11.3 -c pytorch
 
 cd thirdparty
